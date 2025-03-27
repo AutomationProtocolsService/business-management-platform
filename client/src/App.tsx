@@ -17,7 +17,9 @@ import CalendarPage from "@/pages/calendar-page";
 import CustomersPage from "@/pages/customers-page";
 import ReportsPage from "@/pages/reports-page";
 import CatalogItemsPage from "@/pages/catalog-items-page";
+import SettingsPage from "@/pages/settings-page";
 import { AuthProvider } from "@/hooks/use-auth";
+import { SettingsProvider } from "@/hooks/use-settings";
 import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
 import Header from "./components/layout/header";
@@ -61,6 +63,7 @@ function Router() {
       <ProtectedRoute path="/customers" component={CustomersPage} />
       <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
+      <ProtectedRoute path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -70,12 +73,14 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <NotificationsProvider>
-          <AppLayout>
-            <Router />
-          </AppLayout>
-          <Toaster />
-        </NotificationsProvider>
+        <SettingsProvider>
+          <NotificationsProvider>
+            <AppLayout>
+              <Router />
+            </AppLayout>
+            <Toaster />
+          </NotificationsProvider>
+        </SettingsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
