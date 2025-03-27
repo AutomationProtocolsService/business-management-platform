@@ -1559,5 +1559,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Company Settings routes
+  app.get("/api/company-settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      res.json(settings || {});
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch company settings" });
+    }
+  });
+  
+  app.post("/api/company-settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.createCompanySettings({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("settings:updated", {
+          data: settings,
+          message: "Company settings updated",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create company settings" });
+    }
+  });
+  
+  app.put("/api/company-settings/:id", requireAuth, async (req, res) => {
+    try {
+      const settingsId = Number(req.params.id);
+      const settings = await storage.getCompanySettings();
+      
+      if (!settings || settings.id !== settingsId) {
+        return res.status(404).json({ message: "Company settings not found" });
+      }
+      
+      const updatedSettings = await storage.updateCompanySettings(settingsId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedSettings) {
+        wsManager.broadcast("settings:updated", {
+          data: updatedSettings,
+          message: "Company settings updated",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update company settings" });
+    }
+  });
+  
   return httpServer;
 }

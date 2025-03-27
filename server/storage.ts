@@ -13,6 +13,7 @@ import {
   taskLists,
   tasks,
   catalogItems,
+  companySettings,
   type User, 
   type InsertUser, 
   type Customer, 
@@ -40,7 +41,9 @@ import {
   type Task,
   type InsertTask,
   type CatalogItem,
-  type InsertCatalogItem
+  type InsertCatalogItem,
+  type CompanySettings,
+  type InsertCompanySettings
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -173,6 +176,11 @@ export interface IStorage {
   getCatalogItemsByCategory(category: string): Promise<CatalogItem[]>;
   getCatalogItemsByUser(userId: number): Promise<CatalogItem[]>;
   
+  // Company Settings
+  getCompanySettings(): Promise<CompanySettings | undefined>;
+  createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
+  updateCompanySettings(id: number, settings: Partial<CompanySettings>): Promise<CompanySettings | undefined>;
+  
   // Session store
   sessionStore: session.SessionStore;
 }
@@ -192,6 +200,8 @@ export class MemStorage implements IStorage {
   private installations: Map<number, Installation>;
   private taskLists: Map<number, TaskList>;
   private tasks: Map<number, Task>;
+  private catalogItems: Map<number, CatalogItem>;
+  private companySettings: Map<number, CompanySettings>;
   
   // Auto-incrementing IDs
   private userId: number;
@@ -208,6 +218,7 @@ export class MemStorage implements IStorage {
   private taskListId: number;
   private taskId: number;
   catalogItemId: number;
+  private companySettingsId: number;
   
   // Session store
   sessionStore: session.SessionStore;
@@ -227,6 +238,7 @@ export class MemStorage implements IStorage {
     this.taskLists = new Map();
     this.tasks = new Map();
     this.catalogItems = new Map();
+    this.companySettings = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -242,6 +254,7 @@ export class MemStorage implements IStorage {
     this.taskListId = 1;
     this.taskId = 1;
     this.catalogItemId = 1;
+    this.companySettingsId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -768,6 +781,37 @@ export class MemStorage implements IStorage {
 
   async getCatalogItemsByUser(userId: number): Promise<CatalogItem[]> {
     return Array.from(this.catalogItems.values()).filter(item => item.createdBy === userId);
+  }
+
+  // Company Settings methods
+  async getCompanySettings(): Promise<CompanySettings | undefined> {
+    // Company settings are singleton, so we get the first one if it exists
+    const settingsArray = Array.from(this.companySettings.values());
+    return settingsArray.length > 0 ? settingsArray[0] : undefined;
+  }
+
+  async createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings> {
+    // First check if settings already exist
+    const existingSettings = await this.getCompanySettings();
+    if (existingSettings) {
+      // If settings already exist, update them instead
+      return this.updateCompanySettings(existingSettings.id, settings);
+    }
+    
+    // Otherwise create new settings
+    const id = this.companySettingsId++;
+    const newSettings: CompanySettings = { ...settings, id, createdAt: new Date() };
+    this.companySettings.set(id, newSettings);
+    return newSettings;
+  }
+
+  async updateCompanySettings(id: number, settingsData: Partial<CompanySettings>): Promise<CompanySettings | undefined> {
+    const settings = this.companySettings.get(id);
+    if (!settings) return undefined;
+    
+    const updatedSettings = { ...settings, ...settingsData };
+    this.companySettings.set(id, updatedSettings);
+    return updatedSettings;
   }
 }
 

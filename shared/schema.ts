@@ -245,6 +245,31 @@ export const catalogItems = pgTable("catalog_items", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Company Settings
+export const companySettings = pgTable("company_settings", {
+  id: serial("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  companyLogo: text("company_logo"), // URL to the stored logo image
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  country: text("country"),
+  phone: text("phone"),
+  email: text("email"),
+  website: text("website"),
+  vatNumber: text("vat_number"),
+  registrationNumber: text("registration_number"),
+  certifications: jsonb("certifications").$type<string[]>(), // Array of certification URLs or descriptions
+  defaultInvoiceTerms: text("default_invoice_terms"),
+  defaultQuoteTerms: text("default_quote_terms"),
+  bankDetails: text("bank_details"),
+  footerText: text("footer_text"),
+  primaryColor: text("primary_color").default("#2563eb"), // Default brand color for documents
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
 // Schema for inserts
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -318,6 +343,11 @@ export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({
   createdAt: true,
 });
 
+export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -360,3 +390,6 @@ export type Task = typeof tasks.$inferSelect;
 
 export type InsertCatalogItem = z.infer<typeof insertCatalogItemSchema>;
 export type CatalogItem = typeof catalogItems.$inferSelect;
+
+export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
+export type CompanySettings = typeof companySettings.$inferSelect;

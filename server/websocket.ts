@@ -34,6 +34,7 @@ export type WebSocketEvent =
   | 'catalog-item:created'
   | 'catalog-item:updated'
   | 'catalog-item:deleted'
+  | 'settings:updated'
   | 'notification';
 
 // Define payload types
