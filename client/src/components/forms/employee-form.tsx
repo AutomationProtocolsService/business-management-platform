@@ -144,7 +144,7 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="0">None</SelectItem>
                   {users
                     .filter(user => user.active)
                     .map((user) => (

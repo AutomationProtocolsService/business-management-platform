@@ -6,11 +6,9 @@ import {
   Clipboard, 
   FolderClosed,
   DollarSign, 
-  Calendar, 
   Search, 
   Plus,
-  ArrowRight,
-  Clock
+  ArrowRight
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,24 +26,25 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date-utils";
 
 export default function DashboardPage() {
+  // Active tab for main dashboard content
   const [activeTab, setActiveTab] = useState("overview");
 
   // Fetch project data
   const { data: projects = [], isLoading: projectsLoading } = useQuery<any[]>({
     queryKey: ["/api/projects"],
-    select: (data) => data.slice(0, 5),
+    select: (data) => data?.slice(0, 5) || [],
   });
 
   // Fetch invoices data
   const { data: invoices = [], isLoading: invoicesLoading } = useQuery<any[]>({
     queryKey: ["/api/invoices"],
-    select: (data) => data.slice(0, 5),
+    select: (data) => data?.slice(0, 5) || [],
   });
 
   // Fetch quotes data
   const { data: quotes = [], isLoading: quotesLoading } = useQuery<any[]>({
     queryKey: ["/api/quotes"],
-    select: (data) => data.slice(0, 5),
+    select: (data) => data?.slice(0, 5) || [],
   });
 
   // Fetch customers data
@@ -55,16 +54,19 @@ export default function DashboardPage() {
 
   // Calculate dashboard metrics
   const metrics = {
-    activeProjects: projects.filter(p => p.status === "In Progress").length,
+    activeProjects: projects.filter(p => p?.status?.toLowerCase() === "in progress").length,
     totalProjects: projects.length,
-    pendingQuotes: quotes.filter(q => q.status === "Pending").length,
+    pendingQuotes: quotes.filter(q => q?.status?.toLowerCase() === "pending").length,
     totalQuotes: quotes.length,
-    unpaidInvoices: invoices.filter(i => i.status === "Pending" || i.status === "Overdue").length,
+    unpaidInvoices: invoices.filter(i => 
+      i?.status?.toLowerCase() === "pending" || i?.status?.toLowerCase() === "overdue"
+    ).length,
     totalUnpaidAmount: invoices
-      .filter(i => i.status === "Pending" || i.status === "Overdue")
-      .reduce((sum, inv) => sum + (inv.total || 0), 0),
+      .filter(i => i?.status?.toLowerCase() === "pending" || i?.status?.toLowerCase() === "overdue")
+      .reduce((sum, inv) => sum + (inv?.total || 0), 0),
     totalCustomers: customers.length,
     newCustomersThisMonth: customers.filter(c => {
+      if (!c?.createdAt) return false;
       const createdAt = new Date(c.createdAt);
       const now = new Date();
       return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
@@ -85,8 +87,8 @@ export default function DashboardPage() {
   }
 
   // Helper function to get status badge color
-  const getStatusColor = (status: string) => {
-    switch (status?.toLowerCase()) {
+  const getStatusColor = (status: string = '') => {
+    switch (status.toLowerCase()) {
       case 'completed':
         return 'bg-green-100 text-green-800';
       case 'in progress':
@@ -156,7 +158,10 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{metrics.pendingQuotes}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {Math.round((metrics.pendingQuotes / (metrics.totalQuotes || 1)) * 100)}% awaiting response
+              {metrics.totalQuotes > 0 
+                ? `${Math.round((metrics.pendingQuotes / metrics.totalQuotes) * 100)}% awaiting response` 
+                : "No quotes"
+              }
             </p>
           </CardContent>
         </Card>
@@ -236,12 +241,19 @@ export default function DashboardPage() {
                           </TableRow>
                         );
                       })}
+                      {projects.length === 0 && (
+                        <TableRow>
+                          <TableCell colSpan={4} className="text-center py-4 text-gray-500">
+                            No projects found
+                          </TableCell>
+                        </TableRow>
+                      )}
                     </TableBody>
                   </Table>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-3">
                   <Link href="/projects" className="text-sm text-blue-500 flex items-center hover:underline">
-                    View all projects
+                    <span>View all projects</span>
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </Link>
                 </CardFooter>
@@ -261,15 +273,17 @@ export default function DashboardPage() {
                       <span>
                         ${invoices
                           .filter(inv => {
+                            if (!inv?.issueDate) return false;
                             const date = new Date(inv.issueDate);
                             const now = new Date();
                             return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
                           })
-                          .reduce((sum, inv) => sum + (inv.total || 0), 0)
+                          .reduce((sum, inv) => sum + (inv?.total || 0), 0)
                           .toLocaleString()}
                       </span>
                       <Badge className="bg-green-100 text-green-800">
                         {invoices.filter(inv => {
+                          if (!inv?.issueDate) return false;
                           const date = new Date(inv.issueDate);
                           const now = new Date();
                           return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
@@ -295,8 +309,8 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between">
                       <span>
                         ${quotes
-                          .filter(q => q.status === "Pending")
-                          .reduce((sum, q) => sum + (q.total || 0), 0)
+                          .filter(q => q?.status?.toLowerCase() === "pending")
+                          .reduce((sum, q) => sum + (q?.total || 0), 0)
                           .toLocaleString()}
                       </span>
                       <Badge className="bg-blue-100 text-blue-800">
@@ -321,12 +335,17 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       ))}
+                      {invoices.length === 0 && (
+                        <div className="text-center py-2 text-gray-500 text-sm">
+                          No recent invoices
+                        </div>
+                      )}
                     </div>
                   </div>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-3">
                   <Link href="/invoices" className="text-sm text-blue-500 flex items-center hover:underline">
-                    View financial reports
+                    <span>View financial reports</span>
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </Link>
                 </CardFooter>
@@ -360,8 +379,8 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={project.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/projects/${project.id}`} className="text-blue-500 hover:underline">
-                            {project.name}
+                          <Link href={`/projects/${project.id}`}>
+                            <span className="text-blue-500 hover:underline">{project.name}</span>
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
@@ -376,6 +395,13 @@ export default function DashboardPage() {
                       </TableRow>
                     );
                   })}
+                  {projects.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                        No projects found
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -407,8 +433,8 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/invoices/${invoice.id}`} className="text-blue-500 hover:underline">
-                            #{invoice.invoiceNumber}
+                          <Link href={`/invoices/${invoice.id}`}>
+                            <span className="text-blue-500 hover:underline">#{invoice.invoiceNumber}</span>
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
@@ -423,6 +449,13 @@ export default function DashboardPage() {
                       </TableRow>
                     );
                   })}
+                  {invoices.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                        No invoices found
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
@@ -454,8 +487,8 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/quotes/${quote.id}`} className="text-blue-500 hover:underline">
-                            #{quote.quoteNumber}
+                          <Link href={`/quotes/${quote.id}`}>
+                            <span className="text-blue-500 hover:underline">#{quote.quoteNumber}</span>
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
@@ -470,6 +503,13 @@ export default function DashboardPage() {
                       </TableRow>
                     );
                   })}
+                  {quotes.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center py-4 text-gray-500">
+                        No quotes found
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </CardContent>

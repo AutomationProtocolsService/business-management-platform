@@ -29,15 +29,15 @@ const SidebarLink = ({ href, icon, children }: SidebarLinkProps) => {
   
   return (
     <Link href={href}>
-      <a className={cn(
-        "flex items-center px-3 py-2 text-sm font-medium rounded-md",
+      <div className={cn(
+        "flex items-center px-3 py-2 text-sm font-medium rounded-md cursor-pointer",
         isActive 
           ? "bg-gray-100 text-primary-600" 
           : "text-gray-700 hover:bg-gray-100 hover:text-primary-600"
       )}>
         <span className="mr-3 text-lg">{icon}</span>
         {children}
-      </a>
+      </div>
     </Link>
   );
 };
