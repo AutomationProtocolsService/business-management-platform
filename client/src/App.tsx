@@ -16,6 +16,7 @@ import CalendarPage from "@/pages/calendar-page";
 import CustomersPage from "@/pages/customers-page";
 import ReportsPage from "@/pages/reports-page";
 import { AuthProvider } from "@/hooks/use-auth";
+import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
 import Header from "./components/layout/header";
 import Sidebar from "./components/layout/sidebar";
@@ -65,10 +66,12 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <AppLayout>
-          <Router />
-        </AppLayout>
-        <Toaster />
+        <NotificationsProvider>
+          <AppLayout>
+            <Router />
+          </AppLayout>
+          <Toaster />
+        </NotificationsProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
