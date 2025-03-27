@@ -46,8 +46,9 @@ const quoteItemSchema = insertQuoteItemSchema.extend({
 const quoteFormSchema = insertQuoteSchema.extend({
   issueDate: z.string(),
   expiryDate: z.string().optional(),
+  reference: z.string().optional(),
   customerId: z.number().optional(),
-  projectId: z.number().optional(),
+  projectId: z.number().optional(), 
   status: z.string(),
   subtotal: z.number(),
   tax: z.number().optional(),
@@ -150,6 +151,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
       const quoteRes = await apiRequest("POST", "/api/quotes", {
         projectId: values.projectId,
         customerId: values.customerId,
+        reference: values.reference,
         issueDate: values.issueDate,
         expiryDate: values.expiryDate,
         status: values.status,
@@ -197,6 +199,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
       const quoteRes = await apiRequest("PUT", `/api/quotes/${quoteId}`, {
         projectId: values.projectId,
         customerId: values.customerId,
+        reference: values.reference,
         issueDate: values.issueDate,
         expiryDate: values.expiryDate,
         status: values.status,
@@ -281,6 +284,20 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                   )}
                 />
               </div>
+              
+              <FormField
+                control={form.control}
+                name="reference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reference</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Quote reference (e.g. client PO number)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}

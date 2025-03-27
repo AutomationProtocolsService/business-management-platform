@@ -47,6 +47,7 @@ const invoiceItemSchema = insertInvoiceItemSchema.extend({
 const invoiceFormSchema = insertInvoiceSchema.extend({
   issueDate: z.string(),
   dueDate: z.string(),
+  reference: z.string().optional(),
   customerId: z.number().optional(),
   projectId: z.number().optional(),
   quoteId: z.number().optional(),
@@ -133,6 +134,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
         // Update form with quote data
         form.setValue("customerId", quoteData.customerId);
         form.setValue("projectId", quoteData.projectId);
+        form.setValue("reference", quoteData.reference);
         form.setValue("subtotal", quoteData.subtotal);
         form.setValue("tax", quoteData.tax);
         form.setValue("discount", quoteData.discount);
@@ -201,6 +203,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
         projectId: values.projectId,
         customerId: values.customerId,
         quoteId: values.quoteId,
+        reference: values.reference,
         issueDate: values.issueDate,
         dueDate: values.dueDate,
         status: values.status,
@@ -249,6 +252,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
         projectId: values.projectId,
         customerId: values.customerId,
         quoteId: values.quoteId,
+        reference: values.reference,
         issueDate: values.issueDate,
         dueDate: values.dueDate,
         status: values.status,
@@ -333,6 +337,20 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                   )}
                 />
               </div>
+              
+              <FormField
+                control={form.control}
+                name="reference"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Reference</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Invoice reference (e.g. client PO number)" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
