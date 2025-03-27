@@ -376,7 +376,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">None</SelectItem>
+                        <SelectItem value="0">None</SelectItem>
                         {quotes
                           .filter(q => q.status === 'accepted' || q.status === 'pending')
                           .map((quote) => (
@@ -598,7 +598,13 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                 variant="outline"
                 size="sm"
                 className="mt-2 flex items-center"
-                onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0 })}
+                onClick={() => append({ 
+                  description: "", 
+                  quantity: 1, 
+                  unitPrice: 0, 
+                  total: 0, 
+                  invoiceId: form.getValues('id') || 0
+                })}
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
