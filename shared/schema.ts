@@ -49,6 +49,7 @@ export const projects = pgTable("projects", {
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
   quoteNumber: text("quote_number").notNull().unique(),
+  reference: text("reference"),
   projectId: integer("project_id").references(() => projects.id),
   customerId: integer("customer_id").references(() => customers.id),
   issueDate: date("issue_date").notNull(),
@@ -78,6 +79,7 @@ export const quoteItems = pgTable("quote_items", {
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   invoiceNumber: text("invoice_number").notNull().unique(),
+  reference: text("reference"),
   projectId: integer("project_id").references(() => projects.id),
   customerId: integer("customer_id").references(() => customers.id),
   quoteId: integer("quote_id").references(() => quotes.id),
