@@ -295,7 +295,7 @@ export default function TimesheetsPage() {
               <SelectValue placeholder="All Employees" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Employees</SelectItem>
+              <SelectItem value="all">All Employees</SelectItem>
               {employees.map((employee: any) => (
                 <SelectItem key={employee.id} value={employee.id.toString()}>
                   {getEmployeeName(employee.id)}
