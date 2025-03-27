@@ -7,6 +7,7 @@ import AuthPage from "@/pages/auth-page";
 import DashboardPage from "@/pages/dashboard-page";
 import ProjectsPage from "@/pages/projects-page";
 import QuotesPage from "@/pages/quotes-page";
+import QuoteDetailsPage from "@/pages/quote-details-page";
 import InvoicesPage from "@/pages/invoices-page";
 import EmployeesPage from "@/pages/employees-page";
 import TimesheetsPage from "@/pages/timesheets-page";
@@ -50,6 +51,7 @@ function Router() {
       <ProtectedRoute path="/" component={DashboardPage} />
       <ProtectedRoute path="/projects" component={ProjectsPage} />
       <ProtectedRoute path="/quotes" component={QuotesPage} />
+      <ProtectedRoute path="/quotes/:id" component={QuoteDetailsPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/employees" component={EmployeesPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
