@@ -1,0 +1,32 @@
+"I need to build a full-stack web and mobile application for managing projects, quotes, invoices, surveys, installations, employees, and timesheets. The application should have the following features:
+
+1.  **Database:** Use PostgreSQL as the database.
+2.  **CRUD Operations:** Implement Create, Read, Update, and Delete operations for all tables (projects, quotes, invoices, purchase orders, surveys, installations, employees, timesheets, customers, etc.).
+3.  **Search and Filtering:** Provide robust search and filtering capabilities for all data tables.
+4.  **Reports and Visualizations:** Generate reports (e.g., sales reports, project status reports) and visualizations (e.g., charts, graphs) using a library like Chart.js or D3.js.
+5.  **User Login and Access Control:** Implement user login with role-based access control (RBAC) for survey teams and project managers. Use JWT for authentication.
+6.  **Document Generation:** Generate PDFs for quotes, invoices, and purchase orders.
+7.  **Email Integration:** Send emails for quotes, invoices, purchase orders, and notifications.
+8.  **Invoice Generation from Quotes:** Allow users to create invoices from existing quotes.
+9.  **Survey and Installation Scheduling:** Schedule surveys and installations, update statuses, and record project delays/errors.
+10. **Automation:** Automate invoice number generation, total calculations, and notification sending.
+11. **Calendar View:** Display survey and installation schedules in a calendar view.
+12. **Task Lists:** Create task lists for snagging items.
+13. **Employee and Timesheet:** implement employee list and timesheet for salary payment.
+14. **API-First Design:** Build a RESTful API as the backend.
+15. **Background Jobs:** Use Celery with Redis for background tasks.
+16. **Real-time Updates:** Implement real-time updates using WebSockets.
+17. **Cloud Storage:** Integrate with cloud storage (AWS S3 or Google Cloud Storage).
+18. **Error Logging and Monitoring:** Implement error logging and monitoring.
+19. **Testing:** implement unit and integration testing.
+
+Please provide a detailed plan, including:
+
+* Database schema design.
+* API endpoint specifications.
+* Frontend architecture (web and mobile).
+* Code examples for key features.
+* Instructions for setting up the development environment in Replit.
+* Steps to implement the features.
+
+Please, remember to provide code examples and explanations for each step. I am learning as I go, so clear and concise explanations are very important."
