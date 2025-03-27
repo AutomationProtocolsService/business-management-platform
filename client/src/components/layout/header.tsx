@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
+import { NotificationsCenter } from "@/components/notifications";
 
 export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -61,20 +62,7 @@ export default function Header() {
           <h1 className="text-xl font-semibold text-gray-800">Business Management System</h1>
         </div>
         <div className="flex items-center space-x-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="text-gray-500 hover:text-gray-700">
-                <Bell />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-80">
-              <DropdownMenuLabel>Notifications</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              <div className="p-4 text-center text-sm text-gray-500">
-                No new notifications
-              </div>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <NotificationsCenter />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

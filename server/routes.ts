@@ -5,6 +5,7 @@ import { setupAuth } from "./auth";
 import { z } from "zod";
 import { generatePdf } from "./services/pdf-service";
 import { sendEmail } from "./services/email-service";
+import { setupWebSocketServer, WebSocketEvent, getWebSocketManager } from "./websocket";
 import { 
   insertCustomerSchema, 
   insertProjectSchema, 
@@ -75,6 +76,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         createdBy: req.user?.id
       });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("customer:created", {
+          id: customer.id,
+          data: customer,
+          message: `New customer added: ${customer.name}`
+        });
+      }
+      
       res.status(201).json(customer);
     } catch (error) {
       res.status(500).json({ message: "Failed to create customer" });
@@ -156,6 +168,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body,
         createdBy: req.user?.id
       });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("project:created", {
+          id: project.id,
+          data: project,
+          message: `New project created: ${project.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       res.status(201).json(project);
     } catch (error) {
       res.status(500).json({ message: "Failed to create project" });
@@ -172,6 +196,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedProject = await storage.updateProject(projectId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedProject) {
+        // Prepare status change message if status has changed
+        let message = `Project updated: ${updatedProject.name}`;
+        if (project.status !== updatedProject.status) {
+          message = `Project ${updatedProject.name} status changed to ${updatedProject.status}`;
+        }
+        
+        wsManager.broadcast("project:updated", {
+          id: updatedProject.id,
+          data: updatedProject,
+          message,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       res.json(updatedProject);
     } catch (error) {
       res.status(500).json({ message: "Failed to update project" });
@@ -190,6 +232,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteProject(projectId);
       
       if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("project:deleted", {
+            id: projectId,
+            data: { id: projectId, name: project.name },
+            message: `Project deleted: ${project.name}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
         res.status(204).send();
       } else {
         res.status(500).json({ message: "Failed to delete project" });
@@ -1358,5 +1411,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const httpServer = createServer(app);
+  
+  // Initialize WebSocket server
+  const wsManager = setupWebSocketServer(httpServer);
+  
+  // WebSocket API routes
+  app.post("/api/ws/notification", requireAuth, (req, res) => {
+    try {
+      const { message, type, userId } = req.body;
+      
+      if (userId) {
+        // Send to specific user
+        wsManager.sendToUser(userId.toString(), "notification", {
+          message,
+          type: type || "info",
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        // Broadcast to all users
+        wsManager.broadcast("notification", {
+          message,
+          type: type || "info",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send notification" });
+    }
+  });
+  
   return httpServer;
 }
