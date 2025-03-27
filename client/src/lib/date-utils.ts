@@ -69,3 +69,12 @@ export function getInputDateString(date: Date | string | undefined | null): stri
     return "";
   }
 }
+
+// Get the name of a month from its index (0-11)
+export function getMonthName(month: number): string {
+  const months = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+  ];
+  return months[month % 12]; // Use modulo to handle out-of-range values
+}
