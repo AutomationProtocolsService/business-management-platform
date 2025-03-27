@@ -18,7 +18,8 @@ import {
   insertSurveySchema,
   insertInstallationSchema,
   insertTaskListSchema,
-  insertTaskSchema
+  insertTaskSchema,
+  insertCatalogItemSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1407,6 +1408,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(eventsWithProjectDetails);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch calendar events" });
+    }
+  });
+
+  // Catalog Items routes
+  app.get("/api/catalog-items", requireAuth, async (req, res) => {
+    try {
+      const { category, userId } = req.query;
+      
+      let catalogItems;
+      if (category) {
+        catalogItems = await storage.getCatalogItemsByCategory(category as string);
+      } else if (userId) {
+        catalogItems = await storage.getCatalogItemsByUser(Number(userId));
+      } else {
+        catalogItems = await storage.getAllCatalogItems();
+      }
+      
+      res.json(catalogItems);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch catalog items" });
+    }
+  });
+
+  app.get("/api/catalog-items/:id", requireAuth, async (req, res) => {
+    try {
+      const catalogItem = await storage.getCatalogItem(Number(req.params.id));
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      res.json(catalogItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch catalog item" });
+    }
+  });
+
+  app.post("/api/catalog-items", requireAuth, validateBody(insertCatalogItemSchema), async (req, res) => {
+    try {
+      const catalogItem = await storage.createCatalogItem({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("catalog-item:created", {
+          id: catalogItem.id,
+          data: catalogItem,
+          message: `New catalog item added: ${catalogItem.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(catalogItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create catalog item" });
+    }
+  });
+
+  app.put("/api/catalog-items/:id", requireAuth, async (req, res) => {
+    try {
+      const itemId = Number(req.params.id);
+      const catalogItem = await storage.getCatalogItem(itemId);
+      
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      
+      const updatedItem = await storage.updateCatalogItem(itemId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedItem) {
+        wsManager.broadcast("catalog-item:updated", {
+          id: updatedItem.id,
+          data: updatedItem,
+          message: `Catalog item updated: ${updatedItem.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update catalog item" });
+    }
+  });
+
+  app.delete("/api/catalog-items/:id", requireAuth, async (req, res) => {
+    try {
+      const itemId = Number(req.params.id);
+      const catalogItem = await storage.getCatalogItem(itemId);
+      
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      
+      const deleted = await storage.deleteCatalogItem(itemId);
+      
+      if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("catalog-item:deleted", {
+            id: itemId,
+            data: { id: itemId, name: catalogItem.name },
+            message: `Catalog item deleted: ${catalogItem.name}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete catalog item" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete catalog item" });
     }
   });
 

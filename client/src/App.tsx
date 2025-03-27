@@ -15,6 +15,7 @@ import InstallationsPage from "@/pages/installations-page";
 import CalendarPage from "@/pages/calendar-page";
 import CustomersPage from "@/pages/customers-page";
 import ReportsPage from "@/pages/reports-page";
+import CatalogItemsPage from "@/pages/catalog-items-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
@@ -56,6 +57,7 @@ function Router() {
       <ProtectedRoute path="/installations" component={InstallationsPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/customers" component={CustomersPage} />
+      <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <Route component={NotFound} />
     </Switch>

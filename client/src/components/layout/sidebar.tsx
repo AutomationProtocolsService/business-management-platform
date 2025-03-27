@@ -13,7 +13,8 @@ import {
   PieChart,
   Calendar,
   Settings,
-  HelpCircle
+  HelpCircle,
+  Package
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -57,6 +58,7 @@ export default function Sidebar() {
             <SidebarLink href="/employees" icon={<User />}>Employees</SidebarLink>
             <SidebarLink href="/timesheets" icon={<Clock />}>Timesheets</SidebarLink>
             <SidebarLink href="/customers" icon={<Users />}>Customers</SidebarLink>
+            <SidebarLink href="/catalog-items" icon={<Package />}>Catalog Items</SidebarLink>
             <SidebarLink href="/reports" icon={<PieChart />}>Reports</SidebarLink>
             <SidebarLink href="/calendar" icon={<Calendar />}>Calendar</SidebarLink>
           </div>
