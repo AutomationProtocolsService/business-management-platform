@@ -193,6 +193,17 @@ export const tasks = pgTable("tasks", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Catalog Items (reusable items for quotes and invoices)
+export const catalogItems = pgTable("catalog_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description").notNull(),
+  unitPrice: doublePrecision("unit_price").notNull(),
+  category: text("category"),
+  createdBy: integer("created_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Schema for inserts
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
@@ -261,6 +272,11 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
   completedAt: true,
 });
 
+export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -300,3 +316,6 @@ export type TaskList = typeof taskLists.$inferSelect;
 
 export type InsertTask = z.infer<typeof insertTaskSchema>;
 export type Task = typeof tasks.$inferSelect;
+
+export type InsertCatalogItem = z.infer<typeof insertCatalogItemSchema>;
+export type CatalogItem = typeof catalogItems.$inferSelect;

@@ -12,6 +12,7 @@ import {
   installations,
   taskLists,
   tasks,
+  catalogItems,
   type User, 
   type InsertUser, 
   type Customer, 
@@ -37,7 +38,9 @@ import {
   type TaskList,
   type InsertTaskList,
   type Task,
-  type InsertTask
+  type InsertTask,
+  type CatalogItem,
+  type InsertCatalogItem
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -161,6 +164,15 @@ export interface IStorage {
   getTasksByTaskList(taskListId: number): Promise<Task[]>;
   getTasksByAssignee(userId: number): Promise<Task[]>;
   
+  // Catalog Items
+  getCatalogItem(id: number): Promise<CatalogItem | undefined>;
+  createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem>;
+  updateCatalogItem(id: number, item: Partial<CatalogItem>): Promise<CatalogItem | undefined>;
+  deleteCatalogItem(id: number): Promise<boolean>;
+  getAllCatalogItems(): Promise<CatalogItem[]>;
+  getCatalogItemsByCategory(category: string): Promise<CatalogItem[]>;
+  getCatalogItemsByUser(userId: number): Promise<CatalogItem[]>;
+  
   // Session store
   sessionStore: session.SessionStore;
 }
@@ -195,6 +207,7 @@ export class MemStorage implements IStorage {
   private installationId: number;
   private taskListId: number;
   private taskId: number;
+  catalogItemId: number;
   
   // Session store
   sessionStore: session.SessionStore;
@@ -213,6 +226,7 @@ export class MemStorage implements IStorage {
     this.installations = new Map();
     this.taskLists = new Map();
     this.tasks = new Map();
+    this.catalogItems = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -227,6 +241,7 @@ export class MemStorage implements IStorage {
     this.installationId = 1;
     this.taskListId = 1;
     this.taskId = 1;
+    this.catalogItemId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -713,6 +728,46 @@ export class MemStorage implements IStorage {
 
   async getTasksByAssignee(userId: number): Promise<Task[]> {
     return Array.from(this.tasks.values()).filter(task => task.assignedTo === userId);
+  }
+
+  // Catalog Items (reusable items for quotes and invoices)
+  private catalogItems: Map<number, CatalogItem>;
+
+  async getCatalogItem(id: number): Promise<CatalogItem | undefined> {
+    return this.catalogItems.get(id);
+  }
+
+  async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    const id = this.catalogItemId ? this.catalogItemId++ : 1;
+    if (!this.catalogItemId) this.catalogItemId = 2;
+    const newItem: CatalogItem = { ...item, id, createdAt: new Date() };
+    this.catalogItems.set(id, newItem);
+    return newItem;
+  }
+
+  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>): Promise<CatalogItem | undefined> {
+    const item = this.catalogItems.get(id);
+    if (!item) return undefined;
+    
+    const updatedItem = { ...item, ...itemData };
+    this.catalogItems.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async deleteCatalogItem(id: number): Promise<boolean> {
+    return this.catalogItems.delete(id);
+  }
+
+  async getAllCatalogItems(): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values());
+  }
+
+  async getCatalogItemsByCategory(category: string): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values()).filter(item => item.category === category);
+  }
+
+  async getCatalogItemsByUser(userId: number): Promise<CatalogItem[]> {
+    return Array.from(this.catalogItems.values()).filter(item => item.createdBy === userId);
   }
 }
 
