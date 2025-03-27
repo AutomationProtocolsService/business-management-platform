@@ -1569,11 +1569,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // New API endpoint that matches useSettings hook - redirects to /api/company-settings
+  app.get("/api/settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      res.json(settings || {});
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch company settings" });
+    }
+  });
+  
   app.post("/api/company-settings", requireAuth, async (req, res) => {
     try {
       const settings = await storage.createCompanySettings({
         ...req.body,
-        createdBy: req.user?.id
+        updatedBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("settings:updated", {
+          data: settings,
+          message: "Company settings updated",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create company settings" });
+    }
+  });
+  
+  // New API endpoint that matches useSettings hook - redirects to /api/company-settings
+  app.post("/api/settings", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.createCompanySettings({
+        ...req.body,
+        updatedBy: req.user?.id
       });
       
       // Send real-time update to all connected clients
@@ -1602,6 +1636,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const updatedSettings = await storage.updateCompanySettings(settingsId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedSettings) {
+        wsManager.broadcast("settings:updated", {
+          data: updatedSettings,
+          message: "Company settings updated",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update company settings" });
+    }
+  });
+  
+  // New API endpoint that matches useSettings hook - redirects to /api/company-settings
+  app.patch("/api/settings/:id", requireAuth, async (req, res) => {
+    try {
+      const settingsId = Number(req.params.id);
+      const settings = await storage.getCompanySettings();
+      
+      if (!settings || settings.id !== settingsId) {
+        return res.status(404).json({ message: "Company settings not found" });
+      }
+      
+      const updatedSettings = await storage.updateCompanySettings(settingsId, {
+        ...req.body,
+        updatedBy: req.user?.id
+      });
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
