@@ -231,7 +231,7 @@ export default function InvoicesPage() {
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="draft">Draft</SelectItem>
               <SelectItem value="issued">Issued</SelectItem>
               <SelectItem value="sent">Sent</SelectItem>

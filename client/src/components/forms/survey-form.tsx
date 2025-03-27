@@ -220,7 +220,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">Unassigned</SelectItem>
+                  <SelectItem value="unassigned">Unassigned</SelectItem>
                   {users
                     .filter(user => user.active)
                     .map((user) => (

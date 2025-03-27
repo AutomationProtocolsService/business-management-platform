@@ -192,7 +192,7 @@ export default function TimesheetForm({
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  <SelectItem value="">None</SelectItem>
+                  <SelectItem value="none">None</SelectItem>
                   {projects
                     .filter(project => project.status !== 'completed' && project.status !== 'cancelled')
                     .map((project) => (
