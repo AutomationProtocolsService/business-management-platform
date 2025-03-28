@@ -123,7 +123,7 @@ export default function DashboardPage() {
             />
             <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
           </div>
-          <Link href="/projects/new">
+          <Link to="/projects/new">
             <Button className="flex items-center">
               <Plus className="h-4 w-4 mr-2" />
               New Project
@@ -256,7 +256,7 @@ export default function DashboardPage() {
                   </Table>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-3">
-                  <Link href="/projects" className="text-sm text-blue-500 flex items-center hover:underline">
+                  <Link to="/projects" className="text-sm text-blue-500 flex items-center hover:underline">
                     <span>View all projects</span>
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </Link>
@@ -348,7 +348,7 @@ export default function DashboardPage() {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t px-6 py-3">
-                  <Link href="/invoices" className="text-sm text-blue-500 flex items-center hover:underline">
+                  <Link to="/invoices" className="text-sm text-blue-500 flex items-center hover:underline">
                     <span>View financial reports</span>
                     <ArrowRight className="h-4 w-4 ml-1" />
                   </Link>
@@ -383,7 +383,7 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={project.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/projects/${project.id}`}>
+                          <Link to={`/projects/${project.id}`}>
                             <span className="text-blue-500 hover:underline">{project.name}</span>
                           </Link>
                         </TableCell>
@@ -437,7 +437,7 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={invoice.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/invoices/${invoice.id}`}>
+                          <Link to={`/invoices/${invoice.id}`}>
                             <span className="text-blue-500 hover:underline">#{invoice.invoiceNumber}</span>
                           </Link>
                         </TableCell>
@@ -491,7 +491,7 @@ export default function DashboardPage() {
                     return (
                       <TableRow key={quote.id}>
                         <TableCell className="font-medium">
-                          <Link href={`/quotes/${quote.id}`}>
+                          <Link to={`/quotes/${quote.id}`}>
                             <span className="text-blue-500 hover:underline">#{quote.quoteNumber}</span>
                           </Link>
                         </TableCell>
