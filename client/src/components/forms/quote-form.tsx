@@ -252,10 +252,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
 
   // Form submission handler
   function onSubmit(values: QuoteFormValues) {
-    if (quoteId) {
-      updateQuote.mutate(values);
-    } else {
-      createQuote.mutate(values);
+    console.log("Submitting quote form with values:", values);
+    try {
+      if (quoteId) {
+        console.log("Updating existing quote");
+        updateQuote.mutate(values);
+      } else {
+        console.log("Creating new quote");
+        createQuote.mutate(values);
+      }
+    } catch (error) {
+      console.error("Error in quote form submission:", error);
     }
   }
 
