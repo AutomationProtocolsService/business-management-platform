@@ -200,7 +200,7 @@ export default function PurchaseOrdersPage() {
                   </div>
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="all">All Statuses</SelectItem>
                   <SelectItem value="Draft">Draft</SelectItem>
                   <SelectItem value="Sent">Sent</SelectItem>
                   <SelectItem value="Received">Received</SelectItem>
