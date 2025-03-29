@@ -268,6 +268,17 @@ export const companySettings = pgTable("company_settings", {
   primaryColor: text("primary_color").default("#2563eb"), // Default brand color for documents
   currency: text("currency").default("USD"), // Default currency for quotes and invoices
   currencySymbol: text("currency_symbol").default("$"), // Default currency symbol
+  // Custom terminology
+  customTerminology: jsonb("custom_terminology").$type<{
+    survey?: string;
+    installation?: string;
+    quote?: string;
+    invoice?: string;
+    project?: string;
+    customer?: string;
+    employee?: string;
+    timesheet?: string;
+  }>(), // Custom terms for different modules
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => users.id),
 });

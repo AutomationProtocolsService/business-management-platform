@@ -56,6 +56,16 @@ export default function SettingsPage() {
       primaryColor: "#2563eb",
       currency: "USD",
       currencySymbol: "$",
+      customTerminology: {
+        survey: "",
+        installation: "",
+        quote: "",
+        invoice: "",
+        project: "",
+        customer: "",
+        employee: "",
+        timesheet: "",
+      },
     },
   });
 
@@ -84,6 +94,16 @@ export default function SettingsPage() {
         primaryColor: settings.primaryColor || "#2563eb",
         currency: settings.currency || "USD",
         currencySymbol: settings.currencySymbol || "$",
+        customTerminology: settings.customTerminology || {
+          survey: "",
+          installation: "",
+          quote: "",
+          invoice: "",
+          project: "",
+          customer: "",
+          employee: "",
+          timesheet: "",
+        },
       });
     }
   }, [settings, form]);
@@ -136,6 +156,7 @@ export default function SettingsPage() {
               <TabsTrigger value="financial">Financial</TabsTrigger>
               <TabsTrigger value="branding">Branding</TabsTrigger>
               <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="terminology">Terminology</TabsTrigger>
             </TabsList>
             
             {/* General Information */}
@@ -538,6 +559,144 @@ export default function SettingsPage() {
                       </FormItem>
                     )}
                   />
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            {/* Terminology Customization */}
+            <TabsContent value="terminology" className="space-y-6">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Terminology Customization</CardTitle>
+                  <CardDescription>
+                    Personalize business terms to match your industry or preferences
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Customize the terminology used throughout the application to better match your business needs.
+                    Leave a field blank to use the default term.
+                  </p>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.survey"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Survey" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Survey" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.installation"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Installation" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Installation" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.quote"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Quote" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Quote" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.invoice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Invoice" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Invoice" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.project"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Project" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Project" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.customer"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Customer" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Customer" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.employee"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Employee" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Employee" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="customTerminology.timesheet"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>"Timesheet" Alternative</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Timesheet" {...field} value={field.value || ""} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
