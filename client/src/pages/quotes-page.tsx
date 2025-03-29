@@ -57,7 +57,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatDate } from "@/lib/date-utils";
-import QuoteForm from "@/components/forms/quote-form";
+import QuoteForm from "@/components/forms/quote-form-new";
 
 export default function QuotesPage() {
   const [location, navigate] = useLocation();
