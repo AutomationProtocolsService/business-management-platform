@@ -91,7 +91,30 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
 
   // Fetch files if editing an existing quote
   const { data: existingFiles = [] } = useQuery<FileAttachment[]>({
-    queryKey: [`/api/files/quote/${quoteId}`],
+    queryKey: [`/api/files/quote/${quoteId}`, quoteId],
+    queryFn: async () => {
+      try {
+        // Using the server's expected format with relatedType/relatedId
+        const response = await fetch(`/api/files/quote/${quoteId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch with initial path');
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching files with initial path, trying server format:', error);
+        try {
+          // Try using the server's expected format
+          const fallbackResponse = await fetch(`/api/files/quote/${quoteId}`);
+          if (!fallbackResponse.ok) {
+            throw new Error('Failed to fetch with fallback path');
+          }
+          return fallbackResponse.json();
+        } catch (fallbackError) {
+          console.error('Failed to fetch file attachments for quote:', fallbackError);
+          return [];
+        }
+      }
+    },
     enabled: !!quoteId
   });
 
@@ -299,7 +322,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   // Handle file deletion
   const handleDeleteFile = (fileId: number) => {
     setAttachments(prev => prev.filter(file => file.id !== fileId));
-    queryClient.invalidateQueries({ queryKey: [`/api/files/quote/${quoteId}`] });
+    queryClient.invalidateQueries({ queryKey: [`/api/files/quote/${quoteId}`, quoteId] });
   };
 
   // Handle files upload success

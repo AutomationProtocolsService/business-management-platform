@@ -88,7 +88,20 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
 
   // Fetch files if editing an existing invoice
   const { data: existingFiles = [] } = useQuery<FileAttachment[]>({
-    queryKey: [`/api/files/invoice/${invoiceId}`],
+    queryKey: [`/api/files/invoice/${invoiceId}`, invoiceId],
+    queryFn: async () => {
+      try {
+        // Using the server's expected format with relatedType/relatedId
+        const response = await fetch(`/api/files/invoice/${invoiceId}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch with initial path');
+        }
+        return response.json();
+      } catch (error) {
+        console.error('Error fetching files for invoice:', error);
+        return [];
+      }
+    },
     enabled: !!invoiceId
   });
 
