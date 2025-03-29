@@ -12,6 +12,7 @@ import {
   CheckCircle, 
   XCircle 
 } from "lucide-react";
+import { isValid } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -227,11 +228,16 @@ export default function TimesheetsPage() {
   };
 
   // Calculate hours worked
-  const calculateHoursWorked = (startTime: string, endTime: string, breakDuration: number = 0) => {
+  const calculateHoursWorked = (startTime: string | Date | null, endTime: string | Date | null, breakDuration: number | null = 0) => {
+    if (!startTime || !endTime) return 0;
+    
     const start = new Date(startTime);
     const end = new Date(endTime);
+    
+    if (!isValid(start) || !isValid(end)) return 0;
+    
     const durationMs = end.getTime() - start.getTime();
-    const breakMs = breakDuration * 60 * 1000; // Convert minutes to milliseconds
+    const breakMs = (breakDuration || 0) * 60 * 1000; // Convert minutes to milliseconds
     const totalMs = durationMs - breakMs;
     const hours = totalMs / (1000 * 60 * 60);
     
@@ -386,12 +392,12 @@ export default function TimesheetsPage() {
                           </TableCell>
                         )}
                         <TableCell className="text-sm text-gray-900">
-                          {formatDate(timesheet.date, "MMM dd, yyyy")}
+                          {timesheet.date ? formatDate(timesheet.date, "MMM dd, yyyy") : "No date"}
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
                           <div className="flex items-center">
                             <Clock className="h-3 w-3 mr-1" />
-                            {formatDate(timesheet.startTime, "h:mm a")} - {formatDate(timesheet.endTime, "h:mm a")}
+                            {timesheet.startTime ? formatDate(timesheet.startTime, "h:mm a") : "No time"} - {timesheet.endTime ? formatDate(timesheet.endTime, "h:mm a") : "No time"}
                           </div>
                         </TableCell>
                         <TableCell className="text-sm font-medium text-gray-900">
