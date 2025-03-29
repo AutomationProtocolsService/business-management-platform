@@ -237,7 +237,7 @@ export default function InventoryPage() {
             <div className="flex items-center">
               <AlertCircle className="h-8 w-8 text-red-500 mr-2" />
               <div className="text-2xl font-bold">
-                {inventoryItems.filter(item => item.currentStock <= item.reorderPoint).length}
+                {inventoryItems.filter(item => (item.currentStock || 0) <= (item.reorderPoint || 0)).length}
               </div>
             </div>
           </CardContent>
@@ -363,7 +363,7 @@ export default function InventoryPage() {
                         <Badge variant="outline">{item.category}</Badge>
                       </TableCell>
                       <TableCell>
-                        {item.currentStock <= item.reorderPoint ? (
+                        {(item.currentStock || 0) <= (item.reorderPoint || 0) ? (
                           <Badge variant="destructive" className="flex items-center gap-1">
                             <AlertCircle className="h-3 w-3" />
                             {item.currentStock || 0} / {item.reorderQuantity || 0}
@@ -380,9 +380,9 @@ export default function InventoryPage() {
                             value={calculateStockLevel(item.currentStock, item.reorderQuantity)} 
                             className={getStockLevelColor(item)}
                           />
-                          {item.currentStock <= item.reorderPoint && (
+                          {(item.currentStock || 0) <= (item.reorderPoint || 0) && (
                             <span className="text-xs text-red-600">
-                              Reorder now (min: {item.reorderPoint})
+                              Reorder now (min: {item.reorderPoint || 0})
                             </span>
                           )}
                         </div>

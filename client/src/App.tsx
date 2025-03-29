@@ -23,6 +23,7 @@ import ExpensesPage from "@/pages/expenses-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
+import ProfilePage from "@/pages/profile-page";
 import EmailTestPage from "@/pages/email-test-page";
 import LoginTest from "@/pages/login-test";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -78,6 +79,7 @@ function Router() {
       <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/profile" component={ProfilePage} />
       <Route component={NotFound} />
     </Switch>
   );

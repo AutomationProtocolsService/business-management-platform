@@ -1,139 +1,151 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertCompanySettingsSchema } from "@shared/schema";
 import { z } from "zod";
 import { useSettings } from "@/hooks/use-settings";
-import { useAuth } from "@/hooks/use-auth";
 import { useToast } from "@/hooks/use-toast";
-import { CURRENCY_OPTIONS } from "@/lib/utils";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 
-// UI Components
+// UI components
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { Separator } from "@/components/ui/separator";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Loader2, SaveIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Loader2, Settings as SettingsIcon } from "lucide-react";
+import { useTerminology } from "@/hooks/use-terminology";
 
-// Extend the schema with additional validation
-const formSchema = insertCompanySettingsSchema.extend({
-  // Add any additional validation if needed
+// Form schema for company settings
+const companyFormSchema = z.object({
+  companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email." }),
+  phone: z.string().optional(),
+  address: z.string().optional(),
+  website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal("")),
+  taxId: z.string().optional(),
+  currencyCode: z.string().min(3, { message: "Currency code must be at least 3 characters." }),
+  defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
+  termsAndConditions: z.string().optional(),
 });
 
-type FormValues = z.infer<typeof formSchema>;
+type CompanyFormValues = z.infer<typeof companyFormSchema>;
+
+// Form schema for system settings
+const systemFormSchema = z.object({
+  darkMode: z.boolean().default(false),
+  emailNotifications: z.boolean().default(true),
+  autoSave: z.boolean().default(true),
+  defaultPageSize: z.coerce.number().min(5).max(100).default(10),
+});
+
+type SystemFormValues = z.infer<typeof systemFormSchema>;
 
 export default function SettingsPage() {
-  const { user } = useAuth();
-  const { settings, isLoading, updateSettingsMutation } = useSettings();
+  const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState("general");
-  
-  // Initialize form with existing settings if available
-  const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
+  const terminology = useTerminology();
+  const [activeTab, setActiveTab] = useState("company");
+
+  // Company settings form
+  const companyForm = useForm<CompanyFormValues>({
+    resolver: zodResolver(companyFormSchema),
     defaultValues: {
-      companyName: "",
-      companyLogo: "",
-      address: "",
-      city: "",
-      state: "",
-      zipCode: "",
-      country: "",
-      phone: "",
-      email: "",
-      website: "",
-      vatNumber: "",
-      registrationNumber: "",
-      certifications: [],
-      defaultInvoiceTerms: "",
-      defaultQuoteTerms: "",
-      bankDetails: "",
-      footerText: "",
-      primaryColor: "#2563eb",
-      currency: "USD",
-      currencySymbol: "$",
-      customTerminology: {
-        survey: "",
-        installation: "",
-        quote: "",
-        invoice: "",
-        project: "",
-        customer: "",
-        employee: "",
-        timesheet: "",
-      },
+      companyName: settings?.companyName || "",
+      email: settings?.email || "",
+      phone: settings?.phone || "",
+      address: settings?.address || "",
+      website: settings?.website || "",
+      taxId: settings?.taxId || "",
+      currencyCode: settings?.currencyCode || "USD",
+      defaultTaxRate: settings?.defaultTaxRate || 0,
+      termsAndConditions: settings?.termsAndConditions || "",
     },
   });
 
-  // Update form when settings load
-  useEffect(() => {
-    if (settings) {
-      form.reset({
-        ...settings,
-        companyName: settings.companyName || "",
-        companyLogo: settings.companyLogo || "",
-        address: settings.address || "",
-        city: settings.city || "",
-        state: settings.state || "",
-        zipCode: settings.zipCode || "",
-        country: settings.country || "",
-        phone: settings.phone || "",
-        email: settings.email || "",
-        website: settings.website || "",
-        vatNumber: settings.vatNumber || "",
-        registrationNumber: settings.registrationNumber || "",
-        certifications: settings.certifications || [],
-        defaultInvoiceTerms: settings.defaultInvoiceTerms || "",
-        defaultQuoteTerms: settings.defaultQuoteTerms || "",
-        bankDetails: settings.bankDetails || "",
-        footerText: settings.footerText || "",
-        primaryColor: settings.primaryColor || "#2563eb",
-        currency: settings.currency || "USD",
-        currencySymbol: settings.currencySymbol || "$",
-        customTerminology: settings.customTerminology || {
-          survey: "",
-          installation: "",
-          quote: "",
-          invoice: "",
-          project: "",
-          customer: "",
-          employee: "",
-          timesheet: "",
-        },
-      });
-    }
-  }, [settings, form]);
+  // System settings form
+  const systemForm = useForm<SystemFormValues>({
+    resolver: zodResolver(systemFormSchema),
+    defaultValues: {
+      darkMode: settings?.darkMode || false,
+      emailNotifications: settings?.emailNotifications || true,
+      autoSave: settings?.autoSave || true,
+      defaultPageSize: settings?.defaultPageSize || 10,
+    },
+  });
 
-  // Handle form submission
-  const onSubmit = async (data: FormValues) => {
-    if (user) {
-      // Add the user ID as the updatedBy field
-      const formData = { ...data, updatedBy: user.id };
-      updateSettingsMutation.mutate(formData);
-    } else {
+  // Update company settings mutation
+  const updateCompanySettingsMutation = useMutation({
+    mutationFn: async (data: CompanyFormValues) => {
+      const res = await apiRequest("PATCH", "/api/settings/company", data);
+      return await res.json();
+    },
+    onSuccess: (updatedSettings) => {
+      updateSettings({ ...settings, ...updatedSettings });
       toast({
-        title: "Authentication required",
-        description: "You must be logged in to update settings.",
+        title: "Company settings updated",
+        description: "Your company settings have been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating settings",
+        description: error.message,
         variant: "destructive",
       });
-    }
+    },
+  });
+
+  // Update system settings mutation
+  const updateSystemSettingsMutation = useMutation({
+    mutationFn: async (data: SystemFormValues) => {
+      const res = await apiRequest("PATCH", "/api/settings/system", data);
+      return await res.json();
+    },
+    onSuccess: (updatedSettings) => {
+      updateSettings({ ...settings, ...updatedSettings });
+      toast({
+        title: "System settings updated",
+        description: "Your system settings have been saved successfully.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle company form submission
+  const onCompanySubmit = (data: CompanyFormValues) => {
+    updateCompanySettingsMutation.mutate(data);
   };
 
-  // Handle currency selection (auto-set symbol)
-  const handleCurrencyChange = (value: string) => {
-    // Find the corresponding currency symbol
-    const currency = CURRENCY_OPTIONS.find(option => option.value === value);
-    if (currency) {
-      form.setValue("currencySymbol", currency.symbol);
-    }
-    form.setValue("currency", value);
+  // Handle system form submission
+  const onSystemSubmit = (data: SystemFormValues) => {
+    updateSystemSettingsMutation.mutate(data);
   };
 
-  if (isLoading) {
+  if (settingsLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -143,258 +155,130 @@ export default function SettingsPage() {
 
   return (
     <div className="container py-10">
-      <h1 className="text-3xl font-bold mb-6">Company Settings</h1>
+      <h1 className="text-3xl font-bold mb-2">Settings</h1>
       <p className="text-muted-foreground mb-6">
-        Manage your company information, branding, and default settings.
+        Configure your application and company settings
       </p>
 
-      <Form {...form}>
-        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="mb-6">
-              <TabsTrigger value="general">General</TabsTrigger>
-              <TabsTrigger value="financial">Financial</TabsTrigger>
-              <TabsTrigger value="branding">Branding</TabsTrigger>
-              <TabsTrigger value="documents">Documents</TabsTrigger>
-              <TabsTrigger value="terminology">Terminology</TabsTrigger>
-            </TabsList>
-            
-            {/* General Information */}
-            <TabsContent value="general" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Company Information</CardTitle>
-                  <CardDescription>
-                    Basic information about your company
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="companyName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Your Company Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
+        <TabsList>
+          <TabsTrigger value="company">Company Settings</TabsTrigger>
+          <TabsTrigger value="system">System Settings</TabsTrigger>
+          <TabsTrigger value="terminology">Terminology</TabsTrigger>
+        </TabsList>
+
+        {/* Company Settings Tab */}
+        <TabsContent value="company">
+          <Card>
+            <CardHeader>
+              <CardTitle>Company Information</CardTitle>
+              <CardDescription>
+                These details will appear on your quotes, invoices, and other documents
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...companyForm}>
+                <form
+                  id="company-settings-form"
+                  onSubmit={companyForm.handleSubmit(onCompanySubmit)}
+                  className="space-y-6"
+                >
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
-                      control={form.control}
-                      name="phone"
+                      control={companyForm.control}
+                      name="companyName"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Phone Number</FormLabel>
+                          <FormLabel>Company Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="+1 (555) 123-4567" {...field} />
+                            <Input placeholder="Your Company Name" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
                     <FormField
-                      control={form.control}
+                      control={companyForm.control}
                       name="email"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Email Address</FormLabel>
+                          <FormLabel>Email</FormLabel>
                           <FormControl>
-                            <Input placeholder="contact@example.com" {...field} />
+                            <Input placeholder="company@example.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="website"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Website</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <Separator className="my-4" />
-                  
-                  <FormField
-                    control={form.control}
-                    name="address"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="123 Main St" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
-                      name="city"
+                      control={companyForm.control}
+                      name="phone"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>City</FormLabel>
+                          <FormLabel>Phone</FormLabel>
                           <FormControl>
-                            <Input placeholder="New York" {...field} />
+                            <Input placeholder="(123) 456-7890" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
                     <FormField
-                      control={form.control}
-                      name="state"
+                      control={companyForm.control}
+                      name="website"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>State/Province</FormLabel>
+                          <FormLabel>Website</FormLabel>
                           <FormControl>
-                            <Input placeholder="NY" {...field} />
+                            <Input placeholder="https://yourcompany.com" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
-                      name="zipCode"
+                      control={companyForm.control}
+                      name="taxId"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Postal/Zip Code</FormLabel>
+                          <FormLabel>Tax ID / VAT Number</FormLabel>
                           <FormControl>
-                            <Input placeholder="10001" {...field} />
+                            <Input placeholder="Tax ID or VAT Number" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                    
                     <FormField
-                      control={form.control}
-                      name="country"
+                      control={companyForm.control}
+                      name="currencyCode"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Country</FormLabel>
+                          <FormLabel>Currency Code</FormLabel>
                           <FormControl>
-                            <Input placeholder="United States" {...field} />
+                            <Input placeholder="USD" {...field} />
                           </FormControl>
+                          <FormDescription>
+                            Currency code (e.g., USD, EUR, GBP)
+                          </FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
-                  </div>
-                </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                  <CardTitle>Registration Details</CardTitle>
-                  <CardDescription>
-                    Legal and registration information
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
                     <FormField
-                      control={form.control}
-                      name="vatNumber"
+                      control={companyForm.control}
+                      name="defaultTaxRate"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>VAT/Tax Number</FormLabel>
+                          <FormLabel>Default Tax Rate (%)</FormLabel>
                           <FormControl>
-                            <Input placeholder="VAT12345678" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="registrationNumber"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Company Registration Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="REG12345678" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Financial Settings */}
-            <TabsContent value="financial" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Currency & Financial Settings</CardTitle>
-                  <CardDescription>
-                    Configure currency and payment details
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="currency"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency</FormLabel>
-                          <Select 
-                            onValueChange={handleCurrencyChange} 
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a currency" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {CURRENCY_OPTIONS.map((option) => (
-                                <SelectItem key={option.value} value={option.value}>
-                                  {option.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="currencySymbol"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Currency Symbol</FormLabel>
-                          <FormControl>
-                            <Input 
-                              placeholder="$" 
-                              {...field} 
+                            <Input
+                              type="number"
+                              min="0"
+                              max="100"
+                              step="0.01"
+                              placeholder="0.00"
+                              {...field}
                             />
                           </FormControl>
                           <FormMessage />
@@ -402,322 +286,268 @@ export default function SettingsPage() {
                       )}
                     />
                   </div>
-                  
-                  <FormField
-                    control={form.control}
-                    name="bankDetails"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Bank Account Details</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Bank: Example Bank&#10;Account Name: Your Company Name&#10;Account Number: 123456789&#10;Sort Code/Routing: 01-02-03" 
-                            className="min-h-[100px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Branding */}
-            <TabsContent value="branding" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Branding & Appearance</CardTitle>
-                  <CardDescription>
-                    Customize your company's visual identity
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="companyLogo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Logo URL</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com/logo.png" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="primaryColor"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Primary Brand Color</FormLabel>
-                        <div className="flex gap-4">
-                          <FormControl>
-                            <Input type="color" {...field} className="w-12 h-10 p-1" />
-                          </FormControl>
-                          <Input
-                            value={field.value}
-                            onChange={field.onChange}
-                            className="flex-1"
-                            placeholder="#2563eb"
-                          />
-                        </div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="certifications"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Certifications (comma-separated)</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="ISO9001, ISO14001"
-                            value={field.value?.join(", ") || ""}
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              field.onChange(
-                                value ? value.split(",").map((item) => item.trim()) : []
-                              );
-                            }}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Document Settings */}
-            <TabsContent value="documents" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Document Templates</CardTitle>
-                  <CardDescription>
-                    Default text for quotes, invoices and other documents
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="defaultQuoteTerms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Default Quote Terms & Conditions</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Enter your default terms and conditions for quotes..." 
-                            className="min-h-[150px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="defaultInvoiceTerms"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Default Invoice Terms & Conditions</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Enter your default terms and conditions for invoices..." 
-                            className="min-h-[150px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  <FormField
-                    control={form.control}
-                    name="footerText"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Document Footer Text</FormLabel>
-                        <FormControl>
-                          <Textarea 
-                            placeholder="Thank you for your business!" 
-                            className="min-h-[80px]"
-                            {...field} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            {/* Terminology Customization */}
-            <TabsContent value="terminology" className="space-y-6">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Terminology Customization</CardTitle>
-                  <CardDescription>
-                    Personalize business terms to match your industry or preferences
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <p className="text-sm text-muted-foreground mb-4">
-                    Customize the terminology used throughout the application to better match your business needs.
-                    Leave a field blank to use the default term.
-                  </p>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.survey"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Survey" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Survey" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.installation"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Installation" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Installation" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.quote"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Quote" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Quote" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.invoice"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Invoice" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Invoice" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.project"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Project" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Project" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.customer"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Customer" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Customer" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                  
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.employee"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Employee" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Employee" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    
-                    <FormField
-                      control={form.control}
-                      name="customTerminology.timesheet"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>"Timesheet" Alternative</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Timesheet" {...field} value={field.value || ""} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
 
-          <div className="flex justify-end">
-            <Button 
-              type="submit" 
-              disabled={updateSettingsMutation.isPending}
-              className="flex items-center gap-2"
-            >
-              {updateSettingsMutation.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <SaveIcon className="h-4 w-4" />
-              )}
-              Save Settings
-            </Button>
-          </div>
-        </form>
-      </Form>
+                  <FormField
+                    control={companyForm.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter your company address"
+                            className="resize-none h-20"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={companyForm.control}
+                    name="termsAndConditions"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Terms and Conditions</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="Enter your default terms and conditions"
+                            className="resize-none h-32"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          These will be included by default on new quotes and invoices
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </form>
+              </Form>
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4 flex justify-end">
+              <Button
+                type="submit"
+                form="company-settings-form"
+                disabled={updateCompanySettingsMutation.isPending}
+              >
+                {updateCompanySettingsMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  "Save Company Settings"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* System Settings Tab */}
+        <TabsContent value="system">
+          <Card>
+            <CardHeader>
+              <CardTitle>System Settings</CardTitle>
+              <CardDescription>
+                Configure application behavior and preferences
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Form {...systemForm}>
+                <form
+                  id="system-settings-form"
+                  onSubmit={systemForm.handleSubmit(onSystemSubmit)}
+                  className="space-y-6"
+                >
+                  <div className="space-y-4">
+                    <FormField
+                      control={systemForm.control}
+                      name="darkMode"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Dark Mode</FormLabel>
+                            <FormDescription>
+                              Enable dark mode for the application
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={systemForm.control}
+                      name="emailNotifications"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Email Notifications</FormLabel>
+                            <FormDescription>
+                              Receive email notifications for important events
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={systemForm.control}
+                      name="autoSave"
+                      render={({ field }) => (
+                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
+                          <div className="space-y-0.5">
+                            <FormLabel className="text-base">Auto-Save</FormLabel>
+                            <FormDescription>
+                              Automatically save form data while editing
+                            </FormDescription>
+                          </div>
+                          <FormControl>
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </FormControl>
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={systemForm.control}
+                      name="defaultPageSize"
+                      render={({ field }) => (
+                        <FormItem className="grid grid-cols-12 items-center gap-4 rounded-lg border p-4">
+                          <div className="col-span-8 space-y-0.5">
+                            <FormLabel className="text-base">Default Page Size</FormLabel>
+                            <FormDescription>
+                              Number of items to show per page in tables
+                            </FormDescription>
+                          </div>
+                          <FormControl className="col-span-4">
+                            <Input
+                              type="number"
+                              min="5"
+                              max="100"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage className="col-span-12" />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                </form>
+              </Form>
+            </CardContent>
+            <CardFooter className="border-t px-6 py-4 flex justify-end">
+              <Button
+                type="submit"
+                form="system-settings-form"
+                disabled={updateSystemSettingsMutation.isPending}
+              >
+                {updateSystemSettingsMutation.isPending ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                  </>
+                ) : (
+                  "Save System Settings"
+                )}
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+
+        {/* Terminology Tab */}
+        <TabsContent value="terminology">
+          <Card>
+            <CardHeader>
+              <CardTitle>Customize Terminology</CardTitle>
+              <CardDescription>
+                Customize the business terms used throughout the application
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Project</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.project}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Quote</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.quote}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Change
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Customer</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.customer}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Invoice</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.invoice}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Change
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-6 p-4 bg-muted rounded-lg">
+                <div className="flex items-center text-sm">
+                  <SettingsIcon className="h-4 w-4 mr-2 text-primary" />
+                  <p>
+                    Note: Changing terminology will update the terms used across the
+                    application, but won't affect previously saved data.
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }
