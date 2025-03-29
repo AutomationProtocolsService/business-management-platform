@@ -159,7 +159,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
   // Update mutation
   const updateMutation = useMutation({
     mutationFn: async (data: Partial<InventoryItem>) => {
-      const res = await apiRequest("PATCH", `/api/inventory/${item?.id}`, data);
+      const res = await apiRequest("PUT", `/api/inventory/${item?.id}`, data);
       return await res.json();
     },
     onSuccess: () => {
