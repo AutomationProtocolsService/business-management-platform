@@ -23,6 +23,7 @@ import ExpensesPage from "@/pages/expenses-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
+import LoginTest from "@/pages/login-test";
 import { AuthProvider } from "@/hooks/use-auth";
 import { SettingsProvider } from "@/hooks/use-settings";
 import { NotificationsProvider } from "@/components/notifications";
@@ -55,6 +56,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/login-test" component={LoginTest} />
       <ProtectedRoute path="/" component={DashboardPage} />
       <ProtectedRoute path="/projects" component={ProjectsPage} />
       <ProtectedRoute path="/projects/new" component={ProjectNewPage} />
