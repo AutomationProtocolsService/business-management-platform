@@ -323,10 +323,10 @@ export default function InvoicesPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
-                          {formatDate(invoice.issueDate, "MMM dd, yyyy")}
+                          {invoice.issueDate ? formatDate(invoice.issueDate, "MMM dd, yyyy") : "No date"}
                         </TableCell>
                         <TableCell className={`text-sm ${isOverdue(invoice.dueDate) && invoice.status !== 'paid' ? 'text-red-500 font-medium' : 'text-gray-500'}`}>
-                          {formatDate(invoice.dueDate, "MMM dd, yyyy")}
+                          {invoice.dueDate ? formatDate(invoice.dueDate, "MMM dd, yyyy") : "No date"}
                         </TableCell>
                         <TableCell>
                           {renderStatusBadge(invoice.status)}

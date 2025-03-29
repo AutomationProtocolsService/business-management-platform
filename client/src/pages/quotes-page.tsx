@@ -328,7 +328,7 @@ export default function QuotesPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
-                          {formatDate(quote.issueDate, "MMM dd, yyyy")}
+                          {quote.issueDate ? formatDate(quote.issueDate, "MMM dd, yyyy") : "No date"}
                         </TableCell>
                         <TableCell>
                           {renderStatusBadge(quote.status)}
