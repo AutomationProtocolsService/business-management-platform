@@ -670,7 +670,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <Label htmlFor="inventoryItemId">Select Inventory Item</Label>
                         <Select 
                           onValueChange={(value) => handleInventoryItemChange(parseInt(value))}
-                          value={lineItemForm.watch("inventoryItemId")?.toString()}
+                          value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select an item" />
