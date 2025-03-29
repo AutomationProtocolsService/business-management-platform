@@ -263,6 +263,7 @@ export default function InvoicesPage() {
               </DialogHeader>
               <InvoiceForm 
                 onSuccess={handleInvoiceCreated} 
+                onCancel={() => setIsCreateDialogOpen(false)}
                 defaultValues={{
                   issueDate: new Date().toISOString().split('T')[0],
                   dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
