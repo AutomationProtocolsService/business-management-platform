@@ -44,7 +44,8 @@ import {
   Trash2,
   ClipboardCheck,
   ShoppingCart,
-  Truck
+  Truck,
+  Mail
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -291,6 +292,65 @@ export default function PurchaseOrdersPage() {
                             onClick={() => handleEditPO(po)}
                           >
                             <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-blue-500"
+                            title="View PDF"
+                            onClick={() => {
+                              toast({
+                                title: "Generating PDF",
+                                description: "The PDF is being generated and will open in a new tab",
+                              });
+                              // This would call the PDF generation function
+                              window.open(`/api/purchase-orders/${po.id}/pdf`, '_blank');
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-purple-500"
+                            title="Email to supplier"
+                            onClick={() => {
+                              toast({
+                                title: "Email functionality",
+                                description: "Emailing purchase order to supplier...",
+                              });
+                              
+                              fetch(`/api/purchase-orders/${po.id}/email`, {
+                                method: 'POST',
+                                headers: {
+                                  'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                  // These values would normally come from a form
+                                  subject: `Purchase Order ${po.poNumber || po.id}`,
+                                  body: "Please find attached the purchase order. Let us know if you have any questions."
+                                }),
+                              })
+                              .then(response => {
+                                if (response.ok) {
+                                  toast({
+                                    title: "Email sent",
+                                    description: "The purchase order has been emailed to the supplier successfully",
+                                  });
+                                } else {
+                                  throw new Error(`Server responded with status: ${response.status}`);
+                                }
+                              })
+                              .catch(error => {
+                                toast({
+                                  title: "Email failed",
+                                  description: `Failed to email the purchase order: ${error.message}`,
+                                  variant: "destructive",
+                                });
+                              });
+                            }}
+                          >
+                            <Mail className="h-4 w-4" />
                           </Button>
                           {po.status === "Draft" && (
                             <Button

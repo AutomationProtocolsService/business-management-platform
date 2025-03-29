@@ -1,4 +1,4 @@
-import { Quote, Invoice, Customer, QuoteItem, InvoiceItem } from "@shared/schema";
+import { Quote, Invoice, Customer, QuoteItem, InvoiceItem, PurchaseOrder, PurchaseOrderItem, Supplier } from "@shared/schema";
 
 // Types for PDF generation
 export interface PdfGenerationOptions {
@@ -8,7 +8,7 @@ export interface PdfGenerationOptions {
 }
 
 // Template types
-export type PdfTemplateType = 'quote' | 'invoice';
+export type PdfTemplateType = 'quote' | 'invoice' | 'purchaseOrder';
 
 // Data for PDF generation
 export interface QuotePdfData {
@@ -23,10 +23,16 @@ export interface InvoicePdfData {
   customer?: Customer | null;
 }
 
-export type PdfData = QuotePdfData | InvoicePdfData;
+export interface PurchaseOrderPdfData {
+  purchaseOrder: PurchaseOrder;
+  items: PurchaseOrderItem[];
+  supplier?: Supplier | null;
+}
+
+export type PdfData = QuotePdfData | InvoicePdfData | PurchaseOrderPdfData;
 
 /**
- * Generate a PDF for a quote or invoice
+ * Generate a PDF for a quote, invoice, or purchase order
  * This is a client-side wrapper for the server-side PDF generation endpoint
  */
 export async function generatePdf(
@@ -37,14 +43,23 @@ export async function generatePdf(
   // In a real-world application, this would call the PDF generation API
   // For this demo, we'll use the server's PDF generation endpoint
   
-  const endpointUrl = type === 'quote' 
-    ? `/api/quotes/${(data as QuotePdfData).quote.id}/pdf`
-    : `/api/invoices/${(data as InvoicePdfData).invoice.id}/pdf`;
+  let endpointUrl = '';
+  let documentNumber = '';
   
-  // Generate a download name
-  const documentNumber = type === 'quote' 
-    ? (data as QuotePdfData).quote.quoteNumber
-    : (data as InvoicePdfData).invoice.invoiceNumber;
+  switch(type) {
+    case 'quote':
+      endpointUrl = `/api/quotes/${(data as QuotePdfData).quote.id}/pdf`;
+      documentNumber = (data as QuotePdfData).quote.quoteNumber || `Q-${(data as QuotePdfData).quote.id}`;
+      break;
+    case 'invoice':
+      endpointUrl = `/api/invoices/${(data as InvoicePdfData).invoice.id}/pdf`;
+      documentNumber = (data as InvoicePdfData).invoice.invoiceNumber || `I-${(data as InvoicePdfData).invoice.id}`;
+      break;
+    case 'purchaseOrder':
+      endpointUrl = `/api/purchase-orders/${(data as PurchaseOrderPdfData).purchaseOrder.id}/pdf`;
+      documentNumber = (data as PurchaseOrderPdfData).purchaseOrder.poNumber || `PO-${(data as PurchaseOrderPdfData).purchaseOrder.id}`;
+      break;
+  }
   
   const filename = options?.filename || `${type}-${documentNumber}.pdf`;
   
@@ -71,7 +86,12 @@ export async function emailDocument(
   emailBody?: string
 ): Promise<boolean> {
   try {
-    const response = await fetch(`/api/${type}s/${id}/email`, {
+    // Handle the special case for purchase orders
+    const endpoint = type === 'purchaseOrder' 
+      ? `/api/purchase-orders/${id}/email` 
+      : `/api/${type}s/${id}/email`;
+      
+    const response = await fetch(endpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
