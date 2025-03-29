@@ -1653,9 +1653,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'relatedId and relatedType are required' });
       }
       
-      const files = await storage.getFileAttachmentsByRelation(
-        Number(relatedId),
-        relatedType as string
+      const files = await storage.getFileAttachmentsByRelatedEntity(
+        relatedType as string,
+        Number(relatedId)
       );
       
       res.json(files);
@@ -1679,6 +1679,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching file:', error);
       res.status(500).json({ message: 'Failed to fetch file' });
+    }
+  });
+  
+  // Get files by related entity (e.g., quote, invoice, etc.)
+  app.get('/api/files/:relatedType/:relatedId', async (req, res) => {
+    try {
+      const relatedType = req.params.relatedType;
+      const relatedId = Number(req.params.relatedId);
+      
+      if (!relatedType || isNaN(relatedId)) {
+        return res.status(400).json({ message: 'Invalid related type or ID' });
+      }
+      
+      const files = await storage.getFileAttachmentsByRelatedEntity(relatedType, relatedId);
+      res.json(files);
+    } catch (error) {
+      console.error('Error fetching files for related entity:', error);
+      res.status(500).json({ message: 'Failed to fetch files' });
     }
   });
   
