@@ -37,6 +37,7 @@ import { XCircle, Plus, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -47,6 +48,7 @@ import {
 import CustomerForm from "@/components/forms/customer-form";
 import ProjectForm from "@/components/forms/project-form";
 import { FileUpload } from "@/components/ui/file-upload";
+import { FileList } from "@/components/ui/file-list";
 
 // Create a schema for quote items that allows client-side calculation
 const quoteItemSchema = insertQuoteItemSchema.extend({
@@ -88,6 +90,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
   const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+  const [activeTab, setActiveTab] = useState<string>("details");
 
   // Fetch files if editing an existing quote
   const { data: existingFiles = [] } = useQuery<FileAttachment[]>({
@@ -334,9 +337,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   const isSubmitting = createQuote.isPending || updateQuote.isPending;
 
   return (
-    <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-        {/* Company Header */}
+    <div className="space-y-6">
+      {/* Company Header */}
         <Card className="mb-4">
           <CardContent className="py-4">
             <div className="flex flex-col md:flex-row justify-between items-center gap-4">
