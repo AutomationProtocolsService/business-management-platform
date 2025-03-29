@@ -452,7 +452,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="none">None</SelectItem>
+                          <SelectItem value="0">None</SelectItem>
                           {suppliers.map((supplier) => (
                             <SelectItem key={supplier.id} value={supplier.id.toString()}>
                               {supplier.name}

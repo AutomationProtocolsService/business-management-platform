@@ -337,7 +337,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      <SelectItem value="">None</SelectItem>
+                      <SelectItem value="0">None</SelectItem>
                       {suppliers.map((supplier) => (
                         <SelectItem key={supplier.id} value={supplier.id.toString()}>
                           {supplier.name}
