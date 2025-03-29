@@ -53,12 +53,14 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 import { formatDate } from "@/lib/date-utils";
 import QuoteForm from "@/components/forms/quote-form";
 
 export default function QuotesPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { getCurrencySymbol, formatMoney } = useSettings();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -177,13 +179,17 @@ export default function QuotesPage() {
 
   // Get customer name by ID
   const getCustomerName = (customerId: number) => {
-    const customer = customers.find((c: any) => c.id === customerId);
+    const customer = Array.isArray(customers) 
+      ? customers.find((c: any) => c.id === customerId)
+      : null;
     return customer ? customer.name : "Unknown";
   };
 
   // Get project name by ID
   const getProjectName = (projectId: number) => {
-    const project = projects.find((p: any) => p.id === projectId);
+    const project = Array.isArray(projects) 
+      ? projects.find((p: any) => p.id === projectId)
+      : null;
     return project ? project.name : "Unknown";
   };
 
@@ -303,7 +309,7 @@ export default function QuotesPage() {
                           {renderStatusBadge(quote.status)}
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
-                          ${quote.total.toLocaleString()}
+                          {getCurrencySymbol()}{quote.total.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>

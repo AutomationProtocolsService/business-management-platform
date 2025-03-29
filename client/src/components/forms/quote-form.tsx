@@ -29,6 +29,7 @@ import {
   Project 
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 import { getInputDateString } from "@/lib/date-utils";
 import { XCircle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -69,6 +70,7 @@ interface QuoteFormProps {
 
 export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFormProps) {
   const { toast } = useToast();
+  const { formatMoney, getCurrencySymbol } = useSettings();
   const [recalculating, setRecalculating] = useState(false);
 
   // Fetch customers and projects for dropdowns
@@ -600,7 +602,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
 
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>
-                  <span>${form.watch("total").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{form.watch("total").toFixed(2)}</span>
                 </div>
               </div>
             </div>
