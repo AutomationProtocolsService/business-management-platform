@@ -19,7 +19,13 @@ import {
   insertInstallationSchema,
   insertTaskListSchema,
   insertTaskSchema,
-  insertCatalogItemSchema
+  insertCatalogItemSchema,
+  insertSupplierSchema,
+  insertExpenseSchema,
+  insertPurchaseOrderSchema,
+  insertPurchaseOrderItemSchema,
+  insertInventoryItemSchema,
+  insertInventoryTransactionSchema
 } from "@shared/schema";
 
 export async function registerRoutes(app: Express): Promise<Server> {
@@ -1559,7 +1565,607 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Company Settings routes
+  // Supplier routes
+  app.get("/api/suppliers", requireAuth, async (req, res) => {
+    try {
+      const { category } = req.query;
+      
+      let suppliers;
+      if (category) {
+        suppliers = await storage.getSuppliersByCategory(category as string);
+      } else {
+        suppliers = await storage.getAllSuppliers();
+      }
+      
+      res.json(suppliers);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.get("/api/suppliers/:id", requireAuth, async (req, res) => {
+    try {
+      const supplier = await storage.getSupplier(Number(req.params.id));
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      res.json(supplier);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch supplier" });
+    }
+  });
+
+  app.post("/api/suppliers", requireAuth, validateBody(insertSupplierSchema), async (req, res) => {
+    try {
+      const supplier = await storage.createSupplier({
+        ...req.body,
+        createdAt: new Date()
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("supplier:created", {
+          id: supplier.id,
+          data: supplier,
+          message: `New supplier added: ${supplier.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(supplier);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create supplier" });
+    }
+  });
+
+  app.put("/api/suppliers/:id", requireAuth, async (req, res) => {
+    try {
+      const supplierId = Number(req.params.id);
+      const supplier = await storage.getSupplier(supplierId);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      const updatedSupplier = await storage.updateSupplier(supplierId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedSupplier) {
+        wsManager.broadcast("supplier:updated", {
+          id: updatedSupplier.id,
+          data: updatedSupplier,
+          message: `Supplier updated: ${updatedSupplier.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedSupplier);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update supplier" });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
+    try {
+      const supplierId = Number(req.params.id);
+      const supplier = await storage.getSupplier(supplierId);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      const deleted = await storage.deleteSupplier(supplierId);
+      
+      if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("supplier:deleted", {
+            id: supplierId,
+            data: { id: supplierId, name: supplier.name },
+            message: `Supplier deleted: ${supplier.name}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete supplier" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete supplier" });
+    }
+  });
+  
+  // Expense routes
+  app.get("/api/expenses", requireAuth, async (req, res) => {
+    try {
+      const { category, projectId, supplierId, startDate, endDate } = req.query;
+      
+      let expenses;
+      if (category) {
+        expenses = await storage.getExpensesByCategory(category as string);
+      } else if (projectId) {
+        expenses = await storage.getExpensesByProject(Number(projectId));
+      } else if (supplierId) {
+        expenses = await storage.getExpensesBySupplier(Number(supplierId));
+      } else if (startDate && endDate) {
+        expenses = await storage.getExpensesByDateRange(new Date(startDate as string), new Date(endDate as string));
+      } else {
+        expenses = await storage.getAllExpenses();
+      }
+      
+      res.json(expenses);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  app.get("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const expense = await storage.getExpense(Number(req.params.id));
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      res.json(expense);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch expense" });
+    }
+  });
+
+  app.post("/api/expenses", requireAuth, validateBody(insertExpenseSchema), async (req, res) => {
+    try {
+      const expense = await storage.createExpense({
+        ...req.body,
+        createdBy: req.user?.id,
+        createdAt: new Date()
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("expense:created", {
+          id: expense.id,
+          data: expense,
+          message: `New expense added: ${expense.description} ($${expense.amount})`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(expense);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+
+  app.put("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const expenseId = Number(req.params.id);
+      const expense = await storage.getExpense(expenseId);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      const updatedExpense = await storage.updateExpense(expenseId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedExpense) {
+        wsManager.broadcast("expense:updated", {
+          id: updatedExpense.id,
+          data: updatedExpense,
+          message: `Expense updated: ${updatedExpense.description} ($${updatedExpense.amount})`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedExpense);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update expense" });
+    }
+  });
+
+  app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
+    try {
+      const expenseId = Number(req.params.id);
+      const expense = await storage.getExpense(expenseId);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      const deleted = await storage.deleteExpense(expenseId);
+      
+      if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("expense:deleted", {
+            id: expenseId,
+            data: { id: expenseId, description: expense.description },
+            message: `Expense deleted: ${expense.description}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete expense" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+  
+  // Purchase Order routes
+  app.get("/api/purchase-orders", requireAuth, async (req, res) => {
+    try {
+      const { status, projectId, supplierId } = req.query;
+      
+      let purchaseOrders;
+      if (status) {
+        purchaseOrders = await storage.getPurchaseOrdersByStatus(status as string);
+      } else if (projectId) {
+        purchaseOrders = await storage.getPurchaseOrdersByProject(Number(projectId));
+      } else if (supplierId) {
+        purchaseOrders = await storage.getPurchaseOrdersBySupplier(Number(supplierId));
+      } else {
+        purchaseOrders = await storage.getAllPurchaseOrders();
+      }
+      
+      res.json(purchaseOrders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  app.get("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+    try {
+      const purchaseOrder = await storage.getPurchaseOrder(Number(req.params.id));
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Get purchase order items
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrder.id);
+      
+      res.json({ ...purchaseOrder, items });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.post("/api/purchase-orders", requireAuth, validateBody(insertPurchaseOrderSchema), async (req, res) => {
+    try {
+      // Generate PO number
+      const poNumber = `PO-${Date.now().toString().substr(-6)}`;
+      
+      const purchaseOrder = await storage.createPurchaseOrder({
+        ...req.body,
+        poNumber,
+        createdBy: req.user?.id,
+        status: req.body.status || "draft"
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("purchase-order:created", {
+          id: purchaseOrder.id,
+          data: purchaseOrder,
+          message: `New purchase order created: ${purchaseOrder.poNumber}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(purchaseOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create purchase order" });
+    }
+  });
+
+  app.post("/api/purchase-orders/:id/items", requireAuth, validateBody(insertPurchaseOrderItemSchema), async (req, res) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      const item = await storage.createPurchaseOrderItem({
+        ...req.body,
+        purchaseOrderId
+      });
+      
+      // Update purchase order totals
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      const subtotal = items.reduce((sum, item) => sum + item.total, 0);
+      const total = subtotal; // Add tax calculation here if needed
+      
+      await storage.updatePurchaseOrder(purchaseOrderId, { subtotal, total });
+      
+      res.status(201).json(item);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to add purchase order item" });
+    }
+  });
+
+  app.put("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      const updatedPurchaseOrder = await storage.updatePurchaseOrder(purchaseOrderId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedPurchaseOrder) {
+        // Prepare status change message if status has changed
+        let message = `Purchase order updated: ${updatedPurchaseOrder.poNumber}`;
+        if (purchaseOrder.status !== updatedPurchaseOrder.status) {
+          message = `Purchase order ${updatedPurchaseOrder.poNumber} status changed to ${updatedPurchaseOrder.status}`;
+        }
+        
+        wsManager.broadcast("purchase-order:updated", {
+          id: updatedPurchaseOrder.id,
+          data: updatedPurchaseOrder,
+          message,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedPurchaseOrder);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update purchase order" });
+    }
+  });
+
+  app.delete("/api/purchase-orders/:id", requireAuth, async (req, res) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Delete associated purchase order items first
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      for (const item of items) {
+        await storage.deletePurchaseOrderItem(item.id);
+      }
+      
+      const deleted = await storage.deletePurchaseOrder(purchaseOrderId);
+      
+      if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("purchase-order:deleted", {
+            id: purchaseOrderId,
+            data: { id: purchaseOrderId, poNumber: purchaseOrder.poNumber },
+            message: `Purchase order deleted: ${purchaseOrder.poNumber}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete purchase order" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+
+  // Inventory Item routes
+  app.get("/api/inventory", requireAuth, async (req, res) => {
+    try {
+      const { category, supplierId, lowStock } = req.query;
+      
+      let inventoryItems;
+      if (category) {
+        inventoryItems = await storage.getInventoryItemsByCategory(category as string);
+      } else if (supplierId) {
+        inventoryItems = await storage.getInventoryItemsBySupplier(Number(supplierId));
+      } else if (lowStock === 'true') {
+        inventoryItems = await storage.getLowStockItems();
+      } else {
+        inventoryItems = await storage.getAllInventoryItems();
+      }
+      
+      res.json(inventoryItems);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inventory items" });
+    }
+  });
+
+  app.get("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const inventoryItem = await storage.getInventoryItem(Number(req.params.id));
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      // Get inventory transactions for this item
+      const transactions = await storage.getInventoryTransactionsByItem(inventoryItem.id);
+      
+      res.json({ ...inventoryItem, transactions });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inventory item" });
+    }
+  });
+
+  app.post("/api/inventory", requireAuth, validateBody(insertInventoryItemSchema), async (req, res) => {
+    try {
+      const inventoryItem = await storage.createInventoryItem({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("inventory:created", {
+          id: inventoryItem.id,
+          data: inventoryItem,
+          message: `New inventory item added: ${inventoryItem.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(inventoryItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
+
+  app.put("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const inventoryItemId = Number(req.params.id);
+      const inventoryItem = await storage.getInventoryItem(inventoryItemId);
+      
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      const updatedInventoryItem = await storage.updateInventoryItem(inventoryItemId, req.body);
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedInventoryItem) {
+        wsManager.broadcast("inventory:updated", {
+          id: updatedInventoryItem.id,
+          data: updatedInventoryItem,
+          message: `Inventory item updated: ${updatedInventoryItem.name}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.json(updatedInventoryItem);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update inventory item" });
+    }
+  });
+
+  app.delete("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const inventoryItemId = Number(req.params.id);
+      const inventoryItem = await storage.getInventoryItem(inventoryItemId);
+      
+      if (!inventoryItem) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      // Check if there are transactions for this item
+      const transactions = await storage.getInventoryTransactionsByItem(inventoryItemId);
+      if (transactions.length > 0) {
+        return res.status(400).json({ 
+          message: "Cannot delete inventory item with existing transactions" 
+        });
+      }
+      
+      const deleted = await storage.deleteInventoryItem(inventoryItemId);
+      
+      if (deleted) {
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("inventory:deleted", {
+            id: inventoryItemId,
+            data: { id: inventoryItemId, name: inventoryItem.name },
+            message: `Inventory item deleted: ${inventoryItem.name}`,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete inventory item" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
+  // Inventory Transaction routes
+  app.post("/api/inventory-transactions", requireAuth, validateBody(insertInventoryTransactionSchema), async (req, res) => {
+    try {
+      const transaction = await storage.createInventoryTransaction({
+        ...req.body,
+        createdBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        const inventoryItem = await storage.getInventoryItem(transaction.inventoryItemId);
+        const itemName = inventoryItem ? inventoryItem.name : 'Unknown item';
+        
+        wsManager.broadcast("inventory-transaction:created", {
+          id: transaction.id,
+          data: transaction,
+          message: `Inventory transaction: ${transaction.transactionType} for ${itemName}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(transaction);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create inventory transaction" });
+    }
+  });
+
+  app.get("/api/inventory-transactions", requireAuth, async (req, res) => {
+    try {
+      const { 
+        inventoryItemId, 
+        projectId, 
+        purchaseOrderId, 
+        type, 
+        startDate, 
+        endDate 
+      } = req.query;
+      
+      let transactions;
+      if (inventoryItemId) {
+        transactions = await storage.getInventoryTransactionsByItem(Number(inventoryItemId));
+      } else if (projectId) {
+        transactions = await storage.getInventoryTransactionsByProject(Number(projectId));
+      } else if (purchaseOrderId) {
+        transactions = await storage.getInventoryTransactionsByPO(Number(purchaseOrderId));
+      } else if (type) {
+        transactions = await storage.getInventoryTransactionsByType(type as string);
+      } else if (startDate && endDate) {
+        transactions = await storage.getInventoryTransactionsByDateRange(
+          new Date(startDate as string), 
+          new Date(endDate as string)
+        );
+      } else {
+        // This might return a lot of data, consider pagination
+        const inventoryItems = await storage.getAllInventoryItems();
+        transactions = [];
+        
+        for (const item of inventoryItems) {
+          const itemTransactions = await storage.getInventoryTransactionsByItem(item.id);
+          transactions.push(...itemTransactions);
+        }
+      }
+      
+      res.json(transactions);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch inventory transactions" });
+    }
+  });
+
   app.get("/api/company-settings", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getCompanySettings();

@@ -14,6 +14,12 @@ import {
   tasks,
   catalogItems,
   companySettings,
+  suppliers,
+  expenses,
+  purchaseOrders,
+  purchaseOrderItems,
+  inventoryItems,
+  inventoryTransactions,
   type User, 
   type InsertUser, 
   type Customer, 
@@ -43,7 +49,19 @@ import {
   type CatalogItem,
   type InsertCatalogItem,
   type CompanySettings,
-  type InsertCompanySettings
+  type InsertCompanySettings,
+  type Supplier,
+  type InsertSupplier,
+  type Expense,
+  type InsertExpense,
+  type PurchaseOrder,
+  type InsertPurchaseOrder,
+  type PurchaseOrderItem,
+  type InsertPurchaseOrderItem,
+  type InventoryItem,
+  type InsertInventoryItem,
+  type InventoryTransaction,
+  type InsertInventoryTransaction
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -181,6 +199,66 @@ export interface IStorage {
   createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
   updateCompanySettings(id: number, settings: Partial<CompanySettings>): Promise<CompanySettings | undefined>;
   
+  // Suppliers
+  getSupplier(id: number): Promise<Supplier | undefined>;
+  getSupplierByName(name: string): Promise<Supplier | undefined>;
+  createSupplier(supplier: InsertSupplier): Promise<Supplier>;
+  updateSupplier(id: number, supplier: Partial<Supplier>): Promise<Supplier | undefined>;
+  deleteSupplier(id: number): Promise<boolean>;
+  getAllSuppliers(): Promise<Supplier[]>;
+  getSuppliersByCategory(category: string): Promise<Supplier[]>;
+  
+  // Expenses
+  getExpense(id: number): Promise<Expense | undefined>;
+  createExpense(expense: InsertExpense): Promise<Expense>;
+  updateExpense(id: number, expense: Partial<Expense>): Promise<Expense | undefined>;
+  deleteExpense(id: number): Promise<boolean>;
+  getAllExpenses(): Promise<Expense[]>;
+  getExpensesByProject(projectId: number): Promise<Expense[]>;
+  getExpensesBySupplier(supplierId: number): Promise<Expense[]>;
+  getExpensesByCategory(category: string): Promise<Expense[]>;
+  getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]>;
+  
+  // Purchase Orders
+  getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined>;
+  getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined>;
+  createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder>;
+  updatePurchaseOrder(id: number, po: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined>;
+  deletePurchaseOrder(id: number): Promise<boolean>;
+  getAllPurchaseOrders(): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByProject(projectId: number): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersBySupplier(supplierId: number): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]>;
+  
+  // Purchase Order Items
+  getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined>;
+  createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
+  updatePurchaseOrderItem(id: number, item: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined>;
+  deletePurchaseOrderItem(id: number): Promise<boolean>;
+  getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]>;
+  
+  // Inventory Items
+  getInventoryItem(id: number): Promise<InventoryItem | undefined>;
+  getInventoryItemBySku(sku: string): Promise<InventoryItem | undefined>;
+  createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
+  updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
+  deleteInventoryItem(id: number): Promise<boolean>;
+  getAllInventoryItems(): Promise<InventoryItem[]>;
+  getInventoryItemsByCategory(category: string): Promise<InventoryItem[]>;
+  getInventoryItemsBySupplier(supplierId: number): Promise<InventoryItem[]>;
+  getLowStockItems(): Promise<InventoryItem[]>;
+  
+  // Inventory Transactions
+  getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined>;
+  createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
+  updateInventoryTransaction(id: number, transaction: Partial<InventoryTransaction>): Promise<InventoryTransaction | undefined>;
+  deleteInventoryTransaction(id: number): Promise<boolean>;
+  getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByType(type: string): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]>;
+  
   // Session store
   sessionStore: session.SessionStore;
 }
@@ -202,6 +280,12 @@ export class MemStorage implements IStorage {
   private tasks: Map<number, Task>;
   private catalogItems: Map<number, CatalogItem>;
   private companySettings: Map<number, CompanySettings>;
+  private suppliers: Map<number, Supplier>;
+  private expenses: Map<number, Expense>;
+  private purchaseOrders: Map<number, PurchaseOrder>;
+  private purchaseOrderItems: Map<number, PurchaseOrderItem>;
+  private inventoryItems: Map<number, InventoryItem>;
+  private inventoryTransactions: Map<number, InventoryTransaction>;
   
   // Auto-incrementing IDs
   private userId: number;
@@ -217,8 +301,14 @@ export class MemStorage implements IStorage {
   private installationId: number;
   private taskListId: number;
   private taskId: number;
-  catalogItemId: number;
+  private catalogItemId: number;
   private companySettingsId: number;
+  private supplierId: number;
+  private expenseId: number;
+  private purchaseOrderId: number;
+  private purchaseOrderItemId: number;
+  private inventoryItemId: number;
+  private inventoryTransactionId: number;
   
   // Session store
   sessionStore: session.SessionStore;
@@ -239,6 +329,12 @@ export class MemStorage implements IStorage {
     this.tasks = new Map();
     this.catalogItems = new Map();
     this.companySettings = new Map();
+    this.suppliers = new Map();
+    this.expenses = new Map();
+    this.purchaseOrders = new Map();
+    this.purchaseOrderItems = new Map();
+    this.inventoryItems = new Map();
+    this.inventoryTransactions = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -255,6 +351,12 @@ export class MemStorage implements IStorage {
     this.taskId = 1;
     this.catalogItemId = 1;
     this.companySettingsId = 1;
+    this.supplierId = 1;
+    this.expenseId = 1;
+    this.purchaseOrderId = 1;
+    this.purchaseOrderItemId = 1;
+    this.inventoryItemId = 1;
+    this.inventoryTransactionId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -812,6 +914,311 @@ export class MemStorage implements IStorage {
     const updatedSettings = { ...settings, ...settingsData };
     this.companySettings.set(id, updatedSettings);
     return updatedSettings;
+  }
+
+  // Supplier methods
+  async getSupplier(id: number): Promise<Supplier | undefined> {
+    return this.suppliers.get(id);
+  }
+
+  async getSupplierByName(name: string): Promise<Supplier | undefined> {
+    return Array.from(this.suppliers.values()).find(supplier => supplier.name === name);
+  }
+
+  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const id = this.supplierId++;
+    const newSupplier: Supplier = { ...supplier, id, createdAt: new Date() };
+    this.suppliers.set(id, newSupplier);
+    return newSupplier;
+  }
+
+  async updateSupplier(id: number, supplierData: Partial<Supplier>): Promise<Supplier | undefined> {
+    const supplier = this.suppliers.get(id);
+    if (!supplier) return undefined;
+    
+    const updatedSupplier = { ...supplier, ...supplierData };
+    this.suppliers.set(id, updatedSupplier);
+    return updatedSupplier;
+  }
+
+  async deleteSupplier(id: number): Promise<boolean> {
+    return this.suppliers.delete(id);
+  }
+
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return Array.from(this.suppliers.values());
+  }
+
+  async getSuppliersByCategory(category: string): Promise<Supplier[]> {
+    return Array.from(this.suppliers.values()).filter(supplier => supplier.category === category);
+  }
+
+  // Expense methods
+  async getExpense(id: number): Promise<Expense | undefined> {
+    return this.expenses.get(id);
+  }
+
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    const id = this.expenseId++;
+    const newExpense: Expense = { ...expense, id, createdAt: new Date() };
+    this.expenses.set(id, newExpense);
+    return newExpense;
+  }
+
+  async updateExpense(id: number, expenseData: Partial<Expense>): Promise<Expense | undefined> {
+    const expense = this.expenses.get(id);
+    if (!expense) return undefined;
+    
+    const updatedExpense = { ...expense, ...expenseData };
+    this.expenses.set(id, updatedExpense);
+    return updatedExpense;
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    return this.expenses.delete(id);
+  }
+
+  async getAllExpenses(): Promise<Expense[]> {
+    return Array.from(this.expenses.values());
+  }
+
+  async getExpensesByProject(projectId: number): Promise<Expense[]> {
+    return Array.from(this.expenses.values()).filter(expense => expense.projectId === projectId);
+  }
+
+  async getExpensesBySupplier(supplierId: number): Promise<Expense[]> {
+    return Array.from(this.expenses.values()).filter(expense => expense.supplierId === supplierId);
+  }
+
+  async getExpensesByCategory(category: string): Promise<Expense[]> {
+    return Array.from(this.expenses.values()).filter(expense => expense.category === category);
+  }
+
+  async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]> {
+    return Array.from(this.expenses.values()).filter(expense => {
+      const expenseDate = new Date(expense.date);
+      return expenseDate >= startDate && expenseDate <= endDate;
+    });
+  }
+
+  // Purchase Order methods
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+    return this.purchaseOrders.get(id);
+  }
+
+  async getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined> {
+    return Array.from(this.purchaseOrders.values()).find(po => po.poNumber === poNumber);
+  }
+
+  async createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const id = this.purchaseOrderId++;
+    const newPurchaseOrder: PurchaseOrder = { ...po, id, createdAt: new Date() };
+    this.purchaseOrders.set(id, newPurchaseOrder);
+    return newPurchaseOrder;
+  }
+
+  async updatePurchaseOrder(id: number, poData: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined> {
+    const po = this.purchaseOrders.get(id);
+    if (!po) return undefined;
+    
+    const updatedPurchaseOrder = { ...po, ...poData };
+    this.purchaseOrders.set(id, updatedPurchaseOrder);
+    return updatedPurchaseOrder;
+  }
+
+  async deletePurchaseOrder(id: number): Promise<boolean> {
+    return this.purchaseOrders.delete(id);
+  }
+
+  async getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
+    return Array.from(this.purchaseOrders.values());
+  }
+
+  async getPurchaseOrdersByProject(projectId: number): Promise<PurchaseOrder[]> {
+    return Array.from(this.purchaseOrders.values()).filter(po => po.projectId === projectId);
+  }
+
+  async getPurchaseOrdersBySupplier(supplierId: number): Promise<PurchaseOrder[]> {
+    return Array.from(this.purchaseOrders.values()).filter(po => po.supplierId === supplierId);
+  }
+
+  async getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]> {
+    return Array.from(this.purchaseOrders.values()).filter(po => po.status === status);
+  }
+
+  // Purchase Order Item methods
+  async getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined> {
+    return this.purchaseOrderItems.get(id);
+  }
+
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const id = this.purchaseOrderItemId++;
+    const newPurchaseOrderItem: PurchaseOrderItem = { ...item, id };
+    this.purchaseOrderItems.set(id, newPurchaseOrderItem);
+    return newPurchaseOrderItem;
+  }
+
+  async updatePurchaseOrderItem(id: number, itemData: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined> {
+    const item = this.purchaseOrderItems.get(id);
+    if (!item) return undefined;
+    
+    const updatedPurchaseOrderItem = { ...item, ...itemData };
+    this.purchaseOrderItems.set(id, updatedPurchaseOrderItem);
+    return updatedPurchaseOrderItem;
+  }
+
+  async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    return this.purchaseOrderItems.delete(id);
+  }
+
+  async getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
+    return Array.from(this.purchaseOrderItems.values()).filter(item => item.purchaseOrderId === purchaseOrderId);
+  }
+
+  // Inventory Item methods
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    return this.inventoryItems.get(id);
+  }
+
+  async getInventoryItemBySku(sku: string): Promise<InventoryItem | undefined> {
+    return Array.from(this.inventoryItems.values()).find(item => item.sku === sku);
+  }
+
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const id = this.inventoryItemId++;
+    const newInventoryItem: InventoryItem = { ...item, id, createdAt: new Date() };
+    this.inventoryItems.set(id, newInventoryItem);
+    return newInventoryItem;
+  }
+
+  async updateInventoryItem(id: number, itemData: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const item = this.inventoryItems.get(id);
+    if (!item) return undefined;
+    
+    const updatedInventoryItem = { ...item, ...itemData };
+    this.inventoryItems.set(id, updatedInventoryItem);
+    return updatedInventoryItem;
+  }
+
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    return this.inventoryItems.delete(id);
+  }
+
+  async getAllInventoryItems(): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values());
+  }
+
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(item => item.category === category);
+  }
+
+  async getInventoryItemsBySupplier(supplierId: number): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(item => item.preferredSupplierId === supplierId);
+  }
+
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    return Array.from(this.inventoryItems.values()).filter(item => 
+      item.currentStock !== null && 
+      item.minimumStock !== null && 
+      item.currentStock <= item.minimumStock
+    );
+  }
+
+  // Inventory Transaction methods
+  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+    return this.inventoryTransactions.get(id);
+  }
+
+  async createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const id = this.inventoryTransactionId++;
+    const newTransaction: InventoryTransaction = { ...transaction, id, createdAt: new Date() };
+    this.inventoryTransactions.set(id, newTransaction);
+    
+    // Update inventory item stock levels if transaction affects stock
+    if (transaction.inventoryItemId && transaction.quantity) {
+      const item = await this.getInventoryItem(transaction.inventoryItemId);
+      if (item && item.currentStock !== null) {
+        const stockChange = transaction.type === 'incoming' ? transaction.quantity : -transaction.quantity;
+        await this.updateInventoryItem(item.id, { 
+          currentStock: item.currentStock + stockChange 
+        });
+      }
+    }
+    
+    return newTransaction;
+  }
+
+  async updateInventoryTransaction(id: number, transactionData: Partial<InventoryTransaction>): Promise<InventoryTransaction | undefined> {
+    const transaction = this.inventoryTransactions.get(id);
+    if (!transaction) return undefined;
+    
+    // Handle stock adjustments if quantity or type changed
+    if ((transactionData.quantity !== undefined || transactionData.type !== undefined) && 
+        transaction.inventoryItemId) {
+      const item = await this.getInventoryItem(transaction.inventoryItemId);
+      
+      if (item && item.currentStock !== null) {
+        // Reverse the old transaction's effect
+        const oldStockChange = transaction.type === 'incoming' ? -transaction.quantity : transaction.quantity;
+        
+        // Calculate new transaction effect
+        const newType = transactionData.type || transaction.type;
+        const newQuantity = transactionData.quantity || transaction.quantity;
+        const newStockChange = newType === 'incoming' ? newQuantity : -newQuantity;
+        
+        // Apply the net change
+        await this.updateInventoryItem(item.id, { 
+          currentStock: item.currentStock + oldStockChange + newStockChange 
+        });
+      }
+    }
+    
+    const updatedTransaction = { ...transaction, ...transactionData };
+    this.inventoryTransactions.set(id, updatedTransaction);
+    return updatedTransaction;
+  }
+
+  async deleteInventoryTransaction(id: number): Promise<boolean> {
+    const transaction = this.inventoryTransactions.get(id);
+    
+    // Reverse stock changes when deleting a transaction
+    if (transaction && transaction.inventoryItemId) {
+      const item = await this.getInventoryItem(transaction.inventoryItemId);
+      if (item && item.currentStock !== null) {
+        const stockChange = transaction.type === 'incoming' ? -transaction.quantity : transaction.quantity;
+        await this.updateInventoryItem(item.id, { 
+          currentStock: item.currentStock + stockChange 
+        });
+      }
+    }
+    
+    return this.inventoryTransactions.delete(id);
+  }
+
+  async getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]> {
+    return Array.from(this.inventoryTransactions.values())
+      .filter(transaction => transaction.inventoryItemId === inventoryItemId);
+  }
+
+  async getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]> {
+    return Array.from(this.inventoryTransactions.values())
+      .filter(transaction => transaction.projectId === projectId);
+  }
+
+  async getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]> {
+    return Array.from(this.inventoryTransactions.values())
+      .filter(transaction => transaction.purchaseOrderId === purchaseOrderId);
+  }
+
+  async getInventoryTransactionsByType(type: string): Promise<InventoryTransaction[]> {
+    return Array.from(this.inventoryTransactions.values())
+      .filter(transaction => transaction.type === type);
+  }
+
+  async getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]> {
+    return Array.from(this.inventoryTransactions.values()).filter(transaction => {
+      return transaction.createdAt >= startDate && transaction.createdAt <= endDate;
+    });
   }
 }
 

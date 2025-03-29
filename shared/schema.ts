@@ -245,6 +245,131 @@ export const catalogItems = pgTable("catalog_items", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
+// Suppliers
+export const suppliers = pgTable("suppliers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  contactName: text("contact_name"),
+  email: text("email"),
+  phone: text("phone"),
+  address: text("address"),
+  city: text("city"),
+  state: text("state"),
+  zipCode: text("zip_code"),
+  country: text("country"),
+  website: text("website"),
+  taxId: text("tax_id"), // VAT number or tax ID
+  paymentTerms: text("payment_terms"), // e.g., "Net 30", "Net 60"
+  category: text("category"), // e.g., "Materials", "Services", "Equipment"
+  rating: integer("rating"), // 1-5 star rating
+  preferredSupplier: boolean("preferred_supplier").default(false),
+  notes: text("notes"),
+  bankDetails: text("bank_details"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+// Expenses
+export const expenses = pgTable("expenses", {
+  id: serial("id").primaryKey(),
+  description: text("description").notNull(),
+  amount: doublePrecision("amount").notNull(),
+  date: date("date").notNull(),
+  category: text("category").notNull(), // e.g., "Materials", "Labor", "Transport", "Office", "Other"
+  projectId: integer("project_id").references(() => projects.id), // Optional link to a project
+  supplierId: integer("supplier_id").references(() => suppliers.id), // Optional link to a supplier
+  paymentMethod: text("payment_method"), // e.g., "Cash", "Credit Card", "Bank Transfer"
+  receiptUrl: text("receipt_url"), // URL to stored receipt image
+  reimbursable: boolean("reimbursable").default(false), // Whether the expense is reimbursable to employee
+  reimbursedAt: timestamp("reimbursed_at"), // When the expense was reimbursed
+  approved: boolean("approved").default(false),
+  approvedBy: integer("approved_by").references(() => users.id),
+  approvedAt: timestamp("approved_at"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+// Purchase Orders
+export const purchaseOrders = pgTable("purchase_orders", {
+  id: serial("id").primaryKey(),
+  poNumber: text("po_number").notNull().unique(), // Purchase order number
+  supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
+  projectId: integer("project_id").references(() => projects.id), // Optional link to a project
+  issueDate: date("issue_date").notNull(),
+  expectedDeliveryDate: date("expected_delivery_date"),
+  deliveryAddress: text("delivery_address"),
+  status: text("status").notNull().default("draft"), // draft, sent, confirmed, received, cancelled, partially_received
+  subtotal: doublePrecision("subtotal").notNull(),
+  tax: doublePrecision("tax"),
+  shipping: doublePrecision("shipping"),
+  total: doublePrecision("total").notNull(),
+  notes: text("notes"),
+  terms: text("terms"),
+  supplierReference: text("supplier_reference"), // Reference number from supplier
+  receivedDate: date("received_date"), // Date when goods were received
+  receivedBy: integer("received_by").references(() => users.id), // Who received the goods
+  invoiceReceived: boolean("invoice_received").default(false), // Whether invoice was received from supplier
+  invoicePaid: boolean("invoice_paid").default(false), // Whether invoice was paid
+  invoiceAmount: doublePrecision("invoice_amount"), // Amount of invoice from supplier
+  invoiceDate: date("invoice_date"), // Date of invoice from supplier
+  invoiceNumber: text("invoice_number"), // Invoice number from supplier
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+// Inventory Items
+export const inventoryItems = pgTable("inventory_items", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  sku: text("sku"), // Internal SKU
+  category: text("category"),
+  unitOfMeasure: text("unit_of_measure").default("each"), // each, kg, m, etc.
+  currentStock: doublePrecision("current_stock").default(0),
+  reorderPoint: doublePrecision("reorder_point"), // When to reorder
+  reorderQuantity: doublePrecision("reorder_quantity"), // How much to reorder
+  location: text("location"), // Where the item is stored
+  cost: doublePrecision("cost"), // Average cost per unit
+  lastPurchasePrice: doublePrecision("last_purchase_price"), // Last price paid
+  preferredSupplierId: integer("preferred_supplier_id").references(() => suppliers.id), // Preferred supplier for this item
+  notes: text("notes"),
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+});
+
+// Purchase Order Items
+export const purchaseOrderItems = pgTable("purchase_order_items", {
+  id: serial("id").primaryKey(),
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id).notNull(),
+  description: text("description").notNull(),
+  sku: text("sku"), // Supplier SKU or part number
+  quantity: doublePrecision("quantity").notNull(),
+  unitPrice: doublePrecision("unit_price").notNull(),
+  unit: text("unit").default("each"), // each, kg, m, etc.
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id), // Link to inventory item if applicable
+  total: doublePrecision("total").notNull(),
+  receivedQuantity: doublePrecision("received_quantity").default(0), // How much of this item has been received
+  notes: text("notes"),
+});
+
+// Inventory Transactions (stock movements)
+export const inventoryTransactions = pgTable("inventory_transactions", {
+  id: serial("id").primaryKey(),
+  inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
+  transactionType: text("transaction_type").notNull(), // purchase, sale, adjustment, transfer, return, write-off
+  quantity: doublePrecision("quantity").notNull(), // Positive for in, negative for out
+  projectId: integer("project_id").references(() => projects.id), // If this transaction is linked to a project
+  purchaseOrderId: integer("purchase_order_id").references(() => purchaseOrders.id), // If this is a purchase
+  unitCost: doublePrecision("unit_cost"), // Cost per unit for this transaction
+  notes: text("notes"),
+  reference: text("reference"), // Reference number (e.g., invoice number, PO number)
+  transactionDate: timestamp("transaction_date").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id).notNull(),
+});
+
 // Company Settings
 export const companySettings = pgTable("company_settings", {
   id: serial("id").primaryKey(),
@@ -278,6 +403,10 @@ export const companySettings = pgTable("company_settings", {
     customer?: string;
     employee?: string;
     timesheet?: string;
+    supplier?: string;
+    expense?: string;
+    purchaseOrder?: string;
+    inventory?: string;
   }>(), // Custom terms for different modules
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => users.id),
@@ -361,6 +490,39 @@ export const insertCompanySettingsSchema = createInsertSchema(companySettings).o
   updatedAt: true,
 });
 
+// Insert schemas for Suppliers Module
+export const insertSupplierSchema = createInsertSchema(suppliers).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertExpenseSchema = createInsertSchema(expenses).omit({
+  id: true,
+  createdAt: true,
+  approvedAt: true,
+  reimbursedAt: true,
+});
+
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+  id: true,
+  createdAt: true,
+  receivedDate: true,
+});
+
+export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
+  id: true,
+});
+
+export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({
+  id: true,
+  transactionDate: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -406,3 +568,22 @@ export type CatalogItem = typeof catalogItems.$inferSelect;
 
 export type InsertCompanySettings = z.infer<typeof insertCompanySettingsSchema>;
 export type CompanySettings = typeof companySettings.$inferSelect;
+
+// Supplier Module Types
+export type InsertSupplier = z.infer<typeof insertSupplierSchema>;
+export type Supplier = typeof suppliers.$inferSelect;
+
+export type InsertExpense = z.infer<typeof insertExpenseSchema>;
+export type Expense = typeof expenses.$inferSelect;
+
+export type InsertPurchaseOrder = z.infer<typeof insertPurchaseOrderSchema>;
+export type PurchaseOrder = typeof purchaseOrders.$inferSelect;
+
+export type InsertPurchaseOrderItem = z.infer<typeof insertPurchaseOrderItemSchema>;
+export type PurchaseOrderItem = typeof purchaseOrderItems.$inferSelect;
+
+export type InsertInventoryItem = z.infer<typeof insertInventoryItemSchema>;
+export type InventoryItem = typeof inventoryItems.$inferSelect;
+
+export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
+export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
