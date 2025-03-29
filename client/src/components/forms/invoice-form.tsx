@@ -105,6 +105,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
       tax: 0,
       discount: 0,
       total: 0,
+      terms: settings?.defaultInvoiceTerms || "",
       items: [
         {
           description: "",

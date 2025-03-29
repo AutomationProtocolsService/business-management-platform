@@ -104,6 +104,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
       tax: 0,
       discount: 0,
       total: 0,
+      terms: settings?.defaultQuoteTerms || "",
       items: [
         {
           description: "",
