@@ -1,4 +1,5 @@
 import * as schema from "@shared/schema";
+import EmailService from './services/email-service';
 import { 
   type User, 
   type InsertUser, 
