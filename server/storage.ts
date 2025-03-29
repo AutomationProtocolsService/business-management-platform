@@ -1,25 +1,5 @@
+import * as schema from "@shared/schema";
 import { 
-  users, 
-  customers, 
-  projects, 
-  quotes, 
-  quoteItems, 
-  invoices, 
-  invoiceItems, 
-  employees,
-  timesheets,
-  surveys,
-  installations,
-  taskLists,
-  tasks,
-  catalogItems,
-  companySettings,
-  suppliers,
-  expenses,
-  purchaseOrders,
-  purchaseOrderItems,
-  inventoryItems,
-  inventoryTransactions,
   type User, 
   type InsertUser, 
   type Customer, 
@@ -65,8 +45,13 @@ import {
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
+import connectPg from "connect-pg-simple";
+import { db } from "./db";
+import { client } from "./db"; // Import postgres client for session store
+import { eq, and, asc, desc, between, isNotNull, sql } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
+const PostgresSessionStore = connectPg(session);
 
 // Interface for storage operations
 export interface IStorage {
@@ -256,11 +241,11 @@ export interface IStorage {
   getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]>;
   getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]>;
   getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]>;
-  getInventoryTransactionsByType(type: string): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByType(transactionType: string): Promise<InventoryTransaction[]>;
   getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]>;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any to fix Express session store type issue
 }
 
 export class MemStorage implements IStorage {
@@ -311,7 +296,7 @@ export class MemStorage implements IStorage {
   private inventoryTransactionId: number;
   
   // Session store
-  sessionStore: session.SessionStore;
+  sessionStore: any; // Using any for Express session store type issue
 
   constructor() {
     this.users = new Map();
@@ -1223,4 +1208,1028 @@ export class MemStorage implements IStorage {
 }
 
 // Export a single instance for use across the application
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  sessionStore: any; // Using any for Express session store type issue
+
+  constructor() {
+    // Create a PostgreSQL session store with Postgres client
+    const pool = {
+      query: (text: string, params: any[]) => {
+        return client.unsafe(text, params);
+      }
+    };
+    
+    this.sessionStore = new PostgresSessionStore({
+      pool,
+      createTableIfMissing: true
+    });
+  }
+
+  // User methods
+  async getUser(id: number): Promise<User | undefined> {
+    const result = await db.query.users.findFirst({
+      where: eq(schema.users.id, id)
+    });
+    return result;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.query.users.findFirst({
+      where: eq(schema.users.username, username)
+    });
+    return result;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const result = await db.insert(schema.users).values({
+      ...user,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
+    const result = await db.update(schema.users)
+      .set(userData)
+      .where(eq(schema.users.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUser(id: number): Promise<boolean> {
+    const result = await db.delete(schema.users)
+      .where(eq(schema.users.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return await db.query.users.findMany();
+  }
+
+  // Customer methods
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const result = await db.query.customers.findFirst({
+      where: eq(schema.customers.id, id)
+    });
+    return result;
+  }
+
+  async getCustomerByName(name: string): Promise<Customer | undefined> {
+    const result = await db.query.customers.findFirst({
+      where: eq(schema.customers.name, name)
+    });
+    return result;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const result = await db.insert(schema.customers).values({
+      ...customer,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateCustomer(id: number, customerData: Partial<Customer>): Promise<Customer | undefined> {
+    const result = await db.update(schema.customers)
+      .set(customerData)
+      .where(eq(schema.customers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCustomer(id: number): Promise<boolean> {
+    const result = await db.delete(schema.customers)
+      .where(eq(schema.customers.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllCustomers(): Promise<Customer[]> {
+    return await db.query.customers.findMany();
+  }
+
+  // Project methods
+  async getProject(id: number): Promise<Project | undefined> {
+    const result = await db.query.projects.findFirst({
+      where: eq(schema.projects.id, id)
+    });
+    return result;
+  }
+
+  async createProject(project: InsertProject): Promise<Project> {
+    const result = await db.insert(schema.projects).values({
+      ...project,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateProject(id: number, projectData: Partial<Project>): Promise<Project | undefined> {
+    const result = await db.update(schema.projects)
+      .set(projectData)
+      .where(eq(schema.projects.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteProject(id: number): Promise<boolean> {
+    const result = await db.delete(schema.projects)
+      .where(eq(schema.projects.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllProjects(): Promise<Project[]> {
+    return await db.query.projects.findMany();
+  }
+
+  async getProjectsByCustomer(customerId: number): Promise<Project[]> {
+    return await db.query.projects.findMany({
+      where: eq(schema.projects.customerId, customerId)
+    });
+  }
+
+  async getProjectsByStatus(status: string): Promise<Project[]> {
+    return await db.query.projects.findMany({
+      where: eq(schema.projects.status, status)
+    });
+  }
+
+  // Quote methods
+  async getQuote(id: number): Promise<Quote | undefined> {
+    const result = await db.query.quotes.findFirst({
+      where: eq(schema.quotes.id, id)
+    });
+    return result;
+  }
+
+  async getQuoteByNumber(quoteNumber: string): Promise<Quote | undefined> {
+    const result = await db.query.quotes.findFirst({
+      where: eq(schema.quotes.quoteNumber, quoteNumber)
+    });
+    return result;
+  }
+
+  async createQuote(quote: InsertQuote): Promise<Quote> {
+    const result = await db.insert(schema.quotes).values({
+      ...quote,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateQuote(id: number, quoteData: Partial<Quote>): Promise<Quote | undefined> {
+    const result = await db.update(schema.quotes)
+      .set(quoteData)
+      .where(eq(schema.quotes.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteQuote(id: number): Promise<boolean> {
+    const result = await db.delete(schema.quotes)
+      .where(eq(schema.quotes.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllQuotes(): Promise<Quote[]> {
+    return await db.query.quotes.findMany();
+  }
+
+  async getQuotesByProject(projectId: number): Promise<Quote[]> {
+    return await db.query.quotes.findMany({
+      where: eq(schema.quotes.projectId, projectId)
+    });
+  }
+
+  async getQuotesByCustomer(customerId: number): Promise<Quote[]> {
+    return await db.query.quotes.findMany({
+      where: eq(schema.quotes.customerId, customerId)
+    });
+  }
+
+  async getQuotesByStatus(status: string): Promise<Quote[]> {
+    return await db.query.quotes.findMany({
+      where: eq(schema.quotes.status, status)
+    });
+  }
+
+  // Quote Items methods
+  async getQuoteItem(id: number): Promise<QuoteItem | undefined> {
+    const result = await db.query.quoteItems.findFirst({
+      where: eq(schema.quoteItems.id, id)
+    });
+    return result;
+  }
+
+  async createQuoteItem(quoteItem: InsertQuoteItem): Promise<QuoteItem> {
+    const result = await db.insert(schema.quoteItems).values(quoteItem).returning();
+    return result[0];
+  }
+
+  async updateQuoteItem(id: number, quoteItemData: Partial<QuoteItem>): Promise<QuoteItem | undefined> {
+    const result = await db.update(schema.quoteItems)
+      .set(quoteItemData)
+      .where(eq(schema.quoteItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteQuoteItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.quoteItems)
+      .where(eq(schema.quoteItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getQuoteItemsByQuote(quoteId: number): Promise<QuoteItem[]> {
+    return await db.query.quoteItems.findMany({
+      where: eq(schema.quoteItems.quoteId, quoteId)
+    });
+  }
+
+  // Invoice methods
+  async getInvoice(id: number): Promise<Invoice | undefined> {
+    const result = await db.query.invoices.findFirst({
+      where: eq(schema.invoices.id, id)
+    });
+    return result;
+  }
+
+  async getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined> {
+    const result = await db.query.invoices.findFirst({
+      where: eq(schema.invoices.invoiceNumber, invoiceNumber)
+    });
+    return result;
+  }
+
+  async createInvoice(invoice: InsertInvoice): Promise<Invoice> {
+    const result = await db.insert(schema.invoices).values({
+      ...invoice,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateInvoice(id: number, invoiceData: Partial<Invoice>): Promise<Invoice | undefined> {
+    const result = await db.update(schema.invoices)
+      .set(invoiceData)
+      .where(eq(schema.invoices.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInvoice(id: number): Promise<boolean> {
+    const result = await db.delete(schema.invoices)
+      .where(eq(schema.invoices.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllInvoices(): Promise<Invoice[]> {
+    return await db.query.invoices.findMany();
+  }
+
+  async getInvoicesByProject(projectId: number): Promise<Invoice[]> {
+    return await db.query.invoices.findMany({
+      where: eq(schema.invoices.projectId, projectId)
+    });
+  }
+
+  async getInvoicesByCustomer(customerId: number): Promise<Invoice[]> {
+    return await db.query.invoices.findMany({
+      where: eq(schema.invoices.customerId, customerId)
+    });
+  }
+
+  async getInvoicesByStatus(status: string): Promise<Invoice[]> {
+    return await db.query.invoices.findMany({
+      where: eq(schema.invoices.status, status)
+    });
+  }
+
+  // Invoice Items methods
+  async getInvoiceItem(id: number): Promise<InvoiceItem | undefined> {
+    const result = await db.query.invoiceItems.findFirst({
+      where: eq(schema.invoiceItems.id, id)
+    });
+    return result;
+  }
+
+  async createInvoiceItem(invoiceItem: InsertInvoiceItem): Promise<InvoiceItem> {
+    const result = await db.insert(schema.invoiceItems).values(invoiceItem).returning();
+    return result[0];
+  }
+
+  async updateInvoiceItem(id: number, invoiceItemData: Partial<InvoiceItem>): Promise<InvoiceItem | undefined> {
+    const result = await db.update(schema.invoiceItems)
+      .set(invoiceItemData)
+      .where(eq(schema.invoiceItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInvoiceItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.invoiceItems)
+      .where(eq(schema.invoiceItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getInvoiceItemsByInvoice(invoiceId: number): Promise<InvoiceItem[]> {
+    return await db.query.invoiceItems.findMany({
+      where: eq(schema.invoiceItems.invoiceId, invoiceId)
+    });
+  }
+
+  // Employee methods
+  async getEmployee(id: number): Promise<Employee | undefined> {
+    const result = await db.query.employees.findFirst({
+      where: eq(schema.employees.id, id)
+    });
+    return result;
+  }
+
+  async getEmployeeByUserId(userId: number): Promise<Employee | undefined> {
+    const result = await db.query.employees.findFirst({
+      where: eq(schema.employees.userId, userId)
+    });
+    return result;
+  }
+
+  async createEmployee(employee: InsertEmployee): Promise<Employee> {
+    const result = await db.insert(schema.employees).values({
+      ...employee,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateEmployee(id: number, employeeData: Partial<Employee>): Promise<Employee | undefined> {
+    const result = await db.update(schema.employees)
+      .set(employeeData)
+      .where(eq(schema.employees.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteEmployee(id: number): Promise<boolean> {
+    const result = await db.delete(schema.employees)
+      .where(eq(schema.employees.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllEmployees(): Promise<Employee[]> {
+    return await db.query.employees.findMany();
+  }
+
+  // Timesheet methods
+  async getTimesheet(id: number): Promise<Timesheet | undefined> {
+    const result = await db.query.timesheets.findFirst({
+      where: eq(schema.timesheets.id, id)
+    });
+    return result;
+  }
+
+  async createTimesheet(timesheet: InsertTimesheet): Promise<Timesheet> {
+    const result = await db.insert(schema.timesheets).values({
+      ...timesheet,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateTimesheet(id: number, timesheetData: Partial<Timesheet>): Promise<Timesheet | undefined> {
+    const result = await db.update(schema.timesheets)
+      .set(timesheetData)
+      .where(eq(schema.timesheets.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTimesheet(id: number): Promise<boolean> {
+    const result = await db.delete(schema.timesheets)
+      .where(eq(schema.timesheets.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllTimesheets(): Promise<Timesheet[]> {
+    return await db.query.timesheets.findMany();
+  }
+
+  async getTimesheetsByEmployee(employeeId: number): Promise<Timesheet[]> {
+    return await db.query.timesheets.findMany({
+      where: eq(schema.timesheets.employeeId, employeeId)
+    });
+  }
+
+  async getTimesheetsByProject(projectId: number): Promise<Timesheet[]> {
+    return await db.query.timesheets.findMany({
+      where: eq(schema.timesheets.projectId, projectId)
+    });
+  }
+
+  async getTimesheetsByDateRange(startDate: Date, endDate: Date): Promise<Timesheet[]> {
+    return await db.query.timesheets.findMany({
+      where: and(
+        between(schema.timesheets.date, startDate, endDate)
+      )
+    });
+  }
+
+  // Survey methods
+  async getSurvey(id: number): Promise<Survey | undefined> {
+    const result = await db.query.surveys.findFirst({
+      where: eq(schema.surveys.id, id)
+    });
+    return result;
+  }
+
+  async createSurvey(survey: InsertSurvey): Promise<Survey> {
+    const result = await db.insert(schema.surveys).values({
+      ...survey,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateSurvey(id: number, surveyData: Partial<Survey>): Promise<Survey | undefined> {
+    const result = await db.update(schema.surveys)
+      .set(surveyData)
+      .where(eq(schema.surveys.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSurvey(id: number): Promise<boolean> {
+    const result = await db.delete(schema.surveys)
+      .where(eq(schema.surveys.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllSurveys(): Promise<Survey[]> {
+    return await db.query.surveys.findMany();
+  }
+
+  async getSurveysByProject(projectId: number): Promise<Survey[]> {
+    return await db.query.surveys.findMany({
+      where: eq(schema.surveys.projectId, projectId)
+    });
+  }
+
+  async getSurveysByStatus(status: string): Promise<Survey[]> {
+    return await db.query.surveys.findMany({
+      where: eq(schema.surveys.status, status)
+    });
+  }
+
+  async getSurveysByDateRange(startDate: Date, endDate: Date): Promise<Survey[]> {
+    return await db.query.surveys.findMany({
+      where: and(
+        between(schema.surveys.surveyDate, startDate, endDate)
+      )
+    });
+  }
+
+  // Installation methods
+  async getInstallation(id: number): Promise<Installation | undefined> {
+    const result = await db.query.installations.findFirst({
+      where: eq(schema.installations.id, id)
+    });
+    return result;
+  }
+
+  async createInstallation(installation: InsertInstallation): Promise<Installation> {
+    const result = await db.insert(schema.installations).values({
+      ...installation,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateInstallation(id: number, installationData: Partial<Installation>): Promise<Installation | undefined> {
+    const result = await db.update(schema.installations)
+      .set(installationData)
+      .where(eq(schema.installations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInstallation(id: number): Promise<boolean> {
+    const result = await db.delete(schema.installations)
+      .where(eq(schema.installations.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllInstallations(): Promise<Installation[]> {
+    return await db.query.installations.findMany();
+  }
+
+  async getInstallationsByProject(projectId: number): Promise<Installation[]> {
+    return await db.query.installations.findMany({
+      where: eq(schema.installations.projectId, projectId)
+    });
+  }
+
+  async getInstallationsByStatus(status: string): Promise<Installation[]> {
+    return await db.query.installations.findMany({
+      where: eq(schema.installations.status, status)
+    });
+  }
+
+  async getInstallationsByDateRange(startDate: Date, endDate: Date): Promise<Installation[]> {
+    return await db.query.installations.findMany({
+      where: and(
+        between(schema.installations.installationDate, startDate, endDate)
+      )
+    });
+  }
+
+  // Task List methods
+  async getTaskList(id: number): Promise<TaskList | undefined> {
+    const result = await db.query.taskLists.findFirst({
+      where: eq(schema.taskLists.id, id)
+    });
+    return result;
+  }
+
+  async createTaskList(taskList: InsertTaskList): Promise<TaskList> {
+    const result = await db.insert(schema.taskLists).values({
+      ...taskList,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateTaskList(id: number, taskListData: Partial<TaskList>): Promise<TaskList | undefined> {
+    const result = await db.update(schema.taskLists)
+      .set(taskListData)
+      .where(eq(schema.taskLists.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTaskList(id: number): Promise<boolean> {
+    const result = await db.delete(schema.taskLists)
+      .where(eq(schema.taskLists.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllTaskLists(): Promise<TaskList[]> {
+    return await db.query.taskLists.findMany();
+  }
+
+  async getTaskListsByProject(projectId: number): Promise<TaskList[]> {
+    return await db.query.taskLists.findMany({
+      where: eq(schema.taskLists.projectId, projectId)
+    });
+  }
+
+  // Task methods
+  async getTask(id: number): Promise<Task | undefined> {
+    const result = await db.query.tasks.findFirst({
+      where: eq(schema.tasks.id, id)
+    });
+    return result;
+  }
+
+  async createTask(task: InsertTask): Promise<Task> {
+    const result = await db.insert(schema.tasks).values({
+      ...task,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateTask(id: number, taskData: Partial<Task>): Promise<Task | undefined> {
+    const result = await db.update(schema.tasks)
+      .set(taskData)
+      .where(eq(schema.tasks.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTask(id: number): Promise<boolean> {
+    const result = await db.delete(schema.tasks)
+      .where(eq(schema.tasks.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getTasksByTaskList(taskListId: number): Promise<Task[]> {
+    return await db.query.tasks.findMany({
+      where: eq(schema.tasks.taskListId, taskListId)
+    });
+  }
+
+  async getTasksByAssignee(userId: number): Promise<Task[]> {
+    return await db.query.tasks.findMany({
+      where: eq(schema.tasks.assignedTo, userId)
+    });
+  }
+
+  // Catalog Item methods
+  async getCatalogItem(id: number): Promise<CatalogItem | undefined> {
+    const result = await db.query.catalogItems.findFirst({
+      where: eq(schema.catalogItems.id, id)
+    });
+    return result;
+  }
+
+  async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    const result = await db.insert(schema.catalogItems).values({
+      ...item,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>): Promise<CatalogItem | undefined> {
+    const result = await db.update(schema.catalogItems)
+      .set(itemData)
+      .where(eq(schema.catalogItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteCatalogItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.catalogItems)
+      .where(eq(schema.catalogItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllCatalogItems(): Promise<CatalogItem[]> {
+    return await db.query.catalogItems.findMany();
+  }
+
+  async getCatalogItemsByCategory(category: string): Promise<CatalogItem[]> {
+    return await db.query.catalogItems.findMany({
+      where: eq(schema.catalogItems.category, category)
+    });
+  }
+
+  async getCatalogItemsByUser(userId: number): Promise<CatalogItem[]> {
+    return await db.query.catalogItems.findMany({
+      where: eq(schema.catalogItems.createdBy, userId)
+    });
+  }
+
+  // Company Settings methods
+  async getCompanySettings(): Promise<CompanySettings | undefined> {
+    const result = await db.query.companySettings.findFirst();
+    return result;
+  }
+
+  async createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings> {
+    const result = await db.insert(schema.companySettings).values({
+      ...settings,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateCompanySettings(id: number, settingsData: Partial<CompanySettings>): Promise<CompanySettings | undefined> {
+    const result = await db.update(schema.companySettings)
+      .set(settingsData)
+      .where(eq(schema.companySettings.id, id))
+      .returning();
+    return result[0];
+  }
+
+  // Supplier methods
+  async getSupplier(id: number): Promise<Supplier | undefined> {
+    const result = await db.query.suppliers.findFirst({
+      where: eq(schema.suppliers.id, id)
+    });
+    return result;
+  }
+
+  async getSupplierByName(name: string): Promise<Supplier | undefined> {
+    const result = await db.query.suppliers.findFirst({
+      where: eq(schema.suppliers.name, name)
+    });
+    return result;
+  }
+
+  async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
+    const result = await db.insert(schema.suppliers).values({
+      ...supplier,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateSupplier(id: number, supplierData: Partial<Supplier>): Promise<Supplier | undefined> {
+    const result = await db.update(schema.suppliers)
+      .set(supplierData)
+      .where(eq(schema.suppliers.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteSupplier(id: number): Promise<boolean> {
+    const result = await db.delete(schema.suppliers)
+      .where(eq(schema.suppliers.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllSuppliers(): Promise<Supplier[]> {
+    return await db.query.suppliers.findMany();
+  }
+
+  async getSuppliersByCategory(category: string): Promise<Supplier[]> {
+    return await db.query.suppliers.findMany({
+      where: eq(schema.suppliers.category, category)
+    });
+  }
+
+  // Expense methods
+  async getExpense(id: number): Promise<Expense | undefined> {
+    const result = await db.query.expenses.findFirst({
+      where: eq(schema.expenses.id, id)
+    });
+    return result;
+  }
+
+  async createExpense(expense: InsertExpense): Promise<Expense> {
+    const result = await db.insert(schema.expenses).values({
+      ...expense,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateExpense(id: number, expenseData: Partial<Expense>): Promise<Expense | undefined> {
+    const result = await db.update(schema.expenses)
+      .set(expenseData)
+      .where(eq(schema.expenses.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteExpense(id: number): Promise<boolean> {
+    const result = await db.delete(schema.expenses)
+      .where(eq(schema.expenses.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllExpenses(): Promise<Expense[]> {
+    return await db.query.expenses.findMany();
+  }
+
+  async getExpensesByProject(projectId: number): Promise<Expense[]> {
+    return await db.query.expenses.findMany({
+      where: eq(schema.expenses.projectId, projectId)
+    });
+  }
+
+  async getExpensesBySupplier(supplierId: number): Promise<Expense[]> {
+    return await db.query.expenses.findMany({
+      where: eq(schema.expenses.supplierId, supplierId)
+    });
+  }
+
+  async getExpensesByCategory(category: string): Promise<Expense[]> {
+    return await db.query.expenses.findMany({
+      where: eq(schema.expenses.category, category)
+    });
+  }
+
+  async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]> {
+    return await db.query.expenses.findMany({
+      where: and(
+        between(schema.expenses.date, startDate, endDate)
+      )
+    });
+  }
+
+  // Purchase Order methods
+  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+    const result = await db.query.purchaseOrders.findFirst({
+      where: eq(schema.purchaseOrders.id, id)
+    });
+    return result;
+  }
+
+  async getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined> {
+    const result = await db.query.purchaseOrders.findFirst({
+      where: eq(schema.purchaseOrders.poNumber, poNumber)
+    });
+    return result;
+  }
+
+  async createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    const result = await db.insert(schema.purchaseOrders).values({
+      ...po,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updatePurchaseOrder(id: number, poData: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined> {
+    const result = await db.update(schema.purchaseOrders)
+      .set(poData)
+      .where(eq(schema.purchaseOrders.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deletePurchaseOrder(id: number): Promise<boolean> {
+    const result = await db.delete(schema.purchaseOrders)
+      .where(eq(schema.purchaseOrders.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
+    return await db.query.purchaseOrders.findMany();
+  }
+
+  async getPurchaseOrdersByProject(projectId: number): Promise<PurchaseOrder[]> {
+    return await db.query.purchaseOrders.findMany({
+      where: eq(schema.purchaseOrders.projectId, projectId)
+    });
+  }
+
+  async getPurchaseOrdersBySupplier(supplierId: number): Promise<PurchaseOrder[]> {
+    return await db.query.purchaseOrders.findMany({
+      where: eq(schema.purchaseOrders.supplierId, supplierId)
+    });
+  }
+
+  async getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]> {
+    return await db.query.purchaseOrders.findMany({
+      where: eq(schema.purchaseOrders.status, status)
+    });
+  }
+
+  // Purchase Order Item methods
+  async getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined> {
+    const result = await db.query.purchaseOrderItems.findFirst({
+      where: eq(schema.purchaseOrderItems.id, id)
+    });
+    return result;
+  }
+
+  async createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem> {
+    const result = await db.insert(schema.purchaseOrderItems).values(item).returning();
+    return result[0];
+  }
+
+  async updatePurchaseOrderItem(id: number, itemData: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined> {
+    const result = await db.update(schema.purchaseOrderItems)
+      .set(itemData)
+      .where(eq(schema.purchaseOrderItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deletePurchaseOrderItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.purchaseOrderItems)
+      .where(eq(schema.purchaseOrderItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
+    return await db.query.purchaseOrderItems.findMany({
+      where: eq(schema.purchaseOrderItems.purchaseOrderId, purchaseOrderId)
+    });
+  }
+
+  // Inventory Item methods
+  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+    const result = await db.query.inventoryItems.findFirst({
+      where: eq(schema.inventoryItems.id, id)
+    });
+    return result;
+  }
+
+  async getInventoryItemBySku(sku: string): Promise<InventoryItem | undefined> {
+    const result = await db.query.inventoryItems.findFirst({
+      where: eq(schema.inventoryItems.sku, sku)
+    });
+    return result;
+  }
+
+  async createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem> {
+    const result = await db.insert(schema.inventoryItems).values({
+      ...item,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateInventoryItem(id: number, itemData: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+    const result = await db.update(schema.inventoryItems)
+      .set(itemData)
+      .where(eq(schema.inventoryItems.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInventoryItem(id: number): Promise<boolean> {
+    const result = await db.delete(schema.inventoryItems)
+      .where(eq(schema.inventoryItems.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllInventoryItems(): Promise<InventoryItem[]> {
+    return await db.query.inventoryItems.findMany();
+  }
+
+  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+    return await db.query.inventoryItems.findMany({
+      where: eq(schema.inventoryItems.category, category)
+    });
+  }
+
+  async getInventoryItemsBySupplier(supplierId: number): Promise<InventoryItem[]> {
+    return await db.query.inventoryItems.findMany({
+      where: eq(schema.inventoryItems.preferredSupplierId, supplierId)
+    });
+  }
+
+  async getLowStockItems(): Promise<InventoryItem[]> {
+    return await db.query.inventoryItems.findMany({
+      where: sql`${schema.inventoryItems.currentStock} <= ${schema.inventoryItems.reorderPoint}`
+    });
+  }
+
+  // Inventory Transaction methods
+  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+    const result = await db.query.inventoryTransactions.findFirst({
+      where: eq(schema.inventoryTransactions.id, id)
+    });
+    return result;
+  }
+
+  async createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction> {
+    const result = await db.insert(schema.inventoryTransactions).values({
+      ...transaction,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateInventoryTransaction(id: number, transactionData: Partial<InventoryTransaction>): Promise<InventoryTransaction | undefined> {
+    const result = await db.update(schema.inventoryTransactions)
+      .set(transactionData)
+      .where(eq(schema.inventoryTransactions.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteInventoryTransaction(id: number): Promise<boolean> {
+    const result = await db.delete(schema.inventoryTransactions)
+      .where(eq(schema.inventoryTransactions.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]> {
+    return await db.query.inventoryTransactions.findMany({
+      where: eq(schema.inventoryTransactions.inventoryItemId, inventoryItemId)
+    });
+  }
+
+  async getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]> {
+    return await db.query.inventoryTransactions.findMany({
+      where: eq(schema.inventoryTransactions.projectId, projectId)
+    });
+  }
+
+  async getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]> {
+    return await db.query.inventoryTransactions.findMany({
+      where: eq(schema.inventoryTransactions.purchaseOrderId, purchaseOrderId)
+    });
+  }
+
+  async getInventoryTransactionsByType(type: string): Promise<InventoryTransaction[]> {
+    return await db.query.inventoryTransactions.findMany({
+      where: eq(schema.inventoryTransactions.transactionType, type)
+    });
+  }
+
+  async getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]> {
+    return await db.query.inventoryTransactions.findMany({
+      where: and(
+        between(schema.inventoryTransactions.createdAt, startDate, endDate)
+      )
+    });
+  }
+}
+
+// Export the storage instance - change from MemStorage to DatabaseStorage
+export const storage = new DatabaseStorage();
