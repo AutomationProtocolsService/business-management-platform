@@ -444,7 +444,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <FormLabel>Supplier *</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(parseInt(value))} 
-                          defaultValue={field.value?.toString()}
+                          value={field.value?.toString() || ""}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -525,7 +525,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <FormLabel>Status *</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
-                          defaultValue={field.value}
+                          value={field.value || ""}
                         >
                           <FormControl>
                             <SelectTrigger>
