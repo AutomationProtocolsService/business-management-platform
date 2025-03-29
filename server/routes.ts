@@ -2425,13 +2425,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // New API endpoint that matches useSettings hook - redirects to /api/company-settings
+  // New API endpoints for settings
   app.get("/api/settings", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getCompanySettings();
       res.json(settings || {});
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch company settings" });
+    }
+  });
+  
+  app.get("/api/settings/company", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      res.json(settings || {});
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch company settings" });
+    }
+  });
+  
+  app.get("/api/settings/system", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      res.json(settings || {});
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+  });
+  
+  app.post("/api/settings/system", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.createSystemSettings({
+        ...req.body,
+        updatedBy: req.user?.id
+      });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("settings:updated", {
+          data: settings,
+          message: "System settings updated",
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      res.status(201).json(settings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create system settings" });
     }
   });
   
@@ -2510,6 +2551,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // New API endpoint that matches useSettings hook - redirects to /api/company-settings
+  // Add PATCH endpoint for company settings
+  app.patch("/api/settings/company/:id", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      
+      // If no settings exist yet, create them instead of updating
+      if (!settings) {
+        const newSettings = await storage.createCompanySettings({
+          ...req.body,
+          createdBy: req.user?.id
+        });
+        
+        return res.status(201).json(newSettings);
+      }
+      
+      // Update existing settings
+      const updatedSettings = await storage.updateCompanySettings(settings.id, {
+        ...req.body,
+        updatedBy: req.user?.id
+      });
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update company settings" });
+    }
+  });
+  
+  // Add PATCH endpoint for system settings
+  app.patch("/api/settings/system/:id", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      
+      // If no settings exist yet, create them instead of updating
+      if (!settings) {
+        const newSettings = await storage.createSystemSettings({
+          ...req.body,
+          createdBy: req.user?.id
+        });
+        
+        return res.status(201).json(newSettings);
+      }
+      
+      // Update existing settings
+      const updatedSettings = await storage.updateSystemSettings(settings.id, {
+        ...req.body,
+        updatedBy: req.user?.id
+      });
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update system settings" });
+    }
+  });
+  
+  // Original legacy endpoint - keep for backward compatibility
   app.patch("/api/settings/:id", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getCompanySettings();
