@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   FileText, 
   Clipboard, 
@@ -8,7 +8,8 @@ import {
   DollarSign, 
   Search, 
   Plus,
-  ArrowRight
+  ArrowRight,
+  User
 } from "lucide-react";
 import { useTerminology, getPlural } from "@/hooks/use-terminology";
 import BusinessWorkflow from "@/components/dashboard/business-workflow";
@@ -26,13 +27,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date-utils";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 export default function DashboardPage() {
   // Get custom terminology
   const terminology = useTerminology();
+  const [location, navigate] = useLocation();
   
   // Active tab for main dashboard content
   const [activeTab, setActiveTab] = useState("overview");
+  
+  // Search state
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Fetch project data
   const { data: projects = [], isLoading: projectsLoading } = useQuery<any[]>({
@@ -110,6 +130,31 @@ export default function DashboardPage() {
         return 'bg-gray-100 text-gray-800';
     }
   };
+  
+  // Handle client selection from search
+  const handleClientSelect = (customerId: number) => {
+    // Find the selected client
+    const customer = customers.find(c => c.id === customerId);
+    if (!customer) return;
+    
+    // Navigate to customer details page
+    navigate(`/customers/${customerId}`);
+    setIsSearchOpen(false);
+  };
+  
+  // Handle keyboard shortcuts for search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Open search with Ctrl+K or Cmd+K
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsSearchOpen(true);
+      }
+    };
+    
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   return (
     <div className="h-full px-1">
@@ -119,14 +164,55 @@ export default function DashboardPage() {
           <p className="text-gray-500 mt-1">Welcome back! Here's your business at a glance.</p>
         </div>
         <div className="mt-4 md:mt-0 flex space-x-3">
-          <div className="relative">
-            <Input 
-              type="text" 
-              placeholder="Search..." 
-              className="pl-10 pr-4 py-2"
-            />
-            <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
-          </div>
+          <Popover open={isSearchOpen} onOpenChange={setIsSearchOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[250px] justify-between pl-3 pr-1.5">
+                <div className="flex items-center">
+                  <Search className="h-4 w-4 mr-2 text-gray-500" />
+                  <span className="text-muted-foreground">Search clients...</span>
+                </div>
+                <div className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs">Ctrl+K</div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[400px] p-0" align="start">
+              <Command>
+                <CommandInput 
+                  placeholder="Search for clients..." 
+                  value={searchQuery}
+                  onValueChange={setSearchQuery}
+                  className="h-9"
+                />
+                <CommandList>
+                  <CommandEmpty>No clients found</CommandEmpty>
+                  <CommandGroup heading="Clients">
+                    {customers
+                      .filter(customer => 
+                        customer.name.toLowerCase().includes(searchQuery.toLowerCase())
+                      )
+                      .slice(0, 10)
+                      .map(customer => (
+                        <CommandItem
+                          key={customer.id}
+                          value={customer.name}
+                          onSelect={() => handleClientSelect(customer.id)}
+                          className="flex items-center cursor-pointer"
+                        >
+                          <User className="h-4 w-4 mr-2 text-gray-500" />
+                          <div className="flex flex-col">
+                            <span>{customer.name}</span>
+                            {customer.email && (
+                              <span className="text-xs text-gray-500">{customer.email}</span>
+                            )}
+                          </div>
+                        </CommandItem>
+                      ))
+                    }
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+          
           <Link to="/projects/new">
             <Button className="flex items-center">
               <Plus className="h-4 w-4 mr-2" />
