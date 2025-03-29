@@ -147,10 +147,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
       const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
       form.setValue("subtotal", subtotal);
       
-      // Calculate total with tax and discount
-      const tax = watchedTax || 0;
+      // Calculate total with percentage-based tax and discount
+      const taxPercent = watchedTax || 0;
+      const taxAmount = subtotal * (taxPercent / 100);
       const discount = watchedDiscount || 0;
-      const total = subtotal + tax - discount;
+      const total = subtotal + taxAmount - discount;
       form.setValue("total", total);
     } finally {
       setRecalculating(false);
@@ -510,13 +511,15 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
+                              type="text" 
+                              inputMode="decimal"
                               placeholder="Qty"
                               {...field}
                               onChange={(e) => {
-                                field.onChange(parseFloat(e.target.value) || 0);
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value and update the field
+                                field.onChange(parseFloat(value) || 0);
                               }} 
                             />
                           </FormControl>
@@ -533,13 +536,15 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
+                              type="text" 
+                              inputMode="decimal"
                               placeholder="Price"
                               {...field}
                               onChange={(e) => {
-                                field.onChange(parseFloat(e.target.value) || 0);
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value and update the field
+                                field.onChange(parseFloat(value) || 0);
                               }} 
                             />
                           </FormControl>
@@ -600,24 +605,26 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <span className="font-medium">Tax:</span>
+                  <span className="font-medium">Tax Rate (%):</span>
                   <FormField
                     control={form.control}
                     name="tax"
                     render={({ field }) => (
-                      <FormItem className="m-0 w-24">
+                      <FormItem className="m-0 w-24 relative">
                         <FormControl>
                           <Input 
                             type="number" 
                             min="0" 
-                            step="0.01" 
-                            placeholder="0.00"
+                            max="100"
+                            step="0.1" 
+                            placeholder="0.0"
                             {...field}
                             onChange={(e) => {
                               field.onChange(parseFloat(e.target.value) || 0);
                             }} 
                           />
                         </FormControl>
+                        <div className="absolute right-3 top-2.5">%</div>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -633,13 +640,15 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                       <FormItem className="m-0 w-24">
                         <FormControl>
                           <Input 
-                            type="number" 
-                            min="0" 
-                            step="0.01" 
+                            type="text" 
+                            inputMode="decimal"
                             placeholder="0.00"
                             {...field}
                             onChange={(e) => {
-                              field.onChange(parseFloat(e.target.value) || 0);
+                              // Remove any non-numeric characters except decimal point
+                              const value = e.target.value.replace(/[^\d.]/g, '');
+                              // Parse the value and update the field
+                              field.onChange(parseFloat(value) || 0);
                             }} 
                           />
                         </FormControl>
