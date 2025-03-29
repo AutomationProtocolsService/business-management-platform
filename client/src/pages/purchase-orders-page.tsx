@@ -142,27 +142,43 @@ export default function PurchaseOrdersPage() {
           </p>
         </div>
         <Button 
-          className="flex items-center gap-1"
+          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white"
           onClick={() => setIsDialogOpen(true)}
         >
-          <PlusCircle className="h-4 w-4" /> New Purchase Order
+          <ShoppingCart className="h-4 w-4" /> New Purchase Order
         </Button>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="max-w-4xl">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-xl font-bold flex items-center">
+                <ShoppingCart className="h-5 w-5 mr-2 text-primary" />
                 {selectedPO ? "Edit Purchase Order" : "Create New Purchase Order"}
               </DialogTitle>
               <DialogDescription>
                 {selectedPO 
-                  ? "Make changes to the existing purchase order" 
-                  : "Fill in the details for the new purchase order"}
+                  ? "Make changes to the existing purchase order. All fields marked with an asterisk (*) are required." 
+                  : "Fill in the details for the new purchase order. All fields marked with an asterisk (*) are required."}
               </DialogDescription>
             </DialogHeader>
             <PurchaseOrderForm 
               purchaseOrder={selectedPO} 
-              onSuccess={() => setIsDialogOpen(false)}
+              onSuccess={() => {
+                setIsDialogOpen(false);
+                toast({
+                  title: selectedPO ? "Purchase order updated" : "Purchase order created",
+                  description: selectedPO 
+                    ? "Your purchase order has been updated successfully." 
+                    : "Your purchase order has been created successfully.",
+                });
+              }}
+              defaultValues={!selectedPO ? {
+                issueDate: new Date().toISOString().split('T')[0],
+                status: 'Draft',
+                items: [],
+                tax: 0,
+                discount: 0
+              } : undefined}
             />
           </DialogContent>
         </Dialog>

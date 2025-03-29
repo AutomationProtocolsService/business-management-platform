@@ -243,7 +243,7 @@ export default function InvoicesPage() {
             </SelectContent>
           </Select>
           <Button 
-            className="flex items-center"
+            className="flex items-center bg-primary hover:bg-primary/90"
             onClick={() => setIsCreateDialogOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -253,12 +253,23 @@ export default function InvoicesPage() {
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Invoice</DialogTitle>
+                <DialogTitle className="text-xl font-bold flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-primary" />
+                  Create New Invoice
+                </DialogTitle>
                 <DialogDescription>
-                  Fill in the details to create a new invoice.
+                  Fill in the details to create a new invoice. All fields marked with an asterisk (*) are required.
                 </DialogDescription>
               </DialogHeader>
-              <InvoiceForm onSuccess={handleInvoiceCreated} />
+              <InvoiceForm 
+                onSuccess={handleInvoiceCreated} 
+                defaultValues={{
+                  issueDate: new Date().toISOString().split('T')[0],
+                  dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  status: 'draft',
+                  items: []
+                }}
+              />
             </DialogContent>
           </Dialog>
         </div>
