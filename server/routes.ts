@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { z } from "zod";
 import { generatePdf } from "./services/pdf-service";
-import { sendEmail } from "./services/email-service";
+import { sendEmail, sendDocumentEmail } from "./services/email-service";
 import { setupWebSocketServer, WebSocketEvent, getWebSocketManager } from "./websocket";
 import { cloudStorage } from "./services/storage-service";
 import multer from "multer";
@@ -1538,6 +1538,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test email endpoint
+  app.post("/api/test/email", requireAuth, async (req, res) => {
+    const { to, subject, body } = req.body;
+    
+    if (!to || !subject || !body) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Missing required fields: to, subject, body' 
+      });
+    }
+
+    try {
+      const result = await sendEmail({
+        to,
+        subject,
+        text: body
+      });
+
+      return res.json({
+        success: result.success,
+        message: result.message,
+        previewUrl: result.previewUrl
+      });
+    } catch (error) {
+      console.error('Error sending test email:', error);
+      return res.status(500).json({ 
+        success: false, 
+        message: error instanceof Error ? error.message : 'Failed to send test email' 
+      });
+    }
+  });
+
   // Set up file uploading with multer
   const diskStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -1727,6 +1759,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+
+
   // Database backup route
   app.post('/api/system/backup', requireAuth, async (req, res) => {
     try {
