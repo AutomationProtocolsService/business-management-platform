@@ -9,7 +9,8 @@ import {
   PurchaseOrderItem,
   InsertPurchaseOrderItem,
   Supplier,
-  InventoryItem
+  InventoryItem,
+  FileAttachment
 } from "@shared/schema";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -47,6 +48,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { FileUpload } from "@/components/ui/file-upload";
+import { FileList } from "@/components/ui/file-list";
 import {
   Card,
   CardContent,
@@ -98,6 +101,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   const [lineItems, setLineItems] = useState<(PurchaseOrderItem & { tempId?: string })[]>([]);
   const [editingItem, setEditingItem] = useState<(PurchaseOrderItem & { tempId?: string }) | null>(null);
   const [activeTab, setActiveTab] = useState<string>("details");
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
 
   // Get suppliers for dropdown
   const { data: suppliers = [] } = useQuery<Supplier[]>({
@@ -145,6 +149,23 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
       setLineItems([]);
     }
   }, [purchaseOrder]);
+  
+  // Fetch file attachments for existing purchase order
+  useEffect(() => {
+    const fetchAttachments = async () => {
+      if (purchaseOrder?.id) {
+        try {
+          const res = await apiRequest("GET", `/api/files/purchaseOrders/${purchaseOrder.id}`);
+          const files = await res.json();
+          setAttachments(files);
+        } catch (error) {
+          console.error("Error loading file attachments:", error);
+        }
+      }
+    };
+    
+    fetchAttachments();
+  }, [purchaseOrder?.id]);
 
   // Calculate totals
   const calculateSubtotal = () => {
@@ -372,13 +393,41 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     }
     lineItemForm.setValue("inventoryItemId", inventoryItemId);
   };
+  
+  // File attachment handlers
+  const handleFileUploadSuccess = (newFiles: FileAttachment[]) => {
+    setAttachments(prev => [...prev, ...newFiles]);
+    toast({
+      title: "Files uploaded successfully",
+      description: `${newFiles.length} file(s) have been attached to this purchase order.`,
+    });
+  };
+  
+  const handleFileDelete = async (fileId: number) => {
+    try {
+      await apiRequest("DELETE", `/api/files/${fileId}`);
+      setAttachments(prev => prev.filter(file => file.id !== fileId));
+      toast({
+        title: "File deleted",
+        description: "The file has been removed from this purchase order.",
+      });
+    } catch (error) {
+      console.error("Error deleting file:", error);
+      toast({
+        title: "Error deleting file",
+        description: "There was a problem removing the file. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-6">
       <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="details">Order Details</TabsTrigger>
           <TabsTrigger value="items">Line Items</TabsTrigger>
+          <TabsTrigger value="attachments">Attachments</TabsTrigger>
         </TabsList>
         
         <TabsContent value="details">
@@ -778,6 +827,60 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )}
+                {purchaseOrder ? "Update Purchase Order" : "Create Purchase Order"}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="attachments">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">File Attachments</CardTitle>
+                <CardDescription>
+                  Upload and manage files related to this purchase order
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  <FileUpload
+                    relatedType="purchaseOrders"
+                    relatedId={purchaseOrder?.id}
+                    onUploadSuccess={handleFileUploadSuccess}
+                    maxSize={5}
+                    maxFiles={10}
+                    accept={{
+                      'application/pdf': ['.pdf'],
+                      'image/jpeg': ['.jpg', '.jpeg'],
+                      'image/png': ['.png'],
+                      'application/msword': ['.doc'],
+                      'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx'],
+                      'application/vnd.ms-excel': ['.xls'],
+                      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx']
+                    }}
+                  />
+                  
+                  <FileList 
+                    files={attachments} 
+                    onDelete={handleFileDelete} 
+                  />
+                </div>
+              </CardContent>
+            </Card>
+            
+            <div className="flex justify-end gap-2">
+              <Button 
+                type="button" 
+                variant="outline"
+                onClick={() => setActiveTab("items")}
+              >
+                Back to Line Items
+              </Button>
+              <Button 
+                type="submit"
+                onClick={() => form.handleSubmit(onSubmit)()}
+              >
                 {purchaseOrder ? "Update Purchase Order" : "Create Purchase Order"}
               </Button>
             </div>
