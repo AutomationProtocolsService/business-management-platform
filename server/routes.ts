@@ -2460,14 +2460,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // New API endpoint that matches useSettings hook - redirects to /api/company-settings
   app.patch("/api/settings/:id", requireAuth, async (req, res) => {
     try {
-      const settingsId = Number(req.params.id);
       const settings = await storage.getCompanySettings();
       
-      if (!settings || settings.id !== settingsId) {
-        return res.status(404).json({ message: "Company settings not found" });
+      // If no settings exist yet, create them instead of updating
+      if (!settings) {
+        const newSettings = await storage.createCompanySettings({
+          ...req.body,
+          createdBy: req.user?.id
+        });
+        
+        // Send real-time update to all connected clients
+        const wsManager = getWebSocketManager();
+        if (wsManager && newSettings) {
+          wsManager.broadcast("settings:updated", {
+            data: newSettings,
+            message: "Company settings created",
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+        return res.status(201).json(newSettings);
       }
       
-      const updatedSettings = await storage.updateCompanySettings(settingsId, {
+      // Update existing settings regardless of the ID in the URL
+      // This handles the singleton pattern correctly
+      const updatedSettings = await storage.updateCompanySettings(settings.id, {
         ...req.body,
         updatedBy: req.user?.id
       });
