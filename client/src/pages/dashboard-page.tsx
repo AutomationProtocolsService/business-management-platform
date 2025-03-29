@@ -10,6 +10,7 @@ import {
   Plus,
   ArrowRight
 } from "lucide-react";
+import { useTerminology, getPlural } from "@/hooks/use-terminology";
 import BusinessWorkflow from "@/components/dashboard/business-workflow";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -27,6 +28,9 @@ import { Badge } from "@/components/ui/badge";
 import { formatDate } from "@/lib/date-utils";
 
 export default function DashboardPage() {
+  // Get custom terminology
+  const terminology = useTerminology();
+  
   // Active tab for main dashboard content
   const [activeTab, setActiveTab] = useState("overview");
 
@@ -137,14 +141,14 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Active Projects</CardTitle>
+              <CardTitle className="text-sm font-medium">Active {terminology.project}s</CardTitle>
               <FolderClosed className="h-4 w-4 text-blue-500" />
             </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.activeProjects}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              {metrics.totalProjects} total projects
+              {metrics.totalProjects} total {getPlural(terminology.project).toLowerCase()}
             </p>
           </CardContent>
         </Card>
@@ -152,7 +156,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Pending Quotes</CardTitle>
+              <CardTitle className="text-sm font-medium">Pending {getPlural(terminology.quote)}</CardTitle>
               <FileText className="h-4 w-4 text-indigo-500" />
             </div>
           </CardHeader>
@@ -170,7 +174,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Unpaid Invoices</CardTitle>
+              <CardTitle className="text-sm font-medium">Unpaid {getPlural(terminology.invoice)}</CardTitle>
               <DollarSign className="h-4 w-4 text-yellow-500" />
             </div>
           </CardHeader>
@@ -185,7 +189,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Customers</CardTitle>
+              <CardTitle className="text-sm font-medium">{getPlural(terminology.customer)}</CardTitle>
               <Clipboard className="h-4 w-4 text-green-500" />
             </div>
           </CardHeader>
@@ -202,9 +206,9 @@ export default function DashboardPage() {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mb-6">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="quotes">Quotes</TabsTrigger>
+          <TabsTrigger value="projects">{getPlural(terminology.project)}</TabsTrigger>
+          <TabsTrigger value="invoices">{getPlural(terminology.invoice)}</TabsTrigger>
+          <TabsTrigger value="quotes">{getPlural(terminology.quote)}</TabsTrigger>
         </TabsList>
         
         {/* Overview Tab */}
@@ -216,8 +220,8 @@ export default function DashboardPage() {
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                  <CardTitle>Recent Projects</CardTitle>
-                  <CardDescription>Your latest 5 projects</CardDescription>
+                  <CardTitle>Recent {getPlural(terminology.project)}</CardTitle>
+                  <CardDescription>Your latest 5 {getPlural(terminology.project).toLowerCase()}</CardDescription>
                 </CardHeader>
                 <CardContent>
                   <Table>
@@ -272,7 +276,7 @@ export default function DashboardPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div>
-                    <h4 className="text-sm font-medium mb-1">Invoices This Month</h4>
+                    <h4 className="text-sm font-medium mb-1">{getPlural(terminology.invoice)} This Month</h4>
                     <div className="flex items-center justify-between">
                       <span>
                         ${invoices
@@ -291,7 +295,7 @@ export default function DashboardPage() {
                           const date = new Date(inv.issueDate);
                           const now = new Date();
                           return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-                        }).length} invoices
+                        }).length} {getPlural(terminology.invoice).toLowerCase()}
                       </Badge>
                     </div>
                   </div>
@@ -303,13 +307,13 @@ export default function DashboardPage() {
                         ${metrics.totalUnpaidAmount.toLocaleString()}
                       </span>
                       <Badge className="bg-yellow-100 text-yellow-800">
-                        {metrics.unpaidInvoices} invoices
+                        {metrics.unpaidInvoices} {getPlural(terminology.invoice).toLowerCase()}
                       </Badge>
                     </div>
                   </div>
                   
                   <div>
-                    <h4 className="text-sm font-medium mb-1">Quotes Pending</h4>
+                    <h4 className="text-sm font-medium mb-1">{getPlural(terminology.quote)} Pending</h4>
                     <div className="flex items-center justify-between">
                       <span>
                         ${quotes
@@ -318,7 +322,7 @@ export default function DashboardPage() {
                           .toLocaleString()}
                       </span>
                       <Badge className="bg-blue-100 text-blue-800">
-                        {metrics.pendingQuotes} quotes
+                        {metrics.pendingQuotes} {getPlural(terminology.quote).toLowerCase()}
                       </Badge>
                     </div>
                   </div>
@@ -332,7 +336,7 @@ export default function DashboardPage() {
                             <DollarSign className="h-3 w-3" />
                           </div>
                           <div className="flex-1 text-sm">
-                            <p>Invoice #{invoice.invoiceNumber} {invoice.status}</p>
+                            <p>{terminology.invoice} #{invoice.invoiceNumber} {invoice.status}</p>
                             <p className="text-xs text-gray-500">
                               {formatDate(invoice.issueDate)} - ${invoice.total?.toLocaleString()}
                             </p>
@@ -341,7 +345,7 @@ export default function DashboardPage() {
                       ))}
                       {invoices.length === 0 && (
                         <div className="text-center py-2 text-gray-500 text-sm">
-                          No recent invoices
+                          No recent {getPlural(terminology.invoice).toLowerCase()}
                         </div>
                       )}
                     </div>
@@ -362,8 +366,8 @@ export default function DashboardPage() {
         <TabsContent value="projects">
           <Card>
             <CardHeader>
-              <CardTitle>All Projects</CardTitle>
-              <CardDescription>Complete list of your projects</CardDescription>
+              <CardTitle>All {getPlural(terminology.project)}</CardTitle>
+              <CardDescription>Complete list of your {getPlural(terminology.project).toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
@@ -402,7 +406,7 @@ export default function DashboardPage() {
                   {projects.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                        No projects found
+                        No {getPlural(terminology.project).toLowerCase()} found
                       </TableCell>
                     </TableRow>
                   )}
@@ -416,14 +420,14 @@ export default function DashboardPage() {
         <TabsContent value="invoices">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Invoices</CardTitle>
-              <CardDescription>Track your recent invoices</CardDescription>
+              <CardTitle>Recent {getPlural(terminology.invoice)}</CardTitle>
+              <CardDescription>Track your recent {getPlural(terminology.invoice).toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Invoice #</TableHead>
+                    <TableHead>{terminology.invoice} #</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Due Date</TableHead>
@@ -456,7 +460,7 @@ export default function DashboardPage() {
                   {invoices.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                        No invoices found
+                        No {getPlural(terminology.invoice).toLowerCase()} found
                       </TableCell>
                     </TableRow>
                   )}
@@ -470,14 +474,14 @@ export default function DashboardPage() {
         <TabsContent value="quotes">
           <Card>
             <CardHeader>
-              <CardTitle>Recent Quotes</CardTitle>
-              <CardDescription>Track your recent quotes</CardDescription>
+              <CardTitle>Recent {getPlural(terminology.quote)}</CardTitle>
+              <CardDescription>Track your recent {getPlural(terminology.quote).toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Quote #</TableHead>
+                    <TableHead>{terminology.quote} #</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Expiry Date</TableHead>
@@ -510,7 +514,7 @@ export default function DashboardPage() {
                   {quotes.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                        No quotes found
+                        No {getPlural(terminology.quote).toLowerCase()} found
                       </TableCell>
                     </TableRow>
                   )}
