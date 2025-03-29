@@ -72,9 +72,10 @@ interface InvoiceFormProps {
   defaultValues?: Partial<InvoiceFormValues>;
   invoiceId?: number; // Only for editing existing invoice
   onSuccess?: (data: Invoice) => void;
+  onCancel?: () => void;
 }
 
-export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: InvoiceFormProps) {
+export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCancel }: InvoiceFormProps) {
   const { toast } = useToast();
   const [recalculating, setRecalculating] = useState(false);
   const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
@@ -829,7 +830,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline">
+          <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
           <Button type="submit" disabled={isSubmitting}>
