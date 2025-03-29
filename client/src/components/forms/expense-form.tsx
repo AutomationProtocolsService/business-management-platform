@@ -422,7 +422,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <FormControl>
                     <Checkbox
                       checked={field.value}
-                      onCheckedChange={field.onChange}
+                      onChange={(e) => field.onChange(e.target.checked)}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
