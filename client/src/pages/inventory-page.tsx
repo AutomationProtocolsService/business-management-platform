@@ -97,8 +97,8 @@ export default function InventoryPage() {
     
     const matchesTab = 
       activeTab === "all" || 
-      (activeTab === "low-stock" && item.currentStock <= item.reorderPoint) ||
-      (activeTab === "in-stock" && item.currentStock > item.reorderPoint);
+      (activeTab === "low-stock" && (item.currentStock || 0) <= (item.reorderPoint || 0)) ||
+      (activeTab === "in-stock" && (item.currentStock || 0) > (item.reorderPoint || 0));
     
     return matchesSearch && matchesCategory && matchesTab;
   });
@@ -119,17 +119,22 @@ export default function InventoryPage() {
   };
 
   // Calculate stock level percentage
-  const calculateStockLevel = (current: number, max: number) => {
-    if (max <= 0) return 0;
-    const percentage = (current / max) * 100;
+  const calculateStockLevel = (current: number | null, target: number | null) => {
+    const currentValue = current || 0;
+    const targetValue = target || 0;
+    if (targetValue <= 0) return 0;
+    const percentage = (currentValue / targetValue) * 100;
     return Math.min(percentage, 100); // Cap at 100%
   };
 
   // Get stock level color
   const getStockLevelColor = (item: InventoryItem) => {
-    if (item.currentStock <= item.reorderPoint) {
+    const currentStock = item.currentStock || 0;
+    const reorderPoint = item.reorderPoint || 0;
+    
+    if (currentStock <= reorderPoint) {
       return "bg-red-500";
-    } else if (item.currentStock <= item.reorderPoint * 1.5) {
+    } else if (currentStock <= reorderPoint * 1.5) {
       return "bg-yellow-500";
     } else {
       return "bg-green-500";
@@ -248,7 +253,7 @@ export default function InventoryPage() {
               <div className="text-2xl font-bold">
                 {formatMoney(
                   inventoryItems.reduce(
-                    (sum, item) => sum + (item.currentStock * (item.costPrice || 0)), 
+                    (sum, item) => sum + ((item.currentStock || 0) * (item.cost || 0)), 
                     0
                   )
                 )}
@@ -361,18 +366,18 @@ export default function InventoryPage() {
                         {item.currentStock <= item.reorderPoint ? (
                           <Badge variant="destructive" className="flex items-center gap-1">
                             <AlertCircle className="h-3 w-3" />
-                            {item.currentStock} / {item.maxStock}
+                            {item.currentStock || 0} / {item.reorderQuantity || 0}
                           </Badge>
                         ) : (
                           <Badge variant="outline" className="bg-gray-50">
-                            {item.currentStock} / {item.maxStock}
+                            {item.currentStock || 0} / {item.reorderQuantity || 0}
                           </Badge>
                         )}
                       </TableCell>
                       <TableCell>
                         <div className="w-full flex flex-col gap-1">
                           <Progress 
-                            value={calculateStockLevel(item.currentStock, item.maxStock)} 
+                            value={calculateStockLevel(item.currentStock, item.reorderQuantity)} 
                             className={getStockLevelColor(item)}
                           />
                           {item.currentStock <= item.reorderPoint && (
@@ -383,10 +388,10 @@ export default function InventoryPage() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        {item.costPrice ? formatMoney(item.costPrice) : "N/A"}
+                        {item.cost ? formatMoney(item.cost) : "N/A"}
                       </TableCell>
                       <TableCell className="font-medium">
-                        {formatMoney(item.currentStock * (item.costPrice || 0))}
+                        {formatMoney((item.currentStock || 0) * (item.cost || 0))}
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-1">
