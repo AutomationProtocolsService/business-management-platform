@@ -38,6 +38,8 @@ import {
   type InsertPurchaseOrder,
   type PurchaseOrderItem,
   type InsertPurchaseOrderItem,
+  type FileAttachment,
+  type InsertFileAttachment,
   type InventoryItem,
   type InsertInventoryItem,
   type InventoryTransaction,
@@ -244,6 +246,12 @@ export interface IStorage {
   getInventoryTransactionsByType(transactionType: string): Promise<InventoryTransaction[]>;
   getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]>;
   
+  // File Attachments
+  getFileAttachment(id: number): Promise<FileAttachment | undefined>;
+  createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment>;
+  deleteFileAttachment(id: number): Promise<boolean>;
+  getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]>;
+  
   // Session store
   sessionStore: any; // Using any to fix Express session store type issue
 }
@@ -271,6 +279,7 @@ export class MemStorage implements IStorage {
   private purchaseOrderItems: Map<number, PurchaseOrderItem>;
   private inventoryItems: Map<number, InventoryItem>;
   private inventoryTransactions: Map<number, InventoryTransaction>;
+  private fileAttachments: Map<number, FileAttachment>;
   
   // Auto-incrementing IDs
   private userId: number;
@@ -294,6 +303,7 @@ export class MemStorage implements IStorage {
   private purchaseOrderItemId: number;
   private inventoryItemId: number;
   private inventoryTransactionId: number;
+  private fileAttachmentId: number;
   
   // Session store
   sessionStore: any; // Using any for Express session store type issue
@@ -320,6 +330,7 @@ export class MemStorage implements IStorage {
     this.purchaseOrderItems = new Map();
     this.inventoryItems = new Map();
     this.inventoryTransactions = new Map();
+    this.fileAttachments = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -342,6 +353,7 @@ export class MemStorage implements IStorage {
     this.purchaseOrderItemId = 1;
     this.inventoryItemId = 1;
     this.inventoryTransactionId = 1;
+    this.fileAttachmentId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -1204,6 +1216,28 @@ export class MemStorage implements IStorage {
     return Array.from(this.inventoryTransactions.values()).filter(transaction => {
       return transaction.createdAt >= startDate && transaction.createdAt <= endDate;
     });
+  }
+
+  // File Attachment methods
+  async getFileAttachment(id: number): Promise<FileAttachment | undefined> {
+    return this.fileAttachments.get(id);
+  }
+
+  async createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment> {
+    const id = this.fileAttachmentId++;
+    const newFileAttachment: FileAttachment = { ...file, id, createdAt: new Date() };
+    this.fileAttachments.set(id, newFileAttachment);
+    return newFileAttachment;
+  }
+
+  async deleteFileAttachment(id: number): Promise<boolean> {
+    return this.fileAttachments.delete(id);
+  }
+
+  async getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]> {
+    return Array.from(this.fileAttachments.values()).filter(
+      file => file.relatedId === relatedId && file.relatedType === relatedType
+    );
   }
 }
 
@@ -2247,6 +2281,38 @@ export class DatabaseStorage implements IStorage {
     return await db.query.inventoryTransactions.findMany({
       where: and(
         between(schema.inventoryTransactions.createdAt, startDate, endDate)
+      )
+    });
+  }
+
+  // File Attachment methods
+  async getFileAttachment(id: number): Promise<FileAttachment | undefined> {
+    const result = await db.query.fileAttachments.findFirst({
+      where: eq(schema.fileAttachments.id, id)
+    });
+    return result;
+  }
+
+  async createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment> {
+    const result = await db.insert(schema.fileAttachments).values({
+      ...file,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async deleteFileAttachment(id: number): Promise<boolean> {
+    const result = await db.delete(schema.fileAttachments)
+      .where(eq(schema.fileAttachments.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]> {
+    return await db.query.fileAttachments.findMany({
+      where: and(
+        eq(schema.fileAttachments.relatedId, relatedId),
+        eq(schema.fileAttachments.relatedType, relatedType)
       )
     });
   }
