@@ -193,9 +193,10 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
       form.setValue("subtotal", subtotal);
       
       // Calculate total with tax and discount
-      const tax = watchedTax || 0;
+      const taxRate = watchedTax || 0;
+      const taxAmount = subtotal * (taxRate / 100);
       const discount = watchedDiscount || 0;
-      const total = subtotal + tax - discount;
+      const total = subtotal + taxAmount - discount;
       form.setValue("total", total);
     } finally {
       setRecalculating(false);
@@ -589,13 +590,15 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
+                              type="text" 
+                              inputMode="decimal"
                               placeholder="Qty"
                               {...field}
                               onChange={(e) => {
-                                field.onChange(parseFloat(e.target.value) || 0);
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value and update the field
+                                field.onChange(parseFloat(value) || 0);
                               }} 
                             />
                           </FormControl>
@@ -612,13 +615,15 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="number" 
-                              min="0" 
-                              step="0.01" 
+                              type="text" 
+                              inputMode="decimal"
                               placeholder="Price"
                               {...field}
                               onChange={(e) => {
-                                field.onChange(parseFloat(e.target.value) || 0);
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value and update the field
+                                field.onChange(parseFloat(value) || 0);
                               }} 
                             />
                           </FormControl>
@@ -692,16 +697,24 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                     render={({ field }) => (
                       <FormItem className="m-0 w-24">
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            step="0.01" 
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(parseFloat(e.target.value) || 0);
-                            }} 
-                          />
+                          <div className="relative">
+                            <Input 
+                              type="text" 
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => {
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value and ensure it's not more than 100
+                                const parsedValue = parseFloat(value) || 0;
+                                field.onChange(Math.min(parsedValue, 100));
+                              }}
+                            />
+                            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                              <span className="text-gray-500">%</span>
+                            </div>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -717,16 +730,23 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                     render={({ field }) => (
                       <FormItem className="m-0 w-24">
                         <FormControl>
-                          <Input 
-                            type="number" 
-                            min="0" 
-                            step="0.01" 
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => {
-                              field.onChange(parseFloat(e.target.value) || 0);
-                            }} 
-                          />
+                          <div className="relative">
+                            <Input 
+                              type="text" 
+                              inputMode="decimal"
+                              placeholder="0.00"
+                              {...field}
+                              onChange={(e) => {
+                                // Remove any non-numeric characters except decimal point
+                                const value = e.target.value.replace(/[^\d.]/g, '');
+                                // Parse the value
+                                field.onChange(parseFloat(value) || 0);
+                              }}
+                            />
+                            <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                              <span className="text-gray-500">{getCurrencySymbol()}</span>
+                            </div>
+                          </div>
                         </FormControl>
                         <FormMessage />
                       </FormItem>
