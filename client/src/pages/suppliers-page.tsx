@@ -456,7 +456,7 @@ export default function SuppliersPage() {
                               <input
                                 type="checkbox"
                                 checked={field.value}
-                                onCheckedChange={field.onChange}
+                                onChange={(e) => field.onChange(e.target.checked)}
                                 className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                               />
                               <FormLabel className="m-0 font-normal">Active</FormLabel>
@@ -848,7 +848,7 @@ export default function SuppliersPage() {
                             <input
                               type="checkbox"
                               checked={field.value}
-                              onCheckedChange={field.onChange}
+                              onChange={(e) => field.onChange(e.target.checked)}
                               className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
                             />
                             <FormLabel className="m-0 font-normal">Active</FormLabel>
