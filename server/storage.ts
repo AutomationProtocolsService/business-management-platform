@@ -1212,16 +1212,37 @@ export class DatabaseStorage implements IStorage {
   sessionStore: any; // Using any for Express session store type issue
 
   constructor() {
-    // Create a PostgreSQL session store with Postgres client
+    // Create a proper pool-compatible interface for the connect-pg-simple package
+    // The package expects a node-postgres Pool object with a query method
     const pool = {
-      query: (text: string, params: any[]) => {
-        return client.unsafe(text, params);
+      query: async (text: string, params: any[] = []) => {
+        try {
+          const result = await client.unsafe(text, params);
+          // Format result to match pg Pool query result format
+          return {
+            rows: Array.isArray(result) ? result : [result],
+            rowCount: Array.isArray(result) ? result.length : 1
+          };
+        } catch (error) {
+          console.error("Session store query error:", error);
+          throw error;
+        }
       }
     };
     
+    // Configure the session store with the custom table schema
     this.sessionStore = new PostgresSessionStore({
       pool,
-      createTableIfMissing: true
+      tableName: 'sessions', // Use 'sessions' instead of the default 'session'
+      createTableIfMissing: true,
+      // Define the schema explicitly to ensure it's created correctly
+      schemaName: 'public',
+      columnNames: {
+        session_id: 'sid',
+        session_data: 'sess',
+        expire: 'expire',
+        user_id: 'user_id' // Add user_id column for tracking user sessions
+      }
     });
   }
 

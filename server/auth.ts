@@ -114,6 +114,11 @@ export function setupAuth(app: Express) {
       req.login(user, (err) => {
         if (err) return next(err);
         
+        // Store user_id in session for connect-pg-simple
+        if (req.session) {
+          (req.session as any).user_id = user.id;
+        }
+        
         // Remove password from the response
         const { password, ...userWithoutPassword } = user;
         
