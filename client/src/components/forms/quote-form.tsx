@@ -308,6 +308,9 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                   {settings?.phone && <p>Phone: {settings.phone}</p>}
                   {settings?.email && <p>Email: {settings.email}</p>}
                   {settings?.website && <p>Web: {settings.website}</p>}
+                  {/* Business Identifiers */}
+                  {settings?.vatNumber && <p>VAT Number: {settings.vatNumber}</p>}
+                  {settings?.registrationNumber && <p>Reg Number: {settings.registrationNumber}</p>}
                 </div>
               </div>
               
@@ -518,6 +521,16 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                   </FormItem>
                 )}
               />
+
+              {/* Payment Details */}
+              {settings?.bankDetails && (
+                <div className="mt-4 p-3 border rounded-md bg-gray-50">
+                  <h3 className="font-medium mb-2">Payment Information</h3>
+                  <div className="text-sm whitespace-pre-line">
+                    {settings.bankDetails}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
