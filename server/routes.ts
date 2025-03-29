@@ -1683,7 +1683,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Get files by related entity (e.g., quote, invoice, etc.)
-  app.get('/api/files/:relatedType/:relatedId', async (req, res) => {
+  app.get('/api/files/:relatedType/:relatedId', requireAuth, async (req, res) => {
     try {
       const relatedType = req.params.relatedType;
       const relatedId = Number(req.params.relatedId);
