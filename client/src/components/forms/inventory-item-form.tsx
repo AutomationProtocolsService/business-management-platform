@@ -294,7 +294,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                       <FormLabel>Category *</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
-                        defaultValue={field.value}
+                        value={field.value || ""}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -412,7 +412,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                       <FormLabel>Unit of Measure *</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
-                        defaultValue={field.value}
+                        value={field.value || ""}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -444,7 +444,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                       <FormLabel>Preferred Supplier (Optional)</FormLabel>
                       <Select 
                         onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                        defaultValue={field.value?.toString()}
+                        value={field.value?.toString() || ""}
                       >
                         <FormControl>
                           <SelectTrigger>
