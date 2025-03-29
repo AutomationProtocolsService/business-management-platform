@@ -31,6 +31,8 @@ import {
   type InsertCatalogItem,
   type CompanySettings,
   type InsertCompanySettings,
+  type SystemSettings,
+  type InsertSystemSettings,
   type Supplier,
   type InsertSupplier,
   type Expense,
@@ -187,6 +189,11 @@ export interface IStorage {
   createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings>;
   updateCompanySettings(id: number, settings: Partial<CompanySettings>): Promise<CompanySettings | undefined>;
   
+  // System Settings
+  getSystemSettings(): Promise<SystemSettings | undefined>;
+  createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings>;
+  updateSystemSettings(id: number, settings: Partial<SystemSettings>): Promise<SystemSettings | undefined>;
+  
   // Suppliers
   getSupplier(id: number): Promise<Supplier | undefined>;
   getSupplierByName(name: string): Promise<Supplier | undefined>;
@@ -274,6 +281,7 @@ export class MemStorage implements IStorage {
   private tasks: Map<number, Task>;
   private catalogItems: Map<number, CatalogItem>;
   private companySettings: Map<number, CompanySettings>;
+  private systemSettings: Map<number, SystemSettings>;
   private suppliers: Map<number, Supplier>;
   private expenses: Map<number, Expense>;
   private purchaseOrders: Map<number, PurchaseOrder>;
@@ -298,6 +306,7 @@ export class MemStorage implements IStorage {
   private taskId: number;
   private catalogItemId: number;
   private companySettingsId: number;
+  private systemSettingsId: number;
   private supplierId: number;
   private expenseId: number;
   private purchaseOrderId: number;
@@ -325,6 +334,7 @@ export class MemStorage implements IStorage {
     this.tasks = new Map();
     this.catalogItems = new Map();
     this.companySettings = new Map();
+    this.systemSettings = new Map();
     this.suppliers = new Map();
     this.expenses = new Map();
     this.purchaseOrders = new Map();
@@ -348,6 +358,7 @@ export class MemStorage implements IStorage {
     this.taskId = 1;
     this.catalogItemId = 1;
     this.companySettingsId = 1;
+    this.systemSettingsId = 1;
     this.supplierId = 1;
     this.expenseId = 1;
     this.purchaseOrderId = 1;
@@ -914,6 +925,37 @@ export class MemStorage implements IStorage {
     return updatedSettings;
   }
 
+  // System Settings methods
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    // System settings are singleton, so we get the first one if it exists
+    const settingsArray = Array.from(this.systemSettings.values());
+    return settingsArray.length > 0 ? settingsArray[0] : undefined;
+  }
+
+  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
+    // First check if settings already exist
+    const existingSettings = await this.getSystemSettings();
+    if (existingSettings) {
+      // If settings already exist, update them instead
+      return this.updateSystemSettings(existingSettings.id, settings);
+    }
+    
+    // Otherwise create new settings
+    const id = this.systemSettingsId++;
+    const newSettings: SystemSettings = { ...settings, id, createdAt: new Date() };
+    this.systemSettings.set(id, newSettings);
+    return newSettings;
+  }
+
+  async updateSystemSettings(id: number, settingsData: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
+    const settings = this.systemSettings.get(id);
+    if (!settings) return undefined;
+    
+    const updatedSettings = { ...settings, ...settingsData };
+    this.systemSettings.set(id, updatedSettings);
+    return updatedSettings;
+  }
+
   // Supplier methods
   async getSupplier(id: number): Promise<Supplier | undefined> {
     return this.suppliers.get(id);
@@ -1245,6 +1287,43 @@ export class MemStorage implements IStorage {
 // Export a single instance for use across the application
 export class DatabaseStorage implements IStorage {
   sessionStore: any; // Using any for Express session store type issue
+  
+  // Implement the system settings methods
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    const result = await db.query.systemSettings.findFirst();
+    return result;
+  }
+  
+  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
+    // First check if settings already exist
+    const existingSettings = await this.getSystemSettings();
+    if (existingSettings) {
+      // If settings already exist, update them instead
+      return this.updateSystemSettings(existingSettings.id, settings);
+    }
+    
+    // Create new settings
+    const [newSettings] = await db.insert(schema.systemSettings)
+      .values({
+        ...settings,
+        updatedAt: new Date()
+      })
+      .returning();
+    
+    return newSettings;
+  }
+  
+  async updateSystemSettings(id: number, settings: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
+    const [updatedSettings] = await db.update(schema.systemSettings)
+      .set({
+        ...settings,
+        updatedAt: new Date()
+      })
+      .where(eq(schema.systemSettings.id, id))
+      .returning();
+    
+    return updatedSettings;
+  }
 
   constructor() {
     // Create a proper pool-compatible interface for the connect-pg-simple package
