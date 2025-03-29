@@ -141,12 +141,14 @@ export default function PurchaseOrdersPage() {
             Create and manage purchase orders for suppliers
           </p>
         </div>
+        <Button 
+          className="flex items-center gap-1"
+          onClick={() => setIsDialogOpen(true)}
+        >
+          <PlusCircle className="h-4 w-4" /> New Purchase Order
+        </Button>
+        
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogTrigger asChild>
-            <Button className="flex items-center gap-1">
-              <PlusCircle className="h-4 w-4" /> New Purchase Order
-            </Button>
-          </DialogTrigger>
           <DialogContent className="max-w-4xl">
             <DialogHeader>
               <DialogTitle>

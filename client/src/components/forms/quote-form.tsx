@@ -35,6 +35,7 @@ import { XCircle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -79,7 +80,7 @@ interface QuoteFormProps {
 
 export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFormProps) {
   const { toast } = useToast();
-  const { formatMoney, getCurrencySymbol } = useSettings();
+  const { formatMoney, getCurrencySymbol, settings } = useSettings();
   const [recalculating, setRecalculating] = useState(false);
   const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
@@ -283,6 +284,54 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        {/* Company Header */}
+        <Card className="mb-4">
+          <CardContent className="py-4">
+            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+              <div className="flex flex-col">
+                {settings?.companyLogo ? (
+                  <img 
+                    src={settings.companyLogo} 
+                    alt={settings?.companyName || 'Company Logo'} 
+                    className="h-16 object-contain mb-2" 
+                  />
+                ) : (
+                  <h1 className="text-2xl font-bold">{settings?.companyName || 'Your Company'}</h1>
+                )}
+                <div className="text-sm text-muted-foreground">
+                  {settings?.address && <p>{settings.address}</p>}
+                  {(settings?.city || settings?.state || settings?.zipCode) && (
+                    <p>
+                      {settings?.city}{settings?.city && settings?.state ? ', ' : ''}{settings?.state} {settings?.zipCode}
+                    </p>
+                  )}
+                  {settings?.phone && <p>Phone: {settings.phone}</p>}
+                  {settings?.email && <p>Email: {settings.email}</p>}
+                  {settings?.website && <p>Web: {settings.website}</p>}
+                </div>
+              </div>
+              
+              <div className="text-right">
+                <h2 className="text-2xl font-bold text-primary">QUOTE</h2>
+                {quoteId && (
+                  <p className="text-sm text-muted-foreground">Quote #{quoteId}</p>
+                )}
+              </div>
+            </div>
+            
+            {/* Company certifications */}
+            {settings?.certifications && settings.certifications.length > 0 && (
+              <div className="mt-4 flex flex-wrap gap-2 justify-end">
+                {settings.certifications.map((cert, index) => (
+                  <Badge key={index} variant="outline" className="text-xs">
+                    {cert}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+        
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
             <CardHeader>

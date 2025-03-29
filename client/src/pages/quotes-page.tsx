@@ -239,13 +239,15 @@ export default function QuotesPage() {
               <SelectItem value="converted">Converted</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            className="flex items-center"
+            onClick={() => setIsCreateDialogOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            New Quote
+          </Button>
+          
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center">
-                <Plus className="h-4 w-4 mr-2" />
-                New Quote
-              </Button>
-            </DialogTrigger>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Quote</DialogTitle>
