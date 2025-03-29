@@ -55,10 +55,12 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date-utils";
 import InvoiceForm from "@/components/forms/invoice-form";
+import { useSettings } from "@/hooks/use-settings";
 
 export default function InvoicesPage() {
   const [location, navigate] = useLocation();
   const { toast } = useToast();
+  const { formatMoney } = useSettings();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -314,7 +316,7 @@ export default function InvoicesPage() {
                           {renderStatusBadge(invoice.status)}
                         </TableCell>
                         <TableCell className="text-sm text-gray-900 font-medium">
-                          ${invoice.total.toLocaleString()}
+                          {formatMoney(invoice.total)}
                         </TableCell>
                         <TableCell className="text-right">
                           <DropdownMenu>
