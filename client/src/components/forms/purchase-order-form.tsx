@@ -1,0 +1,770 @@
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { 
+  insertPurchaseOrderSchema, 
+  insertPurchaseOrderItemSchema,
+  PurchaseOrder, 
+  InsertPurchaseOrder, 
+  PurchaseOrderItem,
+  InsertPurchaseOrderItem,
+  Supplier,
+  InventoryItem
+} from "@shared/schema";
+import { z } from "zod";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
+
+// UI Components
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { DatePicker } from "@/components/ui/date-picker";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { DialogClose } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2, PlusCircle, Trash2, Pencil, Package } from "lucide-react";
+
+// Extend the schema with additional validation
+const formSchema = insertPurchaseOrderSchema.extend({
+  orderDate: z.date({
+    required_error: "Order date is required",
+  }),
+  expectedDeliveryDate: z.date().optional(),
+});
+
+type FormValues = z.infer<typeof formSchema>;
+
+// Schema for the line item form
+const lineItemSchema = insertPurchaseOrderItemSchema.extend({
+  tempId: z.string().optional(),
+});
+
+type LineItemFormValues = z.infer<typeof lineItemSchema>;
+
+interface PurchaseOrderFormProps {
+  purchaseOrder?: PurchaseOrder | null;
+  onSuccess?: () => void;
+}
+
+// Generate a PO number
+const generatePONumber = () => {
+  const date = new Date();
+  const year = date.getFullYear().toString().slice(-2);
+  const month = (date.getMonth() + 1).toString().padStart(2, "0");
+  const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
+  return `PO-${year}${month}-${random}`;
+};
+
+export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: PurchaseOrderFormProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const { user } = useAuth();
+  const { formatMoney } = useSettings();
+  const [lineItems, setLineItems] = useState<(PurchaseOrderItem & { tempId?: string })[]>([]);
+  const [editingItem, setEditingItem] = useState<(PurchaseOrderItem & { tempId?: string }) | null>(null);
+  const [activeTab, setActiveTab] = useState<string>("details");
+
+  // Get suppliers for dropdown
+  const { data: suppliers = [] } = useQuery<Supplier[]>({
+    queryKey: ["/api/suppliers"],
+  });
+
+  // Get inventory items for dropdown
+  const { data: inventoryItems = [] } = useQuery<InventoryItem[]>({
+    queryKey: ["/api/inventory"],
+  });
+
+  // Create form with default values
+  const form = useForm<FormValues>({
+    resolver: zodResolver(formSchema),
+    defaultValues: {
+      supplierId: purchaseOrder?.supplierId || undefined,
+      orderNumber: purchaseOrder?.orderNumber || generatePONumber(),
+      orderDate: purchaseOrder ? new Date(purchaseOrder.orderDate) : new Date(),
+      expectedDeliveryDate: purchaseOrder?.expectedDeliveryDate 
+        ? new Date(purchaseOrder.expectedDeliveryDate) 
+        : undefined,
+      deliveryAddress: purchaseOrder?.deliveryAddress || "",
+      notes: purchaseOrder?.notes || "",
+      termsAndConditions: purchaseOrder?.termsAndConditions || "",
+      status: purchaseOrder?.status || "Draft",
+    },
+  });
+
+  // Create line item form
+  const lineItemForm = useForm<LineItemFormValues>({
+    resolver: zodResolver(lineItemSchema),
+    defaultValues: {
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: undefined,
+    },
+  });
+
+  // Load line items for existing PO
+  useEffect(() => {
+    if (purchaseOrder?.id) {
+      // In a real app, we would fetch line items from the API
+      // For now, we'll simulate with empty array
+      setLineItems(purchaseOrder.items || []);
+    }
+  }, [purchaseOrder]);
+
+  // Calculate totals
+  const calculateSubtotal = () => {
+    return lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  };
+
+  // Apply tax
+  const calculateTax = () => {
+    return calculateSubtotal() * 0.2; // 20% tax rate
+  };
+
+  // Calculate total
+  const calculateTotal = () => {
+    return calculateSubtotal() + calculateTax();
+  };
+
+  // Create mutation
+  const createMutation = useMutation({
+    mutationFn: async (data: InsertPurchaseOrder & { items: InsertPurchaseOrderItem[] }) => {
+      const res = await apiRequest("POST", "/api/purchase-orders", data);
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order created",
+        description: "The purchase order has been created successfully.",
+      });
+      // Invalidate query to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error creating purchase order",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update mutation
+  const updateMutation = useMutation({
+    mutationFn: async (data: { 
+      id: number; 
+      orderData: Partial<PurchaseOrder>; 
+      items: InsertPurchaseOrderItem[];
+      deletedItemIds?: number[];
+    }) => {
+      const res = await apiRequest("PATCH", `/api/purchase-orders/${data.id}`, {
+        orderData: data.orderData,
+        items: data.items,
+        deletedItemIds: data.deletedItemIds
+      });
+      return await res.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order updated",
+        description: "The purchase order has been updated successfully.",
+      });
+      // Invalidate query to refresh data
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating purchase order",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle form submission
+  const onSubmit = async (data: FormValues) => {
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "You must be logged in to create purchase orders.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if there are line items
+    if (lineItems.length === 0) {
+      toast({
+        title: "No items added",
+        description: "Please add at least one item to the purchase order.",
+        variant: "destructive",
+      });
+      setActiveTab("items");
+      return;
+    }
+
+    // Get the selected supplier name
+    const selectedSupplier = suppliers.find(s => s.id === data.supplierId);
+    
+    if (purchaseOrder?.id) {
+      // Update existing purchase order
+      const updatedPO = {
+        ...data,
+        totalAmount: calculateTotal(),
+        supplierName: selectedSupplier?.name || "Unknown Supplier",
+        updatedBy: user.id,
+      };
+      
+      // Determine which items need to be deleted (in a real app)
+      const existingItemIds = purchaseOrder.items?.map(item => item.id) || [];
+      const currentItemIds = lineItems
+        .filter(item => typeof item.id === 'number')
+        .map(item => item.id as number);
+      
+      const deletedItemIds = existingItemIds.filter(id => !currentItemIds.includes(id));
+      
+      updateMutation.mutate({
+        id: purchaseOrder.id,
+        orderData: updatedPO,
+        items: lineItems.map(item => ({
+          ...item,
+          purchaseOrderId: purchaseOrder.id,
+        })),
+        deletedItemIds
+      });
+    } else {
+      // Create new purchase order
+      const newPO = {
+        ...data,
+        totalAmount: calculateTotal(),
+        supplierName: selectedSupplier?.name || "Unknown Supplier",
+        createdBy: user.id,
+        items: lineItems.map(item => ({
+          ...item,
+          tempId: undefined // Remove tempId from items
+        }))
+      };
+      
+      createMutation.mutate(newPO);
+    }
+  };
+
+  // Add a line item
+  const addLineItem = (itemData: LineItemFormValues) => {
+    const inventoryItem = inventoryItems.find(item => item.id === itemData.inventoryItemId);
+    
+    const newItem: PurchaseOrderItem & { tempId?: string } = {
+      ...itemData,
+      id: itemData.id || undefined,
+      tempId: itemData.tempId || `temp-${Date.now()}`,
+      purchaseOrderId: purchaseOrder?.id || 0,
+      totalPrice: itemData.quantity * itemData.unitPrice,
+      inventoryItemName: inventoryItem?.name || "Unknown Item",
+      createdAt: new Date(),
+      createdBy: user?.id || 0,
+    };
+    
+    if (editingItem) {
+      // Update existing item
+      setLineItems(prevItems => 
+        prevItems.map(item => 
+          item.tempId === editingItem.tempId || item.id === editingItem.id ? newItem : item
+        )
+      );
+      setEditingItem(null);
+    } else {
+      // Add new item
+      setLineItems(prevItems => [...prevItems, newItem]);
+    }
+    
+    // Reset the form
+    lineItemForm.reset({
+      description: "",
+      quantity: 1,
+      unitPrice: 0,
+      inventoryItemId: undefined,
+    });
+  };
+
+  // Remove a line item
+  const removeLineItem = (tempId: string | undefined, id: number | undefined) => {
+    if (tempId) {
+      setLineItems(prevItems => prevItems.filter(item => item.tempId !== tempId));
+    } else if (id) {
+      setLineItems(prevItems => prevItems.filter(item => item.id !== id));
+    }
+  };
+
+  // Edit a line item
+  const editLineItem = (item: PurchaseOrderItem & { tempId?: string }) => {
+    setEditingItem(item);
+    lineItemForm.reset({
+      description: item.description,
+      quantity: item.quantity,
+      unitPrice: item.unitPrice,
+      inventoryItemId: item.inventoryItemId,
+      tempId: item.tempId,
+      id: item.id,
+    });
+  };
+
+  // Handle inventory item selection
+  const handleInventoryItemChange = (inventoryItemId: number) => {
+    const inventoryItem = inventoryItems.find(item => item.id === inventoryItemId);
+    if (inventoryItem) {
+      lineItemForm.setValue("description", inventoryItem.name);
+      lineItemForm.setValue("unitPrice", inventoryItem.costPrice || 0);
+    }
+    lineItemForm.setValue("inventoryItemId", inventoryItemId);
+  };
+
+  return (
+    <div className="space-y-6">
+      <Tabs defaultValue="details" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="details">Order Details</TabsTrigger>
+          <TabsTrigger value="items">Line Items</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="details">
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  {/* Supplier */}
+                  <FormField
+                    control={form.control}
+                    name="supplierId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Supplier *</FormLabel>
+                        <Select 
+                          onValueChange={(value) => field.onChange(parseInt(value))} 
+                          defaultValue={field.value?.toString()}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a supplier" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {suppliers.map((supplier) => (
+                              <SelectItem key={supplier.id} value={supplier.id.toString()}>
+                                {supplier.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Order Number */}
+                  <FormField
+                    control={form.control}
+                    name="orderNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Order Number *</FormLabel>
+                        <FormControl>
+                          <Input placeholder="PO-2023-0001" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          A unique identifier for this purchase order.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Order Date */}
+                  <FormField
+                    control={form.control}
+                    name="orderDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Order Date *</FormLabel>
+                        <DatePicker
+                          date={field.value}
+                          setDate={field.onChange}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Expected Delivery Date */}
+                  <FormField
+                    control={form.control}
+                    name="expectedDeliveryDate"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                        <FormLabel>Expected Delivery Date</FormLabel>
+                        <DatePicker
+                          date={field.value}
+                          setDate={field.onChange}
+                        />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                <div className="space-y-6">
+                  {/* Status */}
+                  <FormField
+                    control={form.control}
+                    name="status"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Status *</FormLabel>
+                        <Select 
+                          onValueChange={field.onChange} 
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="Draft">Draft</SelectItem>
+                            <SelectItem value="Sent">Sent</SelectItem>
+                            <SelectItem value="Received">Received</SelectItem>
+                            <SelectItem value="Partial">Partial</SelectItem>
+                            <SelectItem value="Cancelled">Cancelled</SelectItem>
+                            <SelectItem value="Pending">Pending</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Delivery Address */}
+                  <FormField
+                    control={form.control}
+                    name="deliveryAddress"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Delivery Address</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Enter delivery address" 
+                            className="min-h-[100px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* Notes */}
+                  <FormField
+                    control={form.control}
+                    name="notes"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Notes</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Add any additional notes" 
+                            className="min-h-[80px]"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <FormField
+                  control={form.control}
+                  name="termsAndConditions"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Terms and Conditions</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Enter terms and conditions" 
+                          className="min-h-[100px]"
+                          {...field} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <Card>
+                  <CardHeader className="py-2">
+                    <CardTitle className="text-sm font-medium">Subtotal</CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2">
+                    <p className="text-2xl font-bold">{formatMoney(calculateSubtotal())}</p>
+                  </CardContent>
+                </Card>
+                <Card>
+                  <CardHeader className="py-2">
+                    <CardTitle className="text-sm font-medium">Tax (20%)</CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2">
+                    <p className="text-2xl font-bold">{formatMoney(calculateTax())}</p>
+                  </CardContent>
+                </Card>
+                <Card className="md:col-span-2 bg-primary/5">
+                  <CardHeader className="py-2">
+                    <CardTitle className="text-sm font-medium">Total</CardTitle>
+                  </CardHeader>
+                  <CardContent className="py-2">
+                    <p className="text-2xl font-bold text-primary">{formatMoney(calculateTotal())}</p>
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="flex justify-end gap-2">
+                <DialogClose asChild>
+                  <Button type="button" variant="outline">
+                    Cancel
+                  </Button>
+                </DialogClose>
+                <Button 
+                  type="button" 
+                  variant="outline"
+                  onClick={() => setActiveTab("items")}
+                >
+                  Next: Line Items
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </TabsContent>
+        
+        <TabsContent value="items">
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg">Line Items</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-6">
+                  {/* Line Items Form */}
+                  <form
+                    onSubmit={lineItemForm.handleSubmit(addLineItem)}
+                    className="grid grid-cols-1 md:grid-cols-2 gap-6"
+                  >
+                    <div className="space-y-4">
+                      {/* Inventory Item */}
+                      <div className="space-y-2">
+                        <Label htmlFor="inventoryItemId">Select Inventory Item</Label>
+                        <Select 
+                          onValueChange={(value) => handleInventoryItemChange(parseInt(value))}
+                          value={lineItemForm.watch("inventoryItemId")?.toString()}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select an item" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {inventoryItems.map((item) => (
+                              <SelectItem key={item.id} value={item.id.toString()}>
+                                {item.name} ({item.sku})
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Description */}
+                      <div className="space-y-2">
+                        <Label htmlFor="description">Description *</Label>
+                        <Input
+                          id="description"
+                          placeholder="Item description"
+                          {...lineItemForm.register("description")}
+                        />
+                        {lineItemForm.formState.errors.description && (
+                          <p className="text-red-500 text-xs">
+                            {lineItemForm.formState.errors.description.message}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      {/* Quantity */}
+                      <div className="space-y-2">
+                        <Label htmlFor="quantity">Quantity *</Label>
+                        <Input
+                          id="quantity"
+                          type="number"
+                          min="1"
+                          step="1"
+                          {...lineItemForm.register("quantity", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        {lineItemForm.formState.errors.quantity && (
+                          <p className="text-red-500 text-xs">
+                            {lineItemForm.formState.errors.quantity.message}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Unit Price */}
+                      <div className="space-y-2">
+                        <Label htmlFor="unitPrice">Unit Price *</Label>
+                        <Input
+                          id="unitPrice"
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          {...lineItemForm.register("unitPrice", {
+                            valueAsNumber: true,
+                          })}
+                        />
+                        {lineItemForm.formState.errors.unitPrice && (
+                          <p className="text-red-500 text-xs">
+                            {lineItemForm.formState.errors.unitPrice.message}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="pt-4">
+                        <Button type="submit" className="w-full">
+                          {editingItem ? "Update Item" : "Add Item"}
+                        </Button>
+                      </div>
+                    </div>
+                  </form>
+
+                  {/* Line Items Table */}
+                  <Card>
+                    <CardContent className="p-0">
+                      {lineItems.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center h-48 text-center p-4">
+                          <Package className="h-12 w-12 text-gray-300 mb-3" />
+                          <h3 className="text-lg font-medium">No items added yet</h3>
+                          <p className="text-sm text-gray-500 mt-1 max-w-md">
+                            Add items to this purchase order using the form above.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="overflow-x-auto">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>Description</TableHead>
+                                <TableHead>Quantity</TableHead>
+                                <TableHead>Unit Price</TableHead>
+                                <TableHead>Total</TableHead>
+                                <TableHead>Actions</TableHead>
+                              </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                              {lineItems.map((item) => (
+                                <TableRow key={item.tempId || item.id}>
+                                  <TableCell className="font-medium">
+                                    {item.description}
+                                  </TableCell>
+                                  <TableCell>{item.quantity}</TableCell>
+                                  <TableCell>
+                                    {formatMoney(item.unitPrice)}
+                                  </TableCell>
+                                  <TableCell className="font-medium">
+                                    {formatMoney(item.quantity * item.unitPrice)}
+                                  </TableCell>
+                                  <TableCell>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => editLineItem(item)}
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="text-red-500"
+                                        onClick={() => removeLineItem(item.tempId, item.id)}
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              </CardContent>
+            </Card>
+
+            <div className="flex justify-between">
+              <Button variant="outline" onClick={() => setActiveTab("details")}>
+                Back to Details
+              </Button>
+              <Button 
+                onClick={form.handleSubmit(onSubmit)}
+                disabled={createMutation.isPending || updateMutation.isPending}
+                className="flex items-center gap-1"
+              >
+                {(createMutation.isPending || updateMutation.isPending) && (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                )}
+                {purchaseOrder ? "Update Purchase Order" : "Create Purchase Order"}
+              </Button>
+            </div>
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+}

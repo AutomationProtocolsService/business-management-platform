@@ -19,6 +19,9 @@ import CustomersPage from "@/pages/customers-page";
 import ReportsPage from "@/pages/reports-page";
 import CatalogItemsPage from "@/pages/catalog-items-page";
 import SuppliersPage from "@/pages/suppliers-page";
+import ExpensesPage from "@/pages/expenses-page";
+import PurchaseOrdersPage from "@/pages/purchase-orders-page";
+import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -66,6 +69,9 @@ function Router() {
       <ProtectedRoute path="/customers" component={CustomersPage} />
       <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
       <ProtectedRoute path="/suppliers" component={SuppliersPage} />
+      <ProtectedRoute path="/expenses" component={ExpensesPage} />
+      <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
