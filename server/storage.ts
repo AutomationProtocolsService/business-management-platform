@@ -250,7 +250,6 @@ export interface IStorage {
   getFileAttachment(id: number): Promise<FileAttachment | undefined>;
   createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment>;
   deleteFileAttachment(id: number): Promise<boolean>;
-  getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]>;
   getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]>;
   
   // Session store
@@ -1235,12 +1234,6 @@ export class MemStorage implements IStorage {
     return this.fileAttachments.delete(id);
   }
 
-  async getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]> {
-    return Array.from(this.fileAttachments.values()).filter(
-      file => file.relatedId === relatedId && file.relatedType === relatedType
-    );
-  }
-  
   async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]> {
     return Array.from(this.fileAttachments.values()).filter(
       file => file.relatedType === relatedType && file.relatedId === relatedId
@@ -2304,15 +2297,6 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.fileAttachments.id, id))
       .returning();
     return result.length > 0;
-  }
-
-  async getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]> {
-    return await db.query.fileAttachments.findMany({
-      where: and(
-        eq(schema.fileAttachments.relatedId, relatedId),
-        eq(schema.fileAttachments.relatedType, relatedType)
-      )
-    });
   }
 
   async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]> {
