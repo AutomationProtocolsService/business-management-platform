@@ -198,52 +198,68 @@ const BusinessWorkflow = () => {
             <p>Loading workflow status...</p>
           </div>
         ) : (
-          <div className="flex flex-col space-y-4">
-            {workflowSteps.map((step, index) => (
-              <div key={step.id} className="flex items-start">
-                <div className="flex flex-col items-center mr-4">
-                  <div
-                    className={`rounded-full p-2 ${
-                      step.status === "completed"
-                        ? "bg-green-100 text-green-600"
-                        : step.status === "active"
-                        ? "bg-blue-100 text-blue-600"
-                        : "bg-gray-100 text-gray-400"
-                    }`}
-                  >
-                    {step.icon}
+          <div className="overflow-x-auto pb-4">
+            <div className="flex min-w-max gap-1">
+              {workflowSteps.map((step, index) => (
+                <div key={step.id} className="flex flex-col items-center w-32 relative mx-1">
+                  {/* Icon with connecting line */}
+                  <div className="flex items-center w-full">
+                    {index > 0 && (
+                      <div 
+                        className={`h-0.5 flex-1 ${
+                          workflowSteps[index-1].status === "completed" ? "bg-green-300" : "bg-gray-200"
+                        }`} 
+                      />
+                    )}
+                    <div
+                      className={`rounded-full p-2 z-10 ${
+                        step.status === "completed"
+                          ? "bg-green-100 text-green-600"
+                          : step.status === "active"
+                          ? "bg-blue-100 text-blue-600"
+                          : "bg-gray-100 text-gray-400"
+                      }`}
+                    >
+                      {step.icon}
+                    </div>
+                    {index < workflowSteps.length - 1 && (
+                      <div 
+                        className={`h-0.5 flex-1 ${
+                          step.status === "completed" ? "bg-green-300" : "bg-gray-200"
+                        }`} 
+                      />
+                    )}
                   </div>
-                  {index < workflowSteps.length - 1 && (
-                    <div className={`w-0.5 h-12 mt-2 ${
-                      step.status === "completed" ? "bg-green-200" : "bg-gray-200"
-                    }`}></div>
-                  )}
+                  
+                  {/* Content */}
+                  <div className="mt-3 text-center px-1">
+                    <h4 className="text-sm font-medium line-clamp-1">{step.title}</h4>
+                    <p className="text-xs text-gray-500 mt-1 h-8 line-clamp-2">{step.description}</p>
+                    
+                    {/* Status badge */}
+                    <div className="mt-2">
+                      {step.status === "completed" && (
+                        <span className="inline-block text-xs text-green-600 bg-green-50 px-2 py-0.5 rounded-full">Completed</span>
+                      )}
+                      {step.status === "active" && (
+                        <span className="inline-block text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">In Progress</span>
+                      )}
+                    </div>
+                    
+                    {/* Hints - display only if active or pending */}
+                    {step.id === "survey" && step.status !== "completed" && (
+                      <div className="mt-1 text-xs text-blue-500 h-6 line-clamp-1">Affects fabrication</div>
+                    )}
+                    {step.id === "installation" && step.status !== "completed" && (
+                      <div className="mt-1 text-xs text-blue-500 h-6 line-clamp-1">May need snagging</div>
+                    )}
+                    {step.id === "invoice" && selectedProject.snaggingRequired && step.status !== "completed" && (
+                      <div className="mt-1 text-xs text-amber-500 h-6 line-clamp-1">Pending snagging</div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h4 className="text-sm font-medium">{step.title}</h4>
-                  <p className="text-sm text-gray-500">{step.description}</p>
-                  {step.id === "survey" && (
-                    <div className="mt-1 text-xs text-blue-500">Survey information helps provide accurate fabrication drawings</div>
-                  )}
-                  {step.id === "installation" && (
-                    <div className="mt-1 text-xs text-blue-500">If snagging work required, final invoice is delayed</div>
-                  )}
-                  {step.id === "invoice" && selectedProject.snaggingRequired && (
-                    <div className="mt-1 text-xs text-amber-500">Snagging work required before final invoice</div>
-                  )}
-                </div>
-                
-                {/* Status indicators */}
-                <div className="ml-2 flex items-center">
-                  {step.status === "completed" && (
-                    <span className="text-xs text-green-600 bg-green-50 px-2 py-1 rounded-full">Completed</span>
-                  )}
-                  {step.status === "active" && (
-                    <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">In Progress</span>
-                  )}
-                </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
         )}
       </CardContent>
