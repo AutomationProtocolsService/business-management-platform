@@ -370,6 +370,20 @@ export const inventoryTransactions = pgTable("inventory_transactions", {
   createdBy: integer("created_by").references(() => users.id).notNull(),
 });
 
+// File Attachments
+export const fileAttachments = pgTable("file_attachments", {
+  id: serial("id").primaryKey(),
+  fileName: text("file_name").notNull(),
+  fileSize: integer("file_size").notNull(),
+  fileType: text("file_type").notNull(),
+  fileUrl: text("file_url").notNull(),
+  description: text("description"),
+  relatedId: integer("related_id"), // ID of related entity (project, quote, invoice, etc.)
+  relatedType: text("related_type"), // Type of related entity (project, quote, invoice, etc.)
+  uploadedBy: integer("uploaded_by").references(() => users.id),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Company Settings
 export const companySettings = pgTable("company_settings", {
   id: serial("id").primaryKey(),
@@ -523,6 +537,11 @@ export const insertInventoryTransactionSchema = createInsertSchema(inventoryTran
   transactionDate: true,
 });
 
+export const insertFileAttachmentSchema = createInsertSchema(fileAttachments).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -587,3 +606,6 @@ export type InventoryItem = typeof inventoryItems.$inferSelect;
 
 export type InsertInventoryTransaction = z.infer<typeof insertInventoryTransactionSchema>;
 export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
+
+export type InsertFileAttachment = z.infer<typeof insertFileAttachmentSchema>;
+export type FileAttachment = typeof fileAttachments.$inferSelect;

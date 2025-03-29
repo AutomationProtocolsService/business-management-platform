@@ -6,6 +6,11 @@ import { z } from "zod";
 import { generatePdf } from "./services/pdf-service";
 import { sendEmail } from "./services/email-service";
 import { setupWebSocketServer, WebSocketEvent, getWebSocketManager } from "./websocket";
+import { cloudStorage } from "./services/storage-service";
+import multer from "multer";
+import { v4 as uuidv4 } from "uuid";
+import path from "path";
+import fs from "fs";
 import { 
   insertCustomerSchema, 
   insertProjectSchema, 
@@ -1530,6 +1535,199 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: "Failed to delete catalog item" });
+    }
+  });
+
+  // Set up file uploading with multer
+  const diskStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+      const uploadDir = './tmp/uploads';
+      // Create directory if it doesn't exist
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+      const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1E9)}`;
+      const fileExt = path.extname(file.originalname);
+      cb(null, `${file.fieldname}-${uniqueSuffix}${fileExt}`);
+    }
+  });
+  
+  const upload = multer({ 
+    storage: diskStorage,
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB limit
+    }
+  });
+  
+  // File upload routes
+  app.post('/api/files/upload', requireAuth, upload.single('file'), async (req, res) => {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ message: 'No file provided' });
+      }
+      
+      const { folder = 'general', description = '', relatedId = null, relatedType = null } = req.body;
+      
+      // Upload file to Google Cloud Storage
+      const fileUrl = await cloudStorage.uploadFile(req.file.path, {
+        folder,
+        filename: req.file.originalname,
+        contentType: req.file.mimetype
+      });
+      
+      // Clean up local file
+      fs.unlinkSync(req.file.path);
+      
+      // Create file record in database
+      const fileRecord = await storage.createFileAttachment({
+        fileName: req.file.originalname,
+        fileSize: req.file.size,
+        fileType: req.file.mimetype,
+        fileUrl,
+        description,
+        uploadedBy: req.user?.id || null,
+        relatedId: relatedId ? Number(relatedId) : null,
+        relatedType: relatedType || null
+      });
+      
+      res.status(201).json(fileRecord);
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      res.status(500).json({ message: 'Failed to upload file' });
+    }
+  });
+  
+  // Multiple file upload route
+  app.post('/api/files/upload-multiple', requireAuth, upload.array('files', 10), async (req, res) => {
+    try {
+      if (!req.files || !Array.isArray(req.files) || req.files.length === 0) {
+        return res.status(400).json({ message: 'No files provided' });
+      }
+      
+      const { folder = 'general', description = '', relatedId = null, relatedType = null } = req.body;
+      const fileRecords = [];
+      
+      // Process each uploaded file
+      for (const file of req.files) {
+        // Upload to Google Cloud Storage
+        const fileUrl = await cloudStorage.uploadFile(file.path, {
+          folder,
+          filename: file.originalname,
+          contentType: file.mimetype
+        });
+        
+        // Clean up local file
+        fs.unlinkSync(file.path);
+        
+        // Create file record in database
+        const fileRecord = await storage.createFileAttachment({
+          fileName: file.originalname,
+          fileSize: file.size,
+          fileType: file.mimetype,
+          fileUrl,
+          description,
+          uploadedBy: req.user?.id || null,
+          relatedId: relatedId ? Number(relatedId) : null,
+          relatedType: relatedType || null
+        });
+        
+        fileRecords.push(fileRecord);
+      }
+      
+      res.status(201).json(fileRecords);
+    } catch (error) {
+      console.error('Error uploading multiple files:', error);
+      res.status(500).json({ message: 'Failed to upload files' });
+    }
+  });
+  
+  // Get files related to an entity
+  app.get('/api/files', requireAuth, async (req, res) => {
+    try {
+      const { relatedId, relatedType } = req.query;
+      
+      if (!relatedId || !relatedType) {
+        return res.status(400).json({ message: 'relatedId and relatedType are required' });
+      }
+      
+      const files = await storage.getFileAttachmentsByRelation(
+        Number(relatedId),
+        relatedType as string
+      );
+      
+      res.json(files);
+    } catch (error) {
+      console.error('Error fetching files:', error);
+      res.status(500).json({ message: 'Failed to fetch files' });
+    }
+  });
+  
+  // Get a specific file
+  app.get('/api/files/:id', requireAuth, async (req, res) => {
+    try {
+      const fileId = Number(req.params.id);
+      const file = await storage.getFileAttachment(fileId);
+      
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      res.json(file);
+    } catch (error) {
+      console.error('Error fetching file:', error);
+      res.status(500).json({ message: 'Failed to fetch file' });
+    }
+  });
+  
+  // Delete a file
+  app.delete('/api/files/:id', requireAuth, async (req, res) => {
+    try {
+      const fileId = Number(req.params.id);
+      const file = await storage.getFileAttachment(fileId);
+      
+      if (!file) {
+        return res.status(404).json({ message: 'File not found' });
+      }
+      
+      // Delete from Google Cloud Storage
+      await cloudStorage.deleteFile(file.fileUrl);
+      
+      // Delete from database
+      const deleted = await storage.deleteFileAttachment(fileId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: 'Failed to delete file' });
+      }
+    } catch (error) {
+      console.error('Error deleting file:', error);
+      res.status(500).json({ message: 'Failed to delete file' });
+    }
+  });
+  
+  // Database backup route
+  app.post('/api/system/backup', requireAuth, async (req, res) => {
+    try {
+      // Check if user has admin role
+      if (req.user?.role !== 'admin') {
+        return res.status(403).json({ message: 'Only administrators can perform database backups' });
+      }
+      
+      const dbName = process.env.PGDATABASE || 'replit_db';
+      const backupUrl = await cloudStorage.createDatabaseBackup(dbName);
+      
+      res.json({ 
+        message: 'Database backup created successfully', 
+        backupUrl,
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error('Error creating database backup:', error);
+      res.status(500).json({ message: 'Failed to create database backup' });
     }
   });
 
