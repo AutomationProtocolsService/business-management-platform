@@ -76,9 +76,10 @@ interface QuoteFormProps {
   defaultValues?: Partial<QuoteFormValues>;
   quoteId?: number; // Only for editing existing quote
   onSuccess?: (data: Quote) => void;
+  onCancel?: () => void;
 }
 
-export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFormProps) {
+export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel }: QuoteFormProps) {
   const { toast } = useToast();
   const { formatMoney, getCurrencySymbol, settings } = useSettings();
   const [recalculating, setRecalculating] = useState(false);
@@ -742,10 +743,22 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
         </Card>
 
         <div className="flex justify-end gap-4">
-          <Button type="button" variant="outline">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              }
+            }}
+          >
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            className="bg-primary hover:bg-primary/90"
+          >
             {isSubmitting ? "Saving..." : quoteId ? "Update Quote" : "Create Quote"}
           </Button>
         </div>
