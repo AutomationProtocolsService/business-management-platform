@@ -15,7 +15,10 @@ import {
   Settings,
   HelpCircle,
   Package,
-  Truck
+  Truck,
+  DollarSign,
+  ShoppingCart,
+  BoxesIcon
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -61,6 +64,9 @@ export default function Sidebar() {
             <SidebarLink href="/customers" icon={<Users />}>Customers</SidebarLink>
             <SidebarLink href="/catalog-items" icon={<Package />}>Catalog Items</SidebarLink>
             <SidebarLink href="/suppliers" icon={<Truck />}>Suppliers</SidebarLink>
+            <SidebarLink href="/expenses" icon={<DollarSign />}>Expenses</SidebarLink>
+            <SidebarLink href="/purchase-orders" icon={<ShoppingCart />}>Purchase Orders</SidebarLink>
+            <SidebarLink href="/inventory" icon={<BoxesIcon />}>Inventory</SidebarLink>
             <SidebarLink href="/reports" icon={<PieChart />}>Reports</SidebarLink>
             <SidebarLink href="/calendar" icon={<Calendar />}>Calendar</SidebarLink>
           </div>
