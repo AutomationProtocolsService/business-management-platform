@@ -1264,19 +1264,10 @@ export class DatabaseStorage implements IStorage {
       }
     };
     
-    // Configure the session store with the custom table schema
-    this.sessionStore = new PostgresSessionStore({
-      pool,
-      tableName: 'sessions', // Use 'sessions' instead of the default 'session'
-      createTableIfMissing: true,
-      // Define the schema explicitly to ensure it's created correctly
-      schemaName: 'public',
-      columnNames: {
-        session_id: 'sid',
-        session_data: 'sess',
-        expire: 'expire',
-        user_id: 'user_id' // Add user_id column for tracking user sessions
-      }
+    // Use MemoryStore for now as we're having compatibility issues with PostgresSessionStore and postgres.js
+    // We can revisit this later once we figure out the session serialization issue
+    this.sessionStore = new MemoryStore({
+      checkPeriod: 86400000 // 24 hours
     });
   }
 
