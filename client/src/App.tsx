@@ -24,6 +24,7 @@ import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
 import ProfilePage from "@/pages/profile-page";
+import HelpPage from "@/pages/help-page";
 import EmailTestPage from "@/pages/email-test-page";
 import LoginTest from "@/pages/login-test";
 import { AuthProvider } from "@/hooks/use-auth";
@@ -80,6 +81,7 @@ function Router() {
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
+      <ProtectedRoute path="/help" component={HelpPage} />
       <Route component={NotFound} />
     </Switch>
   );
