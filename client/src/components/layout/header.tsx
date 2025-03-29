@@ -19,12 +19,12 @@ export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logoutMutation } = useAuth();
   const { toast } = useToast();
-  const [_, setLocation] = useLocation();
+  const [_, navigate] = useLocation();
 
   const handleLogout = () => {
     logoutMutation.mutate(undefined, {
       onSuccess: () => {
-        setLocation("/auth");
+        navigate("/auth");
       }
     });
   };
@@ -79,8 +79,12 @@ export default function Header() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>My Account</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>Your Profile</DropdownMenuItem>
-              <DropdownMenuItem>Settings</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/profile")}>
+                Your Profile
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => navigate("/settings")}>
+                Settings
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem onClick={handleLogout}>
                 Sign out

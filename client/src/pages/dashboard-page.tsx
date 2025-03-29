@@ -187,19 +187,20 @@ export default function DashboardPage() {
                   <CommandGroup heading="Clients">
                     {customers
                       .filter(customer => 
-                        customer.name.toLowerCase().includes(searchQuery.toLowerCase())
+                        customer?.name?.toLowerCase().includes(searchQuery.toLowerCase() || '') || 
+                        customer?.email?.toLowerCase().includes(searchQuery.toLowerCase() || '')
                       )
                       .slice(0, 10)
                       .map(customer => (
                         <CommandItem
                           key={customer.id}
-                          value={customer.name}
+                          value={customer.name || ''}
                           onSelect={() => handleClientSelect(customer.id)}
                           className="flex items-center cursor-pointer"
                         >
                           <User className="h-4 w-4 mr-2 text-gray-500" />
                           <div className="flex flex-col">
-                            <span>{customer.name}</span>
+                            <span>{customer.name || 'Unnamed Client'}</span>
                             {customer.email && (
                               <span className="text-xs text-gray-500">{customer.email}</span>
                             )}
