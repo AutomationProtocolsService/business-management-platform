@@ -55,6 +55,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  CardDescription,
 } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { DialogClose } from "@/components/ui/dialog";
@@ -670,17 +671,21 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <Label htmlFor="inventoryItemId">Select Inventory Item</Label>
                         <Select 
                           onValueChange={(value) => handleInventoryItemChange(parseInt(value))}
-                          value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
+                          value={lineItemForm.watch("inventoryItemId")?.toString() || undefined}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select an item" />
                           </SelectTrigger>
                           <SelectContent>
-                            {inventoryItems.map((item) => (
-                              <SelectItem key={item.id} value={item.id.toString()}>
-                                {item.name} ({item.sku})
-                              </SelectItem>
-                            ))}
+                            {inventoryItems.length > 0 ? (
+                              inventoryItems.map((item) => (
+                                <SelectItem key={item.id} value={item.id.toString()}>
+                                  {item.name} ({item.sku})
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <SelectItem value="no-items">No inventory items available</SelectItem>
+                            )}
                           </SelectContent>
                         </Select>
                       </div>
@@ -773,7 +778,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                             </TableHeader>
                             <TableBody>
                               {lineItems.map((item) => (
-                                <TableRow key={item.tempId || item.id}>
+                                <TableRow key={item.tempId || item.id || `temp-${Math.random()}`}>
                                   <TableCell className="font-medium">
                                     {item.description}
                                   </TableCell>
