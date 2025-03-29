@@ -121,12 +121,12 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
       unitOfMeasure: item?.unitOfMeasure || "Each",
       currentStock: item?.currentStock || 0,
       reorderPoint: item?.reorderPoint || 5,
-      maxStock: item?.maxStock || 100,
+      reorderQuantity: item?.reorderQuantity || 100,
       location: item?.location || "",
-      costPrice: item?.costPrice || 0,
-      sellingPrice: item?.sellingPrice || 0,
-      imageUrl: item?.imageUrl || "",
-      supplierId: item?.supplierId,
+      cost: item?.cost || 0,
+      lastPurchasePrice: item?.lastPurchasePrice || 0,
+      // imageUrl handled separately if needed
+      preferredSupplierId: item?.preferredSupplierId,
       notes: item?.notes || "",
       active: item?.active ?? true,
     },
@@ -191,22 +191,16 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
       return;
     }
 
-    // Upload image if available
-    let imageUrl = item?.imageUrl;
+    // In a real app with image support, we would upload the file to cloud storage here
     if (imageFile) {
-      // In a real app, we would upload the file to cloud storage here
-      // and get the URL back. For now, we'll just simulate that.
-      imageUrl = URL.createObjectURL(imageFile);
-      
       toast({
         title: "Image upload",
-        description: "In a production app, the image would be uploaded to cloud storage.",
+        description: "Image upload is currently not supported in the database schema. This is just a UI mockup.",
       });
     }
 
     const itemData = {
       ...data,
-      imageUrl,
       createdBy: user.id,
     };
 
@@ -294,7 +288,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                       <FormLabel>Category *</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
-                        value={field.value || ""}
+                        value={field.value || "Other"}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -359,25 +353,6 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                           Remove
                         </Button>
                       </div>
-                    ) : item?.imageUrl ? (
-                      <div className="text-center">
-                        <div className="w-24 h-24 mx-auto bg-gray-200 rounded-md flex items-center justify-center mb-2 overflow-hidden">
-                          <img 
-                            src={item.imageUrl} 
-                            alt={item.name} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                        <p className="text-sm font-medium">Current Image</p>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="mt-2"
-                          onClick={() => document.getElementById("image")?.click()}
-                        >
-                          Replace
-                        </Button>
-                      </div>
                     ) : (
                       <>
                         <ImageIcon className="h-8 w-8 text-gray-400 mb-2" />
@@ -412,7 +387,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                       <FormLabel>Unit of Measure *</FormLabel>
                       <Select 
                         onValueChange={field.onChange} 
-                        value={field.value || ""}
+                        value={field.value || "Piece"}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -438,13 +413,13 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
                 {/* Supplier */}
                 <FormField
                   control={form.control}
-                  name="supplierId"
+                  name="preferredSupplierId"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Preferred Supplier (Optional)</FormLabel>
                       <Select 
                         onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                        value={field.value?.toString() || ""}
+                        value={field.value?.toString() || "0"}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -476,7 +451,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
               {/* Cost Price */}
               <FormField
                 control={form.control}
-                name="costPrice"
+                name="cost"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Cost Price</FormLabel>
@@ -504,7 +479,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
               {/* Selling Price */}
               <FormField
                 control={form.control}
-                name="sellingPrice"
+                name="lastPurchasePrice"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Selling Price</FormLabel>
@@ -595,7 +570,7 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
               {/* Max Stock */}
               <FormField
                 control={form.control}
-                name="maxStock"
+                name="reorderQuantity"
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Maximum Stock *</FormLabel>

@@ -269,7 +269,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <FormLabel>Category *</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
-                    defaultValue={field.value}
+                    value={field.value || ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -298,7 +298,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <FormLabel>Payment Method</FormLabel>
                   <Select 
                     onValueChange={field.onChange} 
-                    defaultValue={field.value}
+                    value={field.value || ""}
                   >
                     <FormControl>
                       <SelectTrigger>
@@ -329,7 +329,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                   <FormLabel>Supplier (Optional)</FormLabel>
                   <Select 
                     onValueChange={(value) => field.onChange(value ? parseInt(value) : undefined)} 
-                    defaultValue={field.value?.toString()}
+                    value={field.value?.toString() || ""}
                   >
                     <FormControl>
                       <SelectTrigger>

@@ -390,7 +390,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     const inventoryItem = inventoryItems.find(item => item.id === inventoryItemId);
     if (inventoryItem) {
       lineItemForm.setValue("description", inventoryItem.name);
-      lineItemForm.setValue("unitPrice", inventoryItem.costPrice || 0);
+      lineItemForm.setValue("unitPrice", inventoryItem.cost || 0);
     }
     lineItemForm.setValue("inventoryItemId", inventoryItemId);
   };
@@ -445,7 +445,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <FormLabel>Supplier *</FormLabel>
                         <Select 
                           onValueChange={(value) => field.onChange(parseInt(value))} 
-                          value={field.value?.toString() || ""}
+                          value={field.value?.toString() || (suppliers.length > 0 ? suppliers[0].id.toString() : "0")}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -526,7 +526,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <FormLabel>Status *</FormLabel>
                         <Select 
                           onValueChange={field.onChange} 
-                          value={field.value || ""}
+                          value={field.value || "Draft"}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -671,7 +671,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <Label htmlFor="inventoryItemId">Select Inventory Item</Label>
                         <Select 
                           onValueChange={(value) => handleInventoryItemChange(parseInt(value))}
-                          value={lineItemForm.watch("inventoryItemId")?.toString() || undefined}
+                          value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Select an item" />
