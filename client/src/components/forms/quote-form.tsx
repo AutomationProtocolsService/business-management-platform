@@ -531,15 +531,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                 )}
               />
 
-              {/* Payment Details */}
-              {settings?.bankDetails && (
-                <div className="mt-4 p-3 border rounded-md bg-gray-50">
-                  <h3 className="font-medium mb-2">Payment Information</h3>
-                  <div className="text-sm whitespace-pre-line">
-                    {settings.bankDetails}
-                  </div>
-                </div>
-              )}
+              {/* Payment Details removed as requested */}
             </CardContent>
           </Card>
         </div>
