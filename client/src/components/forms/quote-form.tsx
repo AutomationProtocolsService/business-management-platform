@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm, useFieldArray } from "react-hook-form";
 import { z } from "zod";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -26,13 +27,13 @@ import {
   insertQuoteItemSchema, 
   Quote, 
   Customer, 
-  Project 
+  Project,
+  FileAttachment 
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { getInputDateString } from "@/lib/date-utils";
-import { XCircle, Plus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { XCircle, Plus, Paperclip } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
@@ -45,6 +46,7 @@ import {
 } from "@/components/ui/dialog";
 import CustomerForm from "@/components/forms/customer-form";
 import ProjectForm from "@/components/forms/project-form";
+import { FileUpload } from "@/components/ui/file-upload";
 
 // Create a schema for quote items that allows client-side calculation
 const quoteItemSchema = insertQuoteItemSchema.extend({
@@ -85,6 +87,13 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   const [recalculating, setRecalculating] = useState(false);
   const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
+
+  // Fetch files if editing an existing quote
+  const { data: existingFiles = [] } = useQuery<FileAttachment[]>({
+    queryKey: [`/api/files/quote/${quoteId}`],
+    enabled: !!quoteId
+  });
 
   // Fetch customers and projects for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -285,6 +294,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       title: "Project created",
       description: "Project has been created and selected.",
     });
+  };
+  
+  // Handle file deletion
+  const handleDeleteFile = (fileId: number) => {
+    setAttachments(prev => prev.filter(file => file.id !== fileId));
+    queryClient.invalidateQueries({ queryKey: [`/api/files/quote/${quoteId}`] });
+  };
+
+  // Handle files upload success
+  const handleFilesUploaded = (newFiles: FileAttachment[]) => {
+    setAttachments(prev => [...prev, ...newFiles]);
   };
   
   // Handle loading state
@@ -500,7 +520,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg">Additional Information</CardTitle>
+              <CardTitle className="text-lg">Notes & Terms</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <FormField
@@ -508,9 +528,13 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                 name="notes"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Notes</FormLabel>
+                    <FormLabel>Quote Notes</FormLabel>
                     <FormControl>
-                      <Textarea rows={4} placeholder="Enter notes" {...field} />
+                      <Textarea 
+                        placeholder="Enter any notes about this quote (visible to customer)"
+                        rows={5}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -524,14 +548,31 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                   <FormItem>
                     <FormLabel>Terms & Conditions</FormLabel>
                     <FormControl>
-                      <Textarea rows={4} placeholder="Enter terms and conditions" {...field} />
+                      <Textarea 
+                        placeholder="Enter terms and conditions for this quote"
+                        rows={5}
+                        {...field} 
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              {/* Payment Details removed as requested */}
+              
+              {/* File Attachments */}
+              {quoteId && (
+                <div className="mt-6">
+                  <FileUpload
+                    relatedId={quoteId}
+                    relatedType="quote"
+                    existingFiles={existingFiles}
+                    onFilesUploaded={handleFilesUploaded}
+                    onDeleteFile={handleDeleteFile}
+                    maxFiles={5}
+                    label="Quote Attachments"
+                  />
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -574,16 +615,14 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="text" 
+                              type="number" 
+                              step="0.01"
+                              min="0.01"
                               inputMode="decimal"
-                              placeholder="Qty"
-                              {...field}
                               onChange={(e) => {
-                                // Remove any non-numeric characters except decimal point
-                                const value = e.target.value.replace(/[^\d.]/g, '');
-                                // Parse the value and update the field
-                                field.onChange(parseFloat(value) || 0);
-                              }} 
+                                field.onChange(parseFloat(e.target.value) || 0);
+                              }}
+                              value={field.value}
                             />
                           </FormControl>
                           <FormMessage />
@@ -599,16 +638,14 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                         <FormItem>
                           <FormControl>
                             <Input 
-                              type="text" 
+                              type="number" 
+                              step="0.01"
+                              min="0"
                               inputMode="decimal"
-                              placeholder="Price"
-                              {...field}
                               onChange={(e) => {
-                                // Remove any non-numeric characters except decimal point
-                                const value = e.target.value.replace(/[^\d.]/g, '');
-                                // Parse the value and update the field
-                                field.onChange(parseFloat(value) || 0);
-                              }} 
+                                field.onChange(parseFloat(e.target.value) || 0);
+                              }}
+                              value={field.value}
                             />
                           </FormControl>
                           <FormMessage />
@@ -623,26 +660,25 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                       render={({ field }) => (
                         <FormItem>
                           <FormControl>
-                            <Input 
-                              readOnly 
-                              value={(field.value || 0).toFixed(2)} 
-                              className="bg-gray-50" 
-                            />
+                            <div className="h-10 flex items-center text-sm px-3 rounded-md border border-input bg-background">
+                              {getCurrencySymbol()} {field.value.toFixed(2)}
+                            </div>
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
                   </div>
-                  <div className="col-span-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                  <div className="col-span-1 flex justify-center">
+                    <Button 
                       type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-10 w-10 text-red-500 hover:text-red-700"
                       onClick={() => remove(index)}
                       disabled={fields.length === 1}
                     >
-                      <XCircle className="h-5 w-5 text-gray-500" />
+                      <XCircle className="h-5 w-5" />
                     </Button>
                   </div>
                 </div>
@@ -651,83 +687,79 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
               <Button
                 type="button"
                 variant="outline"
-                size="sm"
-                className="mt-2 flex items-center"
+                className="mt-2"
                 onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0 })}
               >
-                <Plus className="h-4 w-4 mr-2" />
-                Add Item
+                <Plus className="mr-2 h-4 w-4" /> Add Item
               </Button>
-
-              <Separator className="my-4" />
-
-              <div className="w-full md:w-72 ml-auto space-y-2">
-                <div className="flex justify-between">
-                  <span className="font-medium">Subtotal:</span>
-                  <span>{getCurrencySymbol()}{(form.watch("subtotal") || 0).toFixed(2)}</span>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Tax Rate (%):</span>
-                  <FormField
-                    control={form.control}
-                    name="tax"
-                    render={({ field }) => (
-                      <FormItem className="m-0 w-24 relative">
-                        <FormControl>
-                          <Input 
-                            type="text" 
-                            inputMode="decimal"
-                            placeholder="0.0"
-                            {...field}
-                            onChange={(e) => {
-                              // Remove any non-numeric characters except decimal point
-                              const value = e.target.value.replace(/[^\d.]/g, '');
-                              // Parse the value and limit to maximum 100
-                              const parsedValue = Math.min(parseFloat(value) || 0, 100);
-                              field.onChange(parsedValue);
-                            }} 
-                          />
-                        </FormControl>
-                        <div className="absolute right-3 top-2.5">%</div>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <span className="font-medium">Discount:</span>
-                  <FormField
-                    control={form.control}
-                    name="discount"
-                    render={({ field }) => (
-                      <FormItem className="m-0 w-24">
-                        <FormControl>
-                          <Input 
-                            type="text" 
-                            inputMode="decimal"
-                            placeholder="0.00"
-                            {...field}
-                            onChange={(e) => {
-                              // Remove any non-numeric characters except decimal point
-                              const value = e.target.value.replace(/[^\d.]/g, '');
-                              // Parse the value and update the field
-                              field.onChange(parseFloat(value) || 0);
-                            }} 
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                <Separator />
-
-                <div className="flex justify-between font-bold">
-                  <span>Total:</span>
-                  <span>{getCurrencySymbol()}{(form.watch("total") || 0).toFixed(2)}</span>
+            </div>
+            
+            <div className="mt-8 space-y-4">
+              <div className="flex justify-end">
+                <div className="w-64 space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-sm">Subtotal:</span>
+                    <span className="text-sm">{getCurrencySymbol()} {form.watch("subtotal").toFixed(2)}</span>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Tax (%):</span>
+                    <div className="w-24">
+                      <FormField
+                        control={form.control}
+                        name="tax"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input 
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                onChange={(e) => {
+                                  field.onChange(parseFloat(e.target.value) || 0);
+                                }}
+                                value={field.value}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm">Discount:</span>
+                    <div className="w-24">
+                      <FormField
+                        control={form.control}
+                        name="discount"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormControl>
+                              <Input 
+                                type="text"
+                                inputMode="decimal"
+                                placeholder="0.00"
+                                onChange={(e) => {
+                                  field.onChange(parseFloat(e.target.value) || 0);
+                                }}
+                                value={field.value}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+                  
+                  <Separator />
+                  
+                  <div className="flex justify-between font-semibold">
+                    <span>Total:</span>
+                    <span>{getCurrencySymbol()} {form.watch("total").toFixed(2)}</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -737,48 +769,45 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
         <div className="flex justify-end gap-4">
           <Button 
             type="button" 
-            variant="outline" 
-            onClick={() => {
-              if (onCancel) {
-                onCancel();
-              }
-            }}
+            variant="outline"
+            onClick={onCancel}
           >
             Cancel
           </Button>
-          <Button 
-            type="submit" 
-            disabled={isSubmitting}
-            className="bg-primary hover:bg-primary/90"
-          >
+          <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : quoteId ? "Update Quote" : "Create Quote"}
           </Button>
         </div>
       </form>
-
-      {/* Create Customer Dialog */}
+      
+      {/* Dialogs */}
       <Dialog open={isCreateCustomerDialogOpen} onOpenChange={setIsCreateCustomerDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Customer</DialogTitle>
             <DialogDescription>
-              Fill in the details to create a new customer.
+              Add a new customer to your system.
             </DialogDescription>
           </DialogHeader>
-          <CustomerForm onSuccess={handleCustomerCreated} />
+          <CustomerForm 
+            onSuccess={handleCustomerCreated}
+            onCancel={() => setIsCreateCustomerDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
-
-      {/* Create Project Dialog */}
+      
       <Dialog open={isCreateProjectDialogOpen} onOpenChange={setIsCreateProjectDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Project</DialogTitle>
             <DialogDescription>
-              Fill in the details to create a new project.
+              Add a new project to your system.
             </DialogDescription>
           </DialogHeader>
-          <ProjectForm onSuccess={handleProjectCreated} />
+          <ProjectForm 
+            onSuccess={handleProjectCreated}
+            onCancel={() => setIsCreateProjectDialogOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </Form>

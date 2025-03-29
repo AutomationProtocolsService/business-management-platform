@@ -251,6 +251,7 @@ export interface IStorage {
   createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment>;
   deleteFileAttachment(id: number): Promise<boolean>;
   getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]>;
+  getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]>;
   
   // Session store
   sessionStore: any; // Using any to fix Express session store type issue
@@ -1237,6 +1238,12 @@ export class MemStorage implements IStorage {
   async getFileAttachmentsByRelation(relatedId: number, relatedType: string): Promise<FileAttachment[]> {
     return Array.from(this.fileAttachments.values()).filter(
       file => file.relatedId === relatedId && file.relatedType === relatedType
+    );
+  }
+  
+  async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]> {
+    return Array.from(this.fileAttachments.values()).filter(
+      file => file.relatedType === relatedType && file.relatedId === relatedId
     );
   }
 }
@@ -2304,6 +2311,15 @@ export class DatabaseStorage implements IStorage {
       where: and(
         eq(schema.fileAttachments.relatedId, relatedId),
         eq(schema.fileAttachments.relatedType, relatedType)
+      )
+    });
+  }
+
+  async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]> {
+    return await db.query.fileAttachments.findMany({
+      where: and(
+        eq(schema.fileAttachments.relatedType, relatedType),
+        eq(schema.fileAttachments.relatedId, relatedId)
       )
     });
   }
