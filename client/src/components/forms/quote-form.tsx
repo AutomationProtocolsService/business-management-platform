@@ -633,7 +633,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                           <FormControl>
                             <Input 
                               readOnly 
-                              value={field.value.toFixed(2)} 
+                              value={(field.value || 0).toFixed(2)} 
                               className="bg-gray-50" 
                             />
                           </FormControl>
@@ -672,7 +672,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
               <div className="w-full md:w-72 ml-auto space-y-2">
                 <div className="flex justify-between">
                   <span className="font-medium">Subtotal:</span>
-                  <span>{getCurrencySymbol()}{form.watch("subtotal").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{(form.watch("subtotal") || 0).toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -735,7 +735,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
 
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>
-                  <span>{getCurrencySymbol()}{form.watch("total").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{(form.watch("total") || 0).toFixed(2)}</span>
                 </div>
               </div>
             </div>
