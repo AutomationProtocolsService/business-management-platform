@@ -10,7 +10,9 @@ import {
   MoreHorizontal, 
   Edit, 
   Trash2, 
-  Receipt
+  Receipt,
+  Eye,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -335,70 +337,83 @@ export default function QuotesPage() {
                           {getCurrencySymbol()}{quote.total.toLocaleString()}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/quotes/${quote.id}`}>
-                                  <div className="w-full flex items-center">
-                                    <FileText className="h-4 w-4 mr-2" /> View Details
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/quotes/${quote.id}/edit`}>
-                                  <div className="w-full flex items-center">
-                                    <Edit className="h-4 w-4 mr-2" /> Edit
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedQuoteId(quote.id);
-                                  setIsEmailDialogOpen(true);
-                                }}
-                                disabled={quote.status === 'draft'}
-                              >
-                                <Mail className="h-4 w-4 mr-2" /> Email Quote
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <a 
-                                  href={`/api/quotes/${quote.id}/pdf`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex items-center"
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="View Details"
+                              asChild
+                            >
+                              <Link href={`/quotes/${quote.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Edit"
+                              asChild
+                            >
+                              <Link href={`/quotes/${quote.id}/edit`}>
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-blue-500"
+                              title="Download PDF"
+                              onClick={() => {
+                                window.open(`/api/quotes/${quote.id}/pdf`, '_blank');
+                              }}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-purple-500"
+                              title="Email Quote"
+                              onClick={() => {
+                                setSelectedQuoteId(quote.id);
+                                setIsEmailDialogOpen(true);
+                              }}
+                              disabled={quote.status === 'draft'}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedQuoteId(quote.id);
+                                    setIsConvertDialogOpen(true);
+                                  }}
+                                  disabled={quote.status !== 'accepted' && quote.status !== 'sent'}
                                 >
-                                  <Download className="h-4 w-4 mr-2" /> Download PDF
-                                </a>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedQuoteId(quote.id);
-                                  setIsConvertDialogOpen(true);
-                                }}
-                                disabled={quote.status !== 'accepted' && quote.status !== 'sent'}
-                              >
-                                <Receipt className="h-4 w-4 mr-2" /> Convert to Invoice
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedQuoteId(quote.id);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                                className="text-red-600"
-                                disabled={quote.status === 'converted'}
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
+                                  <Receipt className="h-4 w-4 mr-2" /> Convert to Invoice
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedQuoteId(quote.id);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-600"
+                                  disabled={quote.status === 'converted'}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))

@@ -10,7 +10,9 @@ import {
   MoreHorizontal, 
   Edit, 
   Trash2,
-  CheckCircle 
+  CheckCircle,
+  Eye,
+  Pencil
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -333,70 +335,83 @@ export default function InvoicesPage() {
                           {formatMoney(invoice.total)}
                         </TableCell>
                         <TableCell className="text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="sm">
-                                <MoreHorizontal className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/invoices/${invoice.id}`}>
-                                  <div className="w-full flex items-center">
-                                    <FileText className="h-4 w-4 mr-2" /> View Details
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <Link href={`/invoices/${invoice.id}/edit`}>
-                                  <div className="w-full flex items-center">
-                                    <Edit className="h-4 w-4 mr-2" /> Edit
-                                  </div>
-                                </Link>
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedInvoiceId(invoice.id);
-                                  setIsEmailDialogOpen(true);
-                                }}
-                                disabled={invoice.status === 'draft'}
-                              >
-                                <Mail className="h-4 w-4 mr-2" /> Email Invoice
-                              </DropdownMenuItem>
-                              <DropdownMenuItem asChild>
-                                <a 
-                                  href={`/api/invoices/${invoice.id}/pdf`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex items-center"
+                          <div className="flex justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="View Details"
+                              asChild
+                            >
+                              <Link href={`/invoices/${invoice.id}`}>
+                                <Eye className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              title="Edit"
+                              asChild
+                            >
+                              <Link href={`/invoices/${invoice.id}/edit`}>
+                                <Pencil className="h-4 w-4" />
+                              </Link>
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-blue-500"
+                              title="Download PDF"
+                              onClick={() => {
+                                window.open(`/api/invoices/${invoice.id}/pdf`, '_blank');
+                              }}
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-purple-500"
+                              title="Email Invoice"
+                              onClick={() => {
+                                setSelectedInvoiceId(invoice.id);
+                                setIsEmailDialogOpen(true);
+                              }}
+                              disabled={invoice.status === 'draft'}
+                            >
+                              <Mail className="h-4 w-4" />
+                            </Button>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" size="icon">
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                <DropdownMenuLabel>More Actions</DropdownMenuLabel>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedInvoiceId(invoice.id);
+                                    setIsMarkPaidDialogOpen(true);
+                                  }}
+                                  disabled={invoice.status === 'paid' || invoice.status === 'cancelled'}
+                                  className="text-green-600"
                                 >
-                                  <Download className="h-4 w-4 mr-2" /> Download PDF
-                                </a>
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedInvoiceId(invoice.id);
-                                  setIsMarkPaidDialogOpen(true);
-                                }}
-                                disabled={invoice.status === 'paid' || invoice.status === 'cancelled'}
-                                className="text-green-600"
-                              >
-                                <CheckCircle className="h-4 w-4 mr-2" /> Mark as Paid
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem 
-                                onClick={() => {
-                                  setSelectedInvoiceId(invoice.id);
-                                  setIsDeleteDialogOpen(true);
-                                }}
-                                className="text-red-600"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" /> Delete
-                              </DropdownMenuItem>
+                                  <CheckCircle className="h-4 w-4 mr-2" /> Mark as Paid
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedInvoiceId(invoice.id);
+                                    setIsDeleteDialogOpen(true);
+                                  }}
+                                  className="text-red-600"
+                                >
+                                  <Trash2 className="h-4 w-4 mr-2" /> Delete
+                                </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))
