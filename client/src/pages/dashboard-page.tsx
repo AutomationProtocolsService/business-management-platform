@@ -181,7 +181,7 @@ export default function DashboardPage() {
           <CardContent>
             <div className="text-2xl font-bold">{metrics.unpaidInvoices}</div>
             <p className="text-xs text-muted-foreground mt-1">
-              ${metrics.totalUnpaidAmount.toLocaleString()} outstanding
+              ${metrics.totalUnpaidAmount?.toLocaleString() || "0"} outstanding
             </p>
           </CardContent>
         </Card>
@@ -279,14 +279,14 @@ export default function DashboardPage() {
                     <h4 className="text-sm font-medium mb-1">{getPlural(terminology.invoice)} This Month</h4>
                     <div className="flex items-center justify-between">
                       <span>
-                        ${invoices
+                        ${(invoices
                           .filter(inv => {
                             if (!inv?.issueDate) return false;
                             const date = new Date(inv.issueDate);
                             const now = new Date();
                             return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
                           })
-                          .reduce((sum, inv) => sum + (inv?.total || 0), 0)
+                          .reduce((sum, inv) => sum + (inv?.total || 0), 0) || 0)
                           .toLocaleString()}
                       </span>
                       <Badge className="bg-green-100 text-green-800">
@@ -304,7 +304,7 @@ export default function DashboardPage() {
                     <h4 className="text-sm font-medium mb-1">Outstanding Payments</h4>
                     <div className="flex items-center justify-between">
                       <span className="text-amber-600 font-medium">
-                        ${metrics.totalUnpaidAmount.toLocaleString()}
+                        ${metrics.totalUnpaidAmount?.toLocaleString() || "0"}
                       </span>
                       <Badge className="bg-yellow-100 text-yellow-800">
                         {metrics.unpaidInvoices} {getPlural(terminology.invoice).toLowerCase()}
@@ -316,9 +316,9 @@ export default function DashboardPage() {
                     <h4 className="text-sm font-medium mb-1">{getPlural(terminology.quote)} Pending</h4>
                     <div className="flex items-center justify-between">
                       <span>
-                        ${quotes
+                        ${(quotes
                           .filter(q => q?.status?.toLowerCase() === "pending")
-                          .reduce((sum, q) => sum + (q?.total || 0), 0)
+                          .reduce((sum, q) => sum + (q?.total || 0), 0) || 0)
                           .toLocaleString()}
                       </span>
                       <Badge className="bg-blue-100 text-blue-800">
@@ -338,7 +338,7 @@ export default function DashboardPage() {
                           <div className="flex-1 text-sm">
                             <p>{terminology.invoice} #{invoice.invoiceNumber} {invoice.status}</p>
                             <p className="text-xs text-gray-500">
-                              {formatDate(invoice.issueDate)} - ${invoice.total?.toLocaleString()}
+                              {invoice.issueDate ? formatDate(invoice.issueDate) : "No date"} - ${invoice.total?.toLocaleString() || "0"}
                             </p>
                           </div>
                         </div>
@@ -446,9 +446,9 @@ export default function DashboardPage() {
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
-                        <TableCell>{formatDate(invoice.issueDate)}</TableCell>
-                        <TableCell>{formatDate(invoice.dueDate)}</TableCell>
-                        <TableCell>${invoice.total?.toLocaleString()}</TableCell>
+                        <TableCell>{invoice.issueDate ? formatDate(invoice.issueDate) : "No date"}</TableCell>
+                        <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : "No due date"}</TableCell>
+                        <TableCell>${invoice.total?.toLocaleString() || "0"}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(invoice.status)}>
                             {invoice.status}
@@ -500,9 +500,9 @@ export default function DashboardPage() {
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
-                        <TableCell>{formatDate(quote.issueDate)}</TableCell>
+                        <TableCell>{quote.issueDate ? formatDate(quote.issueDate) : "No date"}</TableCell>
                         <TableCell>{quote.expiryDate ? formatDate(quote.expiryDate) : "N/A"}</TableCell>
-                        <TableCell>${quote.total?.toLocaleString()}</TableCell>
+                        <TableCell>${quote.total?.toLocaleString() || "0"}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(quote.status)}>
                             {quote.status}
