@@ -74,8 +74,7 @@ export default function PurchaseOrdersPage() {
   const filteredPOs = purchaseOrders.filter(po => {
     const matchesSearch = 
       searchTerm === "" || 
-      po.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      (po.supplierName && po.supplierName.toLowerCase().includes(searchTerm.toLowerCase()));
+      (po.poNumber && po.poNumber.toLowerCase().includes(searchTerm.toLowerCase()));
     
     const matchesStatus = 
       statusFilter === "" || 
@@ -173,13 +172,7 @@ export default function PurchaseOrdersPage() {
                     : "Your purchase order has been created successfully.",
                 });
               }}
-              defaultValues={!selectedPO ? {
-                issueDate: new Date().toISOString().split('T')[0],
-                status: 'Draft',
-                items: [],
-                tax: 0,
-                discount: 0
-              } : undefined}
+
             />
           </DialogContent>
         </Dialog>
@@ -262,15 +255,15 @@ export default function PurchaseOrdersPage() {
                   {filteredPOs.map((po) => (
                     <TableRow key={po.id}>
                       <TableCell className="font-medium">
-                        {po.orderNumber}
+                        {po.poNumber}
                       </TableCell>
-                      <TableCell>{po.supplierName}</TableCell>
+                      <TableCell>Supplier {po.supplierId}</TableCell>
                       <TableCell>
-                        {format(new Date(po.orderDate), "MMM d, yyyy")}
+                        {format(new Date(po.issueDate), "MMM d, yyyy")}
                       </TableCell>
                       <TableCell>{getStatusBadge(po.status)}</TableCell>
                       <TableCell className="font-medium">
-                        {formatMoney(po.totalAmount)}
+                        {formatMoney(po.total)}
                       </TableCell>
                       <TableCell>
                         {po.expectedDeliveryDate ? 

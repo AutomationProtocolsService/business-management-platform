@@ -64,6 +64,7 @@ const formSchema = insertPurchaseOrderSchema.extend({
     required_error: "Order date is required",
   }),
   expectedDeliveryDate: z.date().optional(),
+  orderNumber: z.string().optional(), // for UI, will be mapped to poNumber
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -113,14 +114,14 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     resolver: zodResolver(formSchema),
     defaultValues: {
       supplierId: purchaseOrder?.supplierId || undefined,
-      orderNumber: purchaseOrder?.orderNumber || generatePONumber(),
-      orderDate: purchaseOrder ? new Date(purchaseOrder.orderDate) : new Date(),
+      orderNumber: purchaseOrder?.poNumber || generatePONumber(),
+      orderDate: purchaseOrder ? new Date(purchaseOrder.issueDate) : new Date(),
       expectedDeliveryDate: purchaseOrder?.expectedDeliveryDate 
         ? new Date(purchaseOrder.expectedDeliveryDate) 
         : undefined,
       deliveryAddress: purchaseOrder?.deliveryAddress || "",
       notes: purchaseOrder?.notes || "",
-      termsAndConditions: purchaseOrder?.termsAndConditions || "",
+      terms: purchaseOrder?.terms || "",
       status: purchaseOrder?.status || "Draft",
     },
   });
@@ -139,9 +140,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   // Load line items for existing PO
   useEffect(() => {
     if (purchaseOrder?.id) {
-      // In a real app, we would fetch line items from the API
-      // For now, we'll simulate with empty array
-      setLineItems(purchaseOrder.items || []);
+      // In a real app, we would fetch line items from the API based on PO ID
+      // For now, we'll simulate with empty array or existing line items
+      setLineItems([]);
     }
   }, [purchaseOrder]);
 
@@ -246,8 +247,17 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
       // Update existing purchase order
       const updatedPO = {
         ...data,
-        totalAmount: calculateTotal(),
-        supplierName: selectedSupplier?.name || "Unknown Supplier",
+        issueDate: data.orderDate.toISOString().split('T')[0],
+        expectedDeliveryDate: data.expectedDeliveryDate ? 
+          data.expectedDeliveryDate.toISOString().split('T')[0] : null,
+        poNumber: data.orderNumber,
+        status: data.status,
+        notes: data.notes,
+        terms: data.terms, // Make sure we're using the correct field name
+        subtotal: calculateSubtotal(),
+        total: calculateTotal(),
+        tax: calculateTax(),
+        // No supplierName as it's linked through supplierId
         updatedBy: user.id,
       };
       
@@ -272,8 +282,17 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
       // Create new purchase order
       const newPO = {
         ...data,
-        totalAmount: calculateTotal(),
-        supplierName: selectedSupplier?.name || "Unknown Supplier",
+        issueDate: data.orderDate.toISOString().split('T')[0],
+        expectedDeliveryDate: data.expectedDeliveryDate ? 
+          data.expectedDeliveryDate.toISOString().split('T')[0] : null,
+        poNumber: data.orderNumber,
+        status: data.status,
+        notes: data.notes,
+        terms: data.terms, // Make sure we're using the correct field name
+        subtotal: calculateSubtotal(),
+        total: calculateTotal(),
+        tax: calculateTax(),
+        // No longer need supplierName as it's linked through supplierId
         createdBy: user.id,
         items: lineItems.map(item => ({
           ...item,
@@ -521,7 +540,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
               <div>
                 <FormField
                   control={form.control}
-                  name="termsAndConditions"
+                  name="terms"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Terms and Conditions</FormLabel>
