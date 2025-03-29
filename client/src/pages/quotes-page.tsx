@@ -240,7 +240,7 @@ export default function QuotesPage() {
             </SelectContent>
           </Select>
           <Button 
-            className="flex items-center"
+            className="flex items-center bg-primary hover:bg-primary/90"
             onClick={() => setIsCreateDialogOpen(true)}
           >
             <Plus className="h-4 w-4 mr-2" />
@@ -250,12 +250,33 @@ export default function QuotesPage() {
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Create New Quote</DialogTitle>
+                <DialogTitle className="text-xl font-bold flex items-center">
+                  <FileText className="h-5 w-5 mr-2 text-primary" />
+                  Create New Quote
+                </DialogTitle>
                 <DialogDescription>
-                  Fill in the details to create a new quote.
+                  Fill in the details to create a new quote. All fields marked with an asterisk (*) are required.
                 </DialogDescription>
               </DialogHeader>
-              <QuoteForm onSuccess={handleQuoteCreated} />
+              <QuoteForm 
+                onSuccess={handleQuoteCreated}
+                onCancel={() => setIsCreateDialogOpen(false)}
+                defaultValues={{
+                  issueDate: new Date().toISOString().split('T')[0],
+                  expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                  status: 'draft',
+                  items: [{
+                    description: '',
+                    quantity: 1,
+                    unitPrice: 0,
+                    total: 0
+                  }],
+                  tax: 0,
+                  discount: 0,
+                  subtotal: 0,
+                  total: 0
+                }}
+              />
             </DialogContent>
           </Dialog>
         </div>
