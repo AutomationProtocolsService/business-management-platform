@@ -399,14 +399,18 @@ export const companySettings = pgTable("company_settings", {
   website: text("website"),
   vatNumber: text("vat_number"),
   registrationNumber: text("registration_number"),
+  taxId: text("tax_id"), // Tax ID (EIN, ABN, VAT, etc.)
   certifications: jsonb("certifications").$type<string[]>(), // Array of certification URLs or descriptions
   defaultInvoiceTerms: text("default_invoice_terms"),
   defaultQuoteTerms: text("default_quote_terms"),
+  termsAndConditions: text("terms_and_conditions"), // General terms and conditions
   bankDetails: text("bank_details"),
   footerText: text("footer_text"),
   primaryColor: text("primary_color").default("#2563eb"), // Default brand color for documents
   currency: text("currency").default("USD"), // Default currency for quotes and invoices
+  currencyCode: text("currency_code").default("USD"), // Currency code (USD, EUR, GBP)
   currencySymbol: text("currency_symbol").default("$"), // Default currency symbol
+  defaultTaxRate: doublePrecision("default_tax_rate").default(0),
   // Custom terminology
   customTerminology: jsonb("custom_terminology").$type<{
     survey?: string;
@@ -422,6 +426,17 @@ export const companySettings = pgTable("company_settings", {
     purchaseOrder?: string;
     inventory?: string;
   }>(), // Custom terms for different modules
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  updatedBy: integer("updated_by").references(() => users.id),
+});
+
+// System Settings
+export const systemSettings = pgTable("system_settings", {
+  id: serial("id").primaryKey(),
+  darkMode: boolean("dark_mode").default(false),
+  emailNotifications: boolean("email_notifications").default(true),
+  autoSave: boolean("auto_save").default(true),
+  defaultPageSize: integer("default_page_size").default(10),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => users.id),
 });
@@ -542,6 +557,11 @@ export const insertFileAttachmentSchema = createInsertSchema(fileAttachments).om
   createdAt: true,
 });
 
+export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omit({
+  id: true,
+  updatedAt: true,
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -609,3 +629,6 @@ export type InventoryTransaction = typeof inventoryTransactions.$inferSelect;
 
 export type InsertFileAttachment = z.infer<typeof insertFileAttachmentSchema>;
 export type FileAttachment = typeof fileAttachments.$inferSelect;
+
+export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;
+export type SystemSettings = typeof systemSettings.$inferSelect;

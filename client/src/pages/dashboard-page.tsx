@@ -100,16 +100,6 @@ export default function DashboardPage() {
 
   // Loading state
   const isLoading = projectsLoading || invoicesLoading || quotesLoading || customersLoading;
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-gray-500">Loading dashboard data...</p>
-        </div>
-      </div>
-    );
-  }
 
   // Helper function to get status badge color
   const getStatusColor = (status: string = '') => {
@@ -142,7 +132,7 @@ export default function DashboardPage() {
     setIsSearchOpen(false);
   };
   
-  // Handle keyboard shortcuts for search
+  // Handle keyboard shortcuts for search - must be called in all render paths
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       // Open search with Ctrl+K or Cmd+K
@@ -154,10 +144,21 @@ export default function DashboardPage() {
     
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [setIsSearchOpen]);
 
-  return (
-    <div className="h-full px-1">
+  // Component for loading state
+  const LoadingState = () => (
+    <div className="flex items-center justify-center h-full">
+      <div className="text-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+        <p className="mt-4 text-gray-500">Loading dashboard data...</p>
+      </div>
+    </div>
+  );
+
+  // Dashboard content when data is loaded
+  const DashboardContent = () => (
+    <>
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-2xl font-bold text-gray-800">Dashboard</h2>
@@ -486,14 +487,14 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell>{project.startDate ? formatDate(project.startDate) : "Not set"}</TableCell>
                         <TableCell>{project.deadline ? formatDate(project.deadline) : "No deadline"}</TableCell>
-                        <TableCell>${project.budget?.toLocaleString() || "—"}</TableCell>
+                        <TableCell>${project.budget?.toLocaleString() || "0"}</TableCell>
                       </TableRow>
                     );
                   })}
                   {projects.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                        No {getPlural(terminology.project).toLowerCase()} found
+                        No projects found
                       </TableCell>
                     </TableRow>
                   )}
@@ -507,14 +508,14 @@ export default function DashboardPage() {
         <TabsContent value="invoices">
           <Card>
             <CardHeader>
-              <CardTitle>Recent {getPlural(terminology.invoice)}</CardTitle>
-              <CardDescription>Track your recent {getPlural(terminology.invoice).toLowerCase()}</CardDescription>
+              <CardTitle>All {getPlural(terminology.invoice)}</CardTitle>
+              <CardDescription>Complete list of your {getPlural(terminology.invoice).toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{terminology.invoice} #</TableHead>
+                    <TableHead>Invoice #</TableHead>
                     <TableHead>Client</TableHead>
                     <TableHead>Issue Date</TableHead>
                     <TableHead>Due Date</TableHead>
@@ -534,7 +535,7 @@ export default function DashboardPage() {
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
                         <TableCell>{invoice.issueDate ? formatDate(invoice.issueDate) : "No date"}</TableCell>
-                        <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : "No due date"}</TableCell>
+                        <TableCell>{invoice.dueDate ? formatDate(invoice.dueDate) : "No date"}</TableCell>
                         <TableCell>${invoice.total?.toLocaleString() || "0"}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(invoice.status)}>
@@ -547,7 +548,7 @@ export default function DashboardPage() {
                   {invoices.length === 0 && (
                     <TableRow>
                       <TableCell colSpan={6} className="text-center py-4 text-gray-500">
-                        No {getPlural(terminology.invoice).toLowerCase()} found
+                        No invoices found
                       </TableCell>
                     </TableRow>
                   )}
@@ -561,17 +562,17 @@ export default function DashboardPage() {
         <TabsContent value="quotes">
           <Card>
             <CardHeader>
-              <CardTitle>Recent {getPlural(terminology.quote)}</CardTitle>
-              <CardDescription>Track your recent {getPlural(terminology.quote).toLowerCase()}</CardDescription>
+              <CardTitle>All {getPlural(terminology.quote)}</CardTitle>
+              <CardDescription>Complete list of your {getPlural(terminology.quote).toLowerCase()}</CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>{terminology.quote} #</TableHead>
+                    <TableHead>Quote #</TableHead>
                     <TableHead>Client</TableHead>
-                    <TableHead>Issue Date</TableHead>
-                    <TableHead>Expiry Date</TableHead>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Expiry</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Status</TableHead>
                   </TableRow>
@@ -587,8 +588,8 @@ export default function DashboardPage() {
                           </Link>
                         </TableCell>
                         <TableCell>{customer?.name || "Unknown Client"}</TableCell>
-                        <TableCell>{quote.issueDate ? formatDate(quote.issueDate) : "No date"}</TableCell>
-                        <TableCell>{quote.expiryDate ? formatDate(quote.expiryDate) : "N/A"}</TableCell>
+                        <TableCell>{quote.date ? formatDate(quote.date) : "No date"}</TableCell>
+                        <TableCell>{quote.expiryDate ? formatDate(quote.expiryDate) : "No date"}</TableCell>
                         <TableCell>${quote.total?.toLocaleString() || "0"}</TableCell>
                         <TableCell>
                           <Badge className={getStatusColor(quote.status)}>
@@ -611,6 +612,12 @@ export default function DashboardPage() {
           </Card>
         </TabsContent>
       </Tabs>
+    </>
+  );
+
+  return (
+    <div className="h-full px-1">
+      {isLoading ? <LoadingState /> : <DashboardContent />}
     </div>
   );
 }

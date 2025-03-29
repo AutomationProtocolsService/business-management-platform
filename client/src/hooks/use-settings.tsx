@@ -4,16 +4,25 @@ import {
   useMutation,
   UseMutationResult,
 } from "@tanstack/react-query";
-import { insertCompanySettingsSchema, CompanySettings } from "@shared/schema";
+import { 
+  insertCompanySettingsSchema, 
+  CompanySettings, 
+  SystemSettings, 
+  insertSystemSettingsSchema 
+} from "@shared/schema";
 import { getQueryFn, apiRequest, queryClient } from "../lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/utils";
 
+// Combined settings type that includes both company and system settings
+type CombinedSettings = CompanySettings & Partial<SystemSettings>;
+
 type SettingsContextType = {
-  settings: CompanySettings | null;
+  settings: CombinedSettings | null;
   isLoading: boolean;
   error: Error | null;
   updateSettingsMutation: UseMutationResult<CompanySettings, Error, Partial<CompanySettings>>;
+  updateSystemSettingsMutation: UseMutationResult<SystemSettings, Error, Partial<SystemSettings>>;
   formatMoney: (amount: number) => string;
   getCurrencySymbol: () => string;
 };
@@ -22,36 +31,84 @@ export const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const { toast } = useToast();
+  
+  // Query for company settings
   const {
-    data: settings,
-    error,
-    isLoading,
+    data: companySettings,
+    error: companyError,
+    isLoading: companyLoading,
   } = useQuery<CompanySettings | undefined, Error>({
-    queryKey: ["/api/settings"],
+    queryKey: ["/api/settings/company"],
     queryFn: getQueryFn({ on401: "returnNull" }),
   });
-
+  
+  // Query for system settings
+  const {
+    data: systemSettings,
+    error: systemError,
+    isLoading: systemLoading,
+  } = useQuery<SystemSettings | undefined, Error>({
+    queryKey: ["/api/settings/system"],
+    queryFn: getQueryFn({ on401: "returnNull" }),
+  });
+  
+  // Combined loading and error states
+  const isLoading = companyLoading || systemLoading;
+  const error = companyError || systemError;
+  
+  // Combine settings for use in the app
+  const combinedSettings: CombinedSettings | null = companySettings 
+    ? { ...companySettings, ...(systemSettings || {}) } 
+    : null;
+  
+  // Company settings mutation
   const updateSettingsMutation = useMutation({
     mutationFn: async (data: Partial<CompanySettings>) => {
-      if (!settings) {
+      if (!companySettings) {
         // If no settings exist, create new ones
-        const res = await apiRequest("POST", "/api/settings", data);
+        const res = await apiRequest("POST", "/api/settings/company", data);
         return await res.json();
       } else {
         // Otherwise update existing settings
-        const res = await apiRequest("PATCH", `/api/settings/${settings.id}`, data);
+        const res = await apiRequest("PATCH", `/api/settings/company/${companySettings.id}`, data);
         return await res.json();
       }
     },
     onSuccess: (updatedSettings: CompanySettings) => {
-      queryClient.setQueryData(["/api/settings"], updatedSettings);
+      queryClient.setQueryData(["/api/settings/company"], updatedSettings);
       toast({
         title: "Settings updated",
         description: "Company settings have been saved successfully.",
       });
-      
-      // Emit a server-side event via websocket that settings have been updated
-      // This will be picked up by the notifications system
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Failed to update settings",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+  
+  // System settings mutation
+  const updateSystemSettingsMutation = useMutation({
+    mutationFn: async (data: Partial<SystemSettings>) => {
+      if (!systemSettings) {
+        // If no settings exist, create new ones
+        const res = await apiRequest("POST", "/api/settings/system", data);
+        return await res.json();
+      } else {
+        // Otherwise update existing settings
+        const res = await apiRequest("PATCH", `/api/settings/system/${systemSettings.id}`, data);
+        return await res.json();
+      }
+    },
+    onSuccess: (updatedSettings: SystemSettings) => {
+      queryClient.setQueryData(["/api/settings/system"], updatedSettings);
+      toast({
+        title: "Settings updated",
+        description: "System settings have been saved successfully.",
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -66,23 +123,24 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const formatMoney = (amount: number): string => {
     return formatCurrency(
       amount,
-      settings?.currency || "USD",
-      settings?.currencySymbol
+      companySettings?.currency || "USD",
+      companySettings?.currencySymbol || undefined
     );
   };
 
   // Helper function to get the currency symbol
   const getCurrencySymbol = (): string => {
-    return settings?.currencySymbol || "$";
+    return companySettings?.currencySymbol || "$";
   };
 
   return (
     <SettingsContext.Provider
       value={{
-        settings: settings ?? null,
+        settings: combinedSettings,
         isLoading,
         error,
         updateSettingsMutation,
+        updateSystemSettingsMutation,
         formatMoney,
         getCurrencySymbol,
       }}

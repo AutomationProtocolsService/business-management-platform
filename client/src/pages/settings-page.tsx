@@ -1,65 +1,48 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSettings } from "@/hooks/use-settings";
+import { useTerminology } from "@/hooks/use-terminology";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest, queryClient } from "@/lib/queryClient";
-
-// UI components
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Settings as SettingsIcon } from "lucide-react";
-import { useTerminology } from "@/hooks/use-terminology";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Loader2 } from "lucide-react";
 
-// Form schema for company settings
+// Company settings form schema
 const companyFormSchema = z.object({
-  companyName: z.string().min(2, { message: "Company name must be at least 2 characters." }),
-  email: z.string().email({ message: "Please enter a valid email." }),
+  companyName: z.string().min(1, "Company name is required"),
+  email: z.string().email("Must be a valid email").or(z.string().length(0)),
   phone: z.string().optional(),
   address: z.string().optional(),
-  website: z.string().url({ message: "Please enter a valid URL." }).optional().or(z.literal("")),
+  website: z.string().url("Must be a valid URL").or(z.string().length(0)),
   taxId: z.string().optional(),
-  currencyCode: z.string().min(3, { message: "Currency code must be at least 3 characters." }),
-  defaultTaxRate: z.coerce.number().min(0).max(100).optional(),
+  currencyCode: z.string().min(1, "Currency code is required"),
+  defaultTaxRate: z.number().min(0).max(100),
   termsAndConditions: z.string().optional(),
 });
 
 type CompanyFormValues = z.infer<typeof companyFormSchema>;
 
-// Form schema for system settings
+// System settings form schema
 const systemFormSchema = z.object({
   darkMode: z.boolean().default(false),
   emailNotifications: z.boolean().default(true),
   autoSave: z.boolean().default(true),
-  defaultPageSize: z.coerce.number().min(5).max(100).default(10),
+  defaultPageSize: z.number().min(5).max(100).default(10),
 });
 
 type SystemFormValues = z.infer<typeof systemFormSchema>;
 
 export default function SettingsPage() {
-  const { settings, updateSettings, isLoading: settingsLoading } = useSettings();
+  const { settings, updateSettingsMutation, updateSystemSettingsMutation, isLoading: settingsLoading } = useSettings();
   const { toast } = useToast();
   const terminology = useTerminology();
   const [activeTab, setActiveTab] = useState("company");
@@ -91,14 +74,14 @@ export default function SettingsPage() {
     },
   });
 
-  // Update company settings mutation
-  const updateCompanySettingsMutation = useMutation({
+  // Local company settings mutation
+  const localCompanySettingsMutation = useMutation({
     mutationFn: async (data: CompanyFormValues) => {
       const res = await apiRequest("PATCH", "/api/settings/company", data);
       return await res.json();
     },
     onSuccess: (updatedSettings) => {
-      updateSettings({ ...settings, ...updatedSettings });
+      updateSettingsMutation.mutate({ ...settings, ...updatedSettings });
       toast({
         title: "Company settings updated",
         description: "Your company settings have been saved successfully.",
@@ -113,14 +96,14 @@ export default function SettingsPage() {
     },
   });
 
-  // Update system settings mutation
-  const updateSystemSettingsMutation = useMutation({
+  // Local system settings mutation
+  const localSystemSettingsMutation = useMutation({
     mutationFn: async (data: SystemFormValues) => {
       const res = await apiRequest("PATCH", "/api/settings/system", data);
       return await res.json();
     },
     onSuccess: (updatedSettings) => {
-      updateSettings({ ...settings, ...updatedSettings });
+      updateSystemSettingsMutation.mutate({ ...settings, ...updatedSettings });
       toast({
         title: "System settings updated",
         description: "Your system settings have been saved successfully.",
@@ -137,12 +120,12 @@ export default function SettingsPage() {
 
   // Handle company form submission
   const onCompanySubmit = (data: CompanyFormValues) => {
-    updateCompanySettingsMutation.mutate(data);
+    localCompanySettingsMutation.mutate(data);
   };
 
   // Handle system form submission
   const onSystemSubmit = (data: SystemFormValues) => {
-    updateSystemSettingsMutation.mutate(data);
+    localSystemSettingsMutation.mutate(data);
   };
 
   if (settingsLoading) {
@@ -332,9 +315,9 @@ export default function SettingsPage() {
               <Button
                 type="submit"
                 form="company-settings-form"
-                disabled={updateCompanySettingsMutation.isPending}
+                disabled={localCompanySettingsMutation.isPending}
               >
-                {updateCompanySettingsMutation.isPending ? (
+                {localCompanySettingsMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                   </>
@@ -457,9 +440,9 @@ export default function SettingsPage() {
               <Button
                 type="submit"
                 form="system-settings-form"
-                disabled={updateSystemSettingsMutation.isPending}
+                disabled={localSystemSettingsMutation.isPending}
               >
-                {updateSystemSettingsMutation.isPending ? (
+                {localSystemSettingsMutation.isPending ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
                   </>
@@ -507,20 +490,8 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Customer</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.customer}</span>
-                      </p>
-                    </div>
-                    <Button variant="outline" size="sm">
-                      Change
-                    </Button>
-                  </div>
-                  
                   <div className="flex items-center justify-between rounded-lg border p-4">
                     <div className="space-y-0.5">
                       <h4 className="text-base font-medium">Invoice</h4>
@@ -532,19 +503,24 @@ export default function SettingsPage() {
                       Change
                     </Button>
                   </div>
-                </div>
-              </div>
 
-              <div className="mt-6 p-4 bg-muted rounded-lg">
-                <div className="flex items-center text-sm">
-                  <SettingsIcon className="h-4 w-4 mr-2 text-primary" />
-                  <p>
-                    Note: Changing terminology will update the terms used across the
-                    application, but won't affect previously saved data.
-                  </p>
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Customer</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.customer}</span>
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm">
+                      Change
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
+            <CardFooter className="border-t px-6 py-4 flex justify-end">
+              <Button>Save Terminology</Button>
+            </CardFooter>
           </Card>
         </TabsContent>
       </Tabs>

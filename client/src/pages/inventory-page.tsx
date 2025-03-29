@@ -296,8 +296,8 @@ export default function InventoryPage() {
                   <SelectContent>
                     <SelectItem value="all">All Categories</SelectItem>
                     {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
+                      <SelectItem key={category} value={category || ""}>
+                        {category || "Uncategorized"}
                       </SelectItem>
                     ))}
                   </SelectContent>
