@@ -18,6 +18,7 @@ import CalendarPage from "@/pages/calendar-page";
 import CustomersPage from "@/pages/customers-page";
 import ReportsPage from "@/pages/reports-page";
 import CatalogItemsPage from "@/pages/catalog-items-page";
+import SuppliersPage from "@/pages/suppliers-page";
 import SettingsPage from "@/pages/settings-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -64,6 +65,7 @@ function Router() {
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/customers" component={CustomersPage} />
       <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
+      <ProtectedRoute path="/suppliers" component={SuppliersPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <Route component={NotFound} />
