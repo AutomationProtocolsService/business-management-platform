@@ -27,7 +27,8 @@ import {
   Invoice, 
   Customer, 
   Project,
-  Quote 
+  Quote,
+  FileAttachment
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { getInputDateString } from "@/lib/date-utils";
@@ -40,6 +41,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import CustomerForm from "./customer-form";
 import ProjectForm from "./project-form";
 import { useSettings } from "@/hooks/use-settings";
+import { FileUpload } from "@/components/ui/file-upload";
+import { FileList } from "@/components/ui/file-list";
 
 // Create a schema for invoice items that allows client-side calculation
 const invoiceItemSchema = insertInvoiceItemSchema.extend({
@@ -80,7 +83,14 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
   const [recalculating, setRecalculating] = useState(false);
   const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
   const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
+  const [attachments, setAttachments] = useState<FileAttachment[]>([]);
   const { getCurrencySymbol, settings } = useSettings();
+
+  // Fetch files if editing an existing invoice
+  const { data: existingFiles = [] } = useQuery<FileAttachment[]>({
+    queryKey: [`/api/files/invoice/${invoiceId}`],
+    enabled: !!invoiceId
+  });
 
   // Fetch customers, projects, and quotes for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -326,6 +336,17 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
       title: "Project created",
       description: "Project has been created and selected.",
     });
+  };
+
+  // Handle file deletion
+  const handleDeleteFile = (fileId: number) => {
+    setAttachments(prev => prev.filter(file => file.id !== fileId));
+    queryClient.invalidateQueries({ queryKey: [`/api/files/invoice/${invoiceId}`] });
+  };
+
+  // Handle files upload success
+  const handleFilesUploaded = (newFiles: FileAttachment[]) => {
+    setAttachments(prev => [...prev, ...newFiles]);
   };
   
   // Handle loading state
@@ -602,6 +623,33 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
                   </FormItem>
                 )}
               />
+              
+              {/* Attachments */}
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Attachments</h3>
+                <FileUpload 
+                  onUploadSuccess={handleFilesUploaded}
+                  relatedType="invoice"
+                  relatedId={invoiceId}
+                  maxFiles={5}
+                  maxSize={5 * 1024 * 1024} // 5MB
+                  accept={{
+                    'application/pdf': ['.pdf'],
+                    'image/jpeg': ['.jpg', '.jpeg'],
+                    'image/png': ['.png']
+                  }}
+                />
+                
+                {/* Show existing files */}
+                {(existingFiles.length > 0 || attachments.length > 0) && (
+                  <div className="mt-2">
+                    <FileList 
+                      files={invoiceId ? existingFiles : attachments} 
+                      onDelete={handleDeleteFile}
+                    />
+                  </div>
+                )}
+              </div>
 
               {/* Payment Details */}
               {settings?.bankDetails && (
