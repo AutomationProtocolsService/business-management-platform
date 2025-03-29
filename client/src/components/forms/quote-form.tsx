@@ -35,6 +35,15 @@ import { XCircle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import CustomerForm from "@/components/forms/customer-form";
+import ProjectForm from "@/components/forms/project-form";
 
 // Create a schema for quote items that allows client-side calculation
 const quoteItemSchema = insertQuoteItemSchema.extend({
@@ -72,6 +81,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
   const { toast } = useToast();
   const { formatMoney, getCurrencySymbol } = useSettings();
   const [recalculating, setRecalculating] = useState(false);
+  const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
+  const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
 
   // Fetch customers and projects for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -245,6 +256,26 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
     }
   }
 
+  // Handle customer creation success
+  const handleCustomerCreated = (customer: Customer) => {
+    setIsCreateCustomerDialogOpen(false);
+    form.setValue("customerId", customer.id);
+    toast({
+      title: "Customer created",
+      description: "Customer has been created and selected.",
+    });
+  };
+
+  // Handle project creation success
+  const handleProjectCreated = (project: Project) => {
+    setIsCreateProjectDialogOpen(false);
+    form.setValue("projectId", project.id);
+    toast({
+      title: "Project created",
+      description: "Project has been created and selected.",
+    });
+  };
+  
   // Handle loading state
   const isSubmitting = createQuote.isPending || updateQuote.isPending;
 
@@ -332,7 +363,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                 name="customerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Customer</FormLabel>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsCreateCustomerDialogOpen(true)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Create New
+                      </Button>
+                    </div>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
@@ -360,7 +401,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                 name="projectId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Project</FormLabel>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsCreateProjectDialogOpen(true)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Create New
+                      </Button>
+                    </div>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
@@ -618,6 +669,32 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
           </Button>
         </div>
       </form>
+
+      {/* Create Customer Dialog */}
+      <Dialog open={isCreateCustomerDialogOpen} onOpenChange={setIsCreateCustomerDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Customer</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new customer.
+            </DialogDescription>
+          </DialogHeader>
+          <CustomerForm onSuccess={handleCustomerCreated} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Project Dialog */}
+      <Dialog open={isCreateProjectDialogOpen} onOpenChange={setIsCreateProjectDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Fill in the details to create a new project.
+            </DialogDescription>
+          </DialogHeader>
+          <ProjectForm onSuccess={handleProjectCreated} />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }

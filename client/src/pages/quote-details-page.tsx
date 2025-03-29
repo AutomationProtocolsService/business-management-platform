@@ -44,11 +44,13 @@ import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date-utils";
 import { useToast } from "@/hooks/use-toast";
+import { useSettings } from "@/hooks/use-settings";
 
 export default function QuoteDetailsPage() {
   const [, params] = useRoute("/quotes/:id");
   const [, navigate] = useLocation();
   const { toast } = useToast();
+  const { formatMoney, getCurrencySymbol } = useSettings();
   const quoteId = params?.id ? parseInt(params.id) : null;
   
   // Dialog states
@@ -416,8 +418,8 @@ export default function QuoteDetailsPage() {
                       <TableRow key={item.id}>
                         <TableCell>{item.description}</TableCell>
                         <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell className="text-right">${item.unitPrice.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                        <TableCell className="text-right">${item.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
+                        <TableCell className="text-right">{formatMoney(item.unitPrice)}</TableCell>
+                        <TableCell className="text-right">{formatMoney(item.total)}</TableCell>
                       </TableRow>
                     ))
                   )}
@@ -428,23 +430,23 @@ export default function QuoteDetailsPage() {
               <div className="space-y-1 text-right">
                 <div className="flex justify-between text-sm">
                   <span className="font-medium">Subtotal:</span>
-                  <span>${quote.subtotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>{formatMoney(quote.subtotal)}</span>
                 </div>
                 {quote.discount > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">Discount:</span>
-                    <span>-${quote.discount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>-{formatMoney(quote.discount)}</span>
                   </div>
                 )}
                 {quote.tax > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="font-medium">Tax:</span>
-                    <span>${quote.tax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <span>{formatMoney(quote.tax)}</span>
                   </div>
                 )}
                 <div className="flex justify-between pt-2 border-t text-base font-medium">
                   <span>Total:</span>
-                  <span>${quote.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  <span>{formatMoney(quote.total)}</span>
                 </div>
               </div>
             </CardFooter>

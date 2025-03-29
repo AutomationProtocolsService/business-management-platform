@@ -35,6 +35,10 @@ import { XCircle, Plus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import CustomerForm from "./customer-form";
+import ProjectForm from "./project-form";
+import { useSettings } from "@/hooks/use-settings";
 
 // Create a schema for invoice items that allows client-side calculation
 const invoiceItemSchema = insertInvoiceItemSchema.extend({
@@ -72,6 +76,9 @@ interface InvoiceFormProps {
 export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: InvoiceFormProps) {
   const { toast } = useToast();
   const [recalculating, setRecalculating] = useState(false);
+  const [isCreateCustomerDialogOpen, setIsCreateCustomerDialogOpen] = useState(false);
+  const [isCreateProjectDialogOpen, setIsCreateProjectDialogOpen] = useState(false);
+  const { getCurrencySymbol } = useSettings();
 
   // Fetch customers, projects, and quotes for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -297,6 +304,27 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
   }
 
   // Handle loading state
+  // Handle customer creation success
+  const handleCustomerCreated = (customer: Customer) => {
+    setIsCreateCustomerDialogOpen(false);
+    form.setValue("customerId", customer.id);
+    toast({
+      title: "Customer created",
+      description: "Customer has been created and selected.",
+    });
+  };
+
+  // Handle project creation success
+  const handleProjectCreated = (project: Project) => {
+    setIsCreateProjectDialogOpen(false);
+    form.setValue("projectId", project.id);
+    toast({
+      title: "Project created",
+      description: "Project has been created and selected.",
+    });
+  };
+  
+  // Handle loading state
   const isSubmitting = createInvoice.isPending || updateInvoice.isPending;
 
   return (
@@ -414,7 +442,17 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                 name="customerId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Customer</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Customer</FormLabel>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsCreateCustomerDialogOpen(true)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Create New
+                      </Button>
+                    </div>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
@@ -442,7 +480,17 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
                 name="projectId"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Project</FormLabel>
+                    <div className="flex justify-between items-center">
+                      <FormLabel>Project</FormLabel>
+                      <Button 
+                        type="button" 
+                        variant="outline" 
+                        size="sm"
+                        onClick={() => setIsCreateProjectDialogOpen(true)}
+                      >
+                        <Plus className="h-3 w-3 mr-1" /> Create New
+                      </Button>
+                    </div>
                     <Select
                       onValueChange={(value) => field.onChange(Number(value))}
                       value={field.value?.toString()}
@@ -633,7 +681,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
               <div className="w-full md:w-72 ml-auto space-y-2">
                 <div className="flex justify-between">
                   <span className="font-medium">Subtotal:</span>
-                  <span>${form.watch("subtotal").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{form.watch("subtotal").toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -690,7 +738,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
 
                 <div className="flex justify-between font-bold">
                   <span>Total:</span>
-                  <span>${form.watch("total").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{form.watch("total").toFixed(2)}</span>
                 </div>
               </div>
             </div>
@@ -706,6 +754,32 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess }: Inv
           </Button>
         </div>
       </form>
+
+      {/* Create Customer Dialog */}
+      <Dialog open={isCreateCustomerDialogOpen} onOpenChange={setIsCreateCustomerDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Customer</DialogTitle>
+            <DialogDescription>
+              Add a new customer to your database. This customer will be automatically selected after creation.
+            </DialogDescription>
+          </DialogHeader>
+          <CustomerForm onSuccess={handleCustomerCreated} />
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Project Dialog */}
+      <Dialog open={isCreateProjectDialogOpen} onOpenChange={setIsCreateProjectDialogOpen}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New Project</DialogTitle>
+            <DialogDescription>
+              Add a new project to your database. This project will be automatically selected after creation.
+            </DialogDescription>
+          </DialogHeader>
+          <ProjectForm onSuccess={handleProjectCreated} />
+        </DialogContent>
+      </Dialog>
     </Form>
   );
 }
