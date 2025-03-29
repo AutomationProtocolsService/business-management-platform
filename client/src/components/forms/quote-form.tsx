@@ -601,7 +601,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
               <div className="w-full md:w-72 ml-auto space-y-2">
                 <div className="flex justify-between">
                   <span className="font-medium">Subtotal:</span>
-                  <span>${form.watch("subtotal").toFixed(2)}</span>
+                  <span>{getCurrencySymbol()}{form.watch("subtotal").toFixed(2)}</span>
                 </div>
 
                 <div className="flex justify-between items-center">
@@ -613,14 +613,16 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess }: QuoteFo
                       <FormItem className="m-0 w-24 relative">
                         <FormControl>
                           <Input 
-                            type="number" 
-                            min="0" 
-                            max="100"
-                            step="0.1" 
+                            type="text" 
+                            inputMode="decimal"
                             placeholder="0.0"
                             {...field}
                             onChange={(e) => {
-                              field.onChange(parseFloat(e.target.value) || 0);
+                              // Remove any non-numeric characters except decimal point
+                              const value = e.target.value.replace(/[^\d.]/g, '');
+                              // Parse the value and limit to maximum 100
+                              const parsedValue = Math.min(parseFloat(value) || 0, 100);
+                              field.onChange(parsedValue);
                             }} 
                           />
                         </FormControl>
