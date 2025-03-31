@@ -50,102 +50,415 @@ const CHART_COLORS = [
   "hsl(var(--chart-5))"
 ];
 
-// Demo data for charts
-const generateSalesData = (period: string) => {
+// Real data processing functions
+const processSalesData = (invoices: any[], period: string) => {
+  if (!invoices || invoices.length === 0) {
+    return [];
+  }
+
+  // Get current date
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+
+  // Create month labels
+  const monthLabels = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+  
   if (period === "year") {
-    return [
-      { name: "Jan", value: 12500 },
-      { name: "Feb", value: 15000 },
-      { name: "Mar", value: 18500 },
-      { name: "Apr", value: 22000 },
-      { name: "May", value: 19500 },
-      { name: "Jun", value: 24500 },
-      { name: "Jul", value: 26000 },
-      { name: "Aug", value: 23000 },
-      { name: "Sep", value: 25000 },
-      { name: "Oct", value: 27500 },
-      { name: "Nov", value: 30000 },
-      { name: "Dec", value: 34000 }
-    ];
+    // Initialize monthly totals
+    const monthlyData = monthLabels.map(name => ({ name, value: 0 }));
+    
+    // Aggregate invoice totals by month
+    invoices.forEach(invoice => {
+      const invoiceDate = new Date(invoice.issueDate);
+      // Only include invoices from the current year
+      if (invoiceDate.getFullYear() === currentYear) {
+        const month = invoiceDate.getMonth();
+        monthlyData[month].value += invoice.total || 0;
+      }
+    });
+    
+    return monthlyData;
   } else if (period === "quarter") {
-    return [
-      { name: "Week 1", value: 5500 },
-      { name: "Week 2", value: 6300 },
-      { name: "Week 3", value: 7200 },
-      { name: "Week 4", value: 6800 },
-      { name: "Week 5", value: 7500 },
-      { name: "Week 6", value: 8100 },
-      { name: "Week 7", value: 7900 },
-      { name: "Week 8", value: 8400 },
-      { name: "Week 9", value: 9200 },
-      { name: "Week 10", value: 9800 },
-      { name: "Week 11", value: 10500 },
-      { name: "Week 12", value: 11200 },
-    ];
+    // Get start date for quarter (3 months ago)
+    const startDate = new Date();
+    startDate.setMonth(currentMonth - 3);
+    
+    // Initialize weekly data (last 12 weeks)
+    const weeklyData = Array(12).fill(0).map((_, i) => ({ 
+      name: `Week ${i + 1}`, 
+      value: 0 
+    }));
+    
+    // Process invoices for the last quarter
+    invoices.forEach(invoice => {
+      const invoiceDate = new Date(invoice.issueDate);
+      if (invoiceDate >= startDate) {
+        // Calculate which week this invoice belongs to
+        const timeDiff = now.getTime() - invoiceDate.getTime();
+        const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+        const weekIndex = Math.min(Math.floor(dayDiff / 7), 11);
+        
+        if (weekIndex >= 0 && weekIndex < 12) {
+          weeklyData[11 - weekIndex].value += invoice.total || 0;
+        }
+      }
+    });
+    
+    return weeklyData;
   } else { // month
-    return [
-      { name: "1", value: 1100 },
-      { name: "5", value: 1400 },
-      { name: "10", value: 1800 },
-      { name: "15", value: 2100 },
-      { name: "20", value: 2500 },
-      { name: "25", value: 2800 },
-      { name: "30", value: 3200 }
-    ];
+    // Start date is 30 days ago
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    // Initialize daily data for important points in the month
+    const dailyPoints = [1, 5, 10, 15, 20, 25, 30];
+    const dailyData = dailyPoints.map(day => ({
+      name: day.toString(),
+      value: 0
+    }));
+    
+    // Process invoices for the current month
+    invoices.forEach(invoice => {
+      const invoiceDate = new Date(invoice.issueDate);
+      if (invoiceDate >= startDate) {
+        const invoiceDay = invoiceDate.getDate();
+        
+        // Assign to nearest data point
+        let nearestPoint = 1;
+        let minDiff = Math.abs(invoiceDay - 1);
+        
+        dailyPoints.forEach(day => {
+          const diff = Math.abs(invoiceDay - day);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearestPoint = day;
+          }
+        });
+        
+        // Find the index in our data array
+        const dataIndex = dailyPoints.indexOf(nearestPoint);
+        if (dataIndex !== -1) {
+          dailyData[dataIndex].value += invoice.total || 0;
+        }
+      }
+    });
+    
+    return dailyData;
   }
 };
 
-const generateProjectStatusData = () => [
-  { name: "Pending", value: 8 },
-  { name: "In Progress", value: 12 },
-  { name: "Completed", value: 20 },
-  { name: "Delayed", value: 4 }
-];
+const processQuotesVsInvoicesData = (quotes: any[], invoices: any[]) => {
+  if (!quotes || !invoices) {
+    return [];
+  }
+  
+  // Create month labels
+  const monthLabels = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+  
+  // Get current date
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  
+  // Get the last 6 months
+  const months: Array<{index: number, name: string}> = [];
+  for (let i = 5; i >= 0; i--) {
+    const monthIndex = (now.getMonth() - i + 12) % 12; // Ensure it's always positive
+    months.push({
+      index: monthIndex,
+      name: monthLabels[monthIndex]
+    });
+  }
+  
+  // Create data structure for chart
+  const data = months.map(month => ({
+    name: month.name,
+    quotes: 0,
+    invoices: 0
+  }));
+  
+  // Process quotes
+  quotes.forEach(quote => {
+    if (!quote.createdAt) return;
+    
+    const quoteDate = new Date(quote.createdAt);
+    if (quoteDate.getFullYear() === currentYear) {
+      const monthIndex = quoteDate.getMonth();
+      
+      // Find in our data array
+      const dataIndex = data.findIndex(item => {
+        const itemMonthIndex = months.find(m => m.name === item.name)?.index;
+        return itemMonthIndex === monthIndex;
+      });
+      
+      if (dataIndex !== -1) {
+        data[dataIndex].quotes += quote.total || 0;
+      }
+    }
+  });
+  
+  // Process invoices
+  invoices.forEach(invoice => {
+    if (!invoice.issueDate) return;
+    
+    const invoiceDate = new Date(invoice.issueDate);
+    if (invoiceDate.getFullYear() === currentYear) {
+      const monthIndex = invoiceDate.getMonth();
+      
+      // Find in our data array
+      const dataIndex = data.findIndex(item => {
+        const itemMonthIndex = months.find(m => m.name === item.name)?.index;
+        return itemMonthIndex === monthIndex;
+      });
+      
+      if (dataIndex !== -1) {
+        data[dataIndex].invoices += invoice.total || 0;
+      }
+    }
+  });
+  
+  return data;
+};
 
-const generateSurveyData = (period: string) => {
+const processSalesByCustomer = (invoices: any[], customers: any[]) => {
+  if (!invoices || !customers || invoices.length === 0 || customers.length === 0) {
+    return [];
+  }
+  
+  // Group invoice totals by customer
+  const customerTotals = new Map();
+  
+  invoices.forEach(invoice => {
+    if (!invoice.customerId) return;
+    
+    const customerId = invoice.customerId;
+    const currentTotal = customerTotals.get(customerId) || 0;
+    customerTotals.set(customerId, currentTotal + (invoice.total || 0));
+  });
+  
+  // Convert to array with customer names
+  const salesByCustomer = Array.from(customerTotals.entries()).map(([customerId, total]) => {
+    const customer = customers.find(c => c.id === customerId);
+    return {
+      name: customer ? customer.name : `Customer ID: ${customerId}`,
+      value: total
+    };
+  });
+  
+  // Sort by total value (descending) and take top 8
+  return salesByCustomer
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+};
+
+const processProjectStatusData = (projects: any[]) => {
+  if (!projects || projects.length === 0) {
+    return [];
+  }
+  
+  // Status mapping to ensure consistent display names
+  const statusMapping: { [key: string]: string } = {
+    'pending': 'Pending',
+    'in-progress': 'In Progress',
+    'completed': 'Completed',
+    'delayed': 'Delayed'
+  };
+  
+  // Initialize counters
+  const statusCounts: { [key: string]: number } = {
+    'Pending': 0,
+    'In Progress': 0,
+    'Completed': 0,
+    'Delayed': 0
+  };
+  
+  // Count projects by status
+  projects.forEach(project => {
+    const status = project.status ? statusMapping[project.status] || project.status : 'Unknown';
+    if (statusCounts[status] !== undefined) {
+      statusCounts[status]++;
+    } else {
+      statusCounts[status] = 1;
+    }
+  });
+  
+  // Convert to array format for chart
+  return Object.entries(statusCounts)
+    .filter(([_, count]) => count > 0) // Only include statuses that have projects
+    .map(([name, value]) => ({ name, value }));
+};
+
+const processInstallationStatusData = (installations: any[]) => {
+  if (!installations || installations.length === 0) {
+    return [];
+  }
+  
+  // Status mapping to ensure consistent display names
+  const statusMapping: { [key: string]: string } = {
+    'scheduled': 'Scheduled',
+    'in-progress': 'In Progress',
+    'completed': 'Completed',
+    'delayed': 'Delayed',
+    'cancelled': 'Cancelled'
+  };
+  
+  // Initialize counters
+  const statusCounts: { [key: string]: number } = {
+    'Scheduled': 0,
+    'In Progress': 0,
+    'Completed': 0,
+    'Delayed': 0,
+    'Cancelled': 0
+  };
+  
+  // Count installations by status
+  installations.forEach(installation => {
+    const status = installation.status ? statusMapping[installation.status] || installation.status : 'Unknown';
+    if (statusCounts[status] !== undefined) {
+      statusCounts[status]++;
+    } else {
+      statusCounts[status] = 1;
+    }
+  });
+  
+  // Convert to array format for chart
+  return Object.entries(statusCounts)
+    .filter(([_, count]) => count > 0) // Only include statuses that have installations
+    .map(([name, value]) => ({ name, value }));
+};
+
+const processSurveyData = (surveys: any[], period: string) => {
+  if (!surveys || surveys.length === 0) {
+    return [];
+  }
+  
+  // Get current date
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  
+  // Create month labels
+  const monthLabels = [
+    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+  ];
+  
   if (period === "year") {
-    return [
-      { name: "Jan", scheduled: 12, completed: 10 },
-      { name: "Feb", scheduled: 15, completed: 13 },
-      { name: "Mar", scheduled: 18, completed: 16 },
-      { name: "Apr", scheduled: 22, completed: 19 },
-      { name: "May", scheduled: 20, completed: 18 },
-      { name: "Jun", scheduled: 25, completed: 22 },
-      { name: "Jul", scheduled: 28, completed: 25 },
-      { name: "Aug", scheduled: 24, completed: 21 },
-      { name: "Sep", scheduled: 26, completed: 24 },
-      { name: "Oct", scheduled: 30, completed: 28 },
-      { name: "Nov", scheduled: 32, completed: 30 },
-      { name: "Dec", scheduled: 35, completed: 33 }
-    ];
+    // Initialize monthly data
+    const monthlyData = monthLabels.map(name => ({ 
+      name, 
+      scheduled: 0, 
+      completed: 0 
+    }));
+    
+    // Aggregate survey counts by month
+    surveys.forEach(survey => {
+      if (!survey.scheduledDate) return;
+      
+      const surveyDate = new Date(survey.scheduledDate);
+      if (surveyDate.getFullYear() === currentYear) {
+        const month = surveyDate.getMonth();
+        
+        if (survey.status === 'scheduled') {
+          monthlyData[month].scheduled++;
+        } else if (survey.status === 'completed') {
+          monthlyData[month].completed++;
+        }
+      }
+    });
+    
+    return monthlyData;
   } else if (period === "quarter") {
-    return [
-      { name: "Week 1", scheduled: 5, completed: 4 },
-      { name: "Week 2", scheduled: 7, completed: 6 },
-      { name: "Week 3", scheduled: 8, completed: 7 },
-      { name: "Week 4", scheduled: 6, completed: 5 },
-      { name: "Week 5", scheduled: 9, completed: 8 },
-      { name: "Week 6", scheduled: 8, completed: 7 },
-      { name: "Week 7", scheduled: 9, completed: 8 },
-      { name: "Week 8", scheduled: 10, completed: 9 },
-      { name: "Week 9", scheduled: 12, completed: 10 },
-      { name: "Week 10", scheduled: 11, completed: 10 },
-      { name: "Week 11", scheduled: 10, completed: 9 },
-      { name: "Week 12", scheduled: 9, completed: 8 }
-    ];
+    // Get start date for quarter (3 months ago)
+    const startDate = new Date();
+    startDate.setMonth(currentMonth - 3);
+    
+    // Initialize weekly data (12 weeks)
+    const weeklyData = Array(12).fill(0).map((_, i) => ({ 
+      name: `Week ${i + 1}`, 
+      scheduled: 0, 
+      completed: 0 
+    }));
+    
+    // Process surveys for the last quarter
+    surveys.forEach(survey => {
+      if (!survey.scheduledDate) return;
+      
+      const surveyDate = new Date(survey.scheduledDate);
+      if (surveyDate >= startDate) {
+        // Calculate which week this survey belongs to
+        const timeDiff = now.getTime() - surveyDate.getTime();
+        const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+        const weekIndex = Math.min(Math.floor(dayDiff / 7), 11);
+        
+        if (weekIndex >= 0 && weekIndex < 12) {
+          if (survey.status === 'scheduled') {
+            weeklyData[11 - weekIndex].scheduled++;
+          } else if (survey.status === 'completed') {
+            weeklyData[11 - weekIndex].completed++;
+          }
+        }
+      }
+    });
+    
+    return weeklyData;
   } else { // month
-    return [
-      { name: "1", scheduled: 3, completed: 2 },
-      { name: "5", scheduled: 4, completed: 3 },
-      { name: "10", scheduled: 5, completed: 4 },
-      { name: "15", scheduled: 6, completed: 5 },
-      { name: "20", scheduled: 4, completed: 4 },
-      { name: "25", scheduled: 5, completed: 4 },
-      { name: "30", scheduled: 3, completed: 3 }
-    ];
+    // Initialize daily data for the month (specific days)
+    const dailyPoints = [1, 5, 10, 15, 20, 25, 30];
+    const dailyData = dailyPoints.map(day => ({
+      name: day.toString(),
+      scheduled: 0,
+      completed: 0
+    }));
+    
+    // Get start date (30 days ago)
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 30);
+    
+    // Process surveys for the last month
+    surveys.forEach(survey => {
+      if (!survey.scheduledDate) return;
+      
+      const surveyDate = new Date(survey.scheduledDate);
+      if (surveyDate >= startDate) {
+        const surveyDay = surveyDate.getDate();
+        
+        // Assign to nearest data point
+        let nearestPoint = 1;
+        let minDiff = Math.abs(surveyDay - 1);
+        
+        dailyPoints.forEach(day => {
+          const diff = Math.abs(surveyDay - day);
+          if (diff < minDiff) {
+            minDiff = diff;
+            nearestPoint = day;
+          }
+        });
+        
+        // Find the index in our data array
+        const dataIndex = dailyPoints.indexOf(nearestPoint);
+        if (dataIndex !== -1) {
+          if (survey.status === 'scheduled') {
+            dailyData[dataIndex].scheduled++;
+          } else if (survey.status === 'completed') {
+            dailyData[dataIndex].completed++;
+          }
+        }
+      }
+    });
+    
+    return dailyData;
   }
 };
 
+// We don't have real employee data, so we'll keep this for now
+// In a real application, you'd fetch this from an API
 const generateEmployeeData = () => [
   { name: "John", hours: 160, projects: 5 },
   { name: "Sarah", hours: 152, projects: 4 },
@@ -163,6 +476,31 @@ export default function ReportsPage() {
   // Fetch report data
   const { data: reportData, isLoading } = useQuery({
     queryKey: ["/api/dashboard"],
+  });
+
+  // Fetch additional data for reports
+  const { data: quotes = [] } = useQuery<any[]>({
+    queryKey: ["/api/quotes"],
+  });
+
+  const { data: invoices = [] } = useQuery<any[]>({
+    queryKey: ["/api/invoices"],
+  });
+
+  const { data: surveys = [] } = useQuery<any[]>({
+    queryKey: ["/api/surveys"],
+  });
+
+  const { data: installations = [] } = useQuery<any[]>({
+    queryKey: ["/api/installations"],
+  });
+
+  const { data: projects = [] } = useQuery<any[]>({
+    queryKey: ["/api/projects"],
+  });
+
+  const { data: customers = [] } = useQuery<any[]>({
+    queryKey: ["/api/customers"],
   });
 
   const handleExportReport = () => {
@@ -247,7 +585,7 @@ export default function ReportsPage() {
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    data={generateSalesData(salesPeriod)}
+                    data={processSalesData(invoices, salesPeriod)}
                     margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                   >
                     <defs>
@@ -286,14 +624,7 @@ export default function ReportsPage() {
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={[
-                      { name: "Jan", quotes: 15000, invoices: 12500 },
-                      { name: "Feb", quotes: 18000, invoices: 15000 },
-                      { name: "Mar", quotes: 22000, invoices: 18500 },
-                      { name: "Apr", quotes: 25000, invoices: 22000 },
-                      { name: "May", quotes: 23000, invoices: 19500 },
-                      { name: "Jun", quotes: 28000, invoices: 24500 },
-                    ]}
+                    data={processQuotesVsInvoicesData(quotes, invoices)}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
@@ -320,16 +651,7 @@ export default function ReportsPage() {
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
-                  data={[
-                    { name: "Acme Corporation", value: 58000 },
-                    { name: "Global Industries", value: 45000 },
-                    { name: "XYZ Solutions", value: 32000 },
-                    { name: "ABC Technologies", value: 28000 },
-                    { name: "Tech Innovators", value: 25000 },
-                    { name: "Summit Enterprises", value: 22000 },
-                    { name: "Premier Services", value: 18000 },
-                    { name: "Elite Systems", value: 15000 },
-                  ]}
+                  data={processSalesByCustomer(invoices, customers)}
                   margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
@@ -361,7 +683,7 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={generateProjectStatusData()}
+                      data={processProjectStatusData(projects)}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -370,7 +692,7 @@ export default function ReportsPage() {
                       dataKey="value"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {generateProjectStatusData().map((entry, index) => (
+                      {processProjectStatusData(projects).map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
@@ -483,7 +805,7 @@ export default function ReportsPage() {
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart
-                    data={generateSurveyData(surveyPeriod)}
+                    data={processSurveyData(surveys, surveyPeriod)}
                     margin={{ top: 5, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" />
@@ -520,12 +842,7 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={[
-                        { name: "Scheduled", value: 12 },
-                        { name: "In Progress", value: 8 },
-                        { name: "Completed", value: 15 },
-                        { name: "Delayed", value: 3 }
-                      ]}
+                      data={processInstallationStatusData(installations)}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
@@ -534,12 +851,7 @@ export default function ReportsPage() {
                       dataKey="value"
                       label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
                     >
-                      {[
-                        { name: "Scheduled", value: 12 },
-                        { name: "In Progress", value: 8 },
-                        { name: "Completed", value: 15 },
-                        { name: "Delayed", value: 3 }
-                      ].map((entry, index) => (
+                      {processInstallationStatusData(installations).map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
