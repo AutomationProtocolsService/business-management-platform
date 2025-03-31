@@ -28,8 +28,10 @@ import {
   Quote, 
   Customer, 
   Project,
-  FileAttachment 
+  FileAttachment,
+  CatalogItem
 } from "@shared/schema";
+import CatalogItemSelector from "@/components/catalog/catalog-item-selector";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { getInputDateString } from "@/lib/date-utils";
@@ -339,55 +341,58 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   return (
     <div className="space-y-6">
       {/* Company Header */}
-        <Card className="mb-4">
-          <CardContent className="py-4">
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4">
-              <div className="flex flex-col">
-                {settings?.companyLogo ? (
-                  <img 
-                    src={settings.companyLogo} 
-                    alt={settings?.companyName || 'Company Logo'} 
-                    className="h-16 object-contain mb-2" 
-                  />
-                ) : (
-                  <h1 className="text-2xl font-bold">{settings?.companyName || 'Your Company'}</h1>
+      <Card className="mb-4">
+        <CardContent className="py-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex flex-col">
+              {settings?.companyLogo ? (
+                <img 
+                  src={settings.companyLogo} 
+                  alt={settings?.companyName || 'Company Logo'} 
+                  className="h-16 object-contain mb-2" 
+                />
+              ) : (
+                <h1 className="text-2xl font-bold">{settings?.companyName || 'Your Company'}</h1>
+              )}
+              <div className="text-sm text-muted-foreground">
+                {settings?.address && <p>{settings.address}</p>}
+                {(settings?.city || settings?.state || settings?.zipCode) && (
+                  <p>
+                    {settings?.city}{settings?.city && settings?.state ? ', ' : ''}{settings?.state} {settings?.zipCode}
+                  </p>
                 )}
-                <div className="text-sm text-muted-foreground">
-                  {settings?.address && <p>{settings.address}</p>}
-                  {(settings?.city || settings?.state || settings?.zipCode) && (
-                    <p>
-                      {settings?.city}{settings?.city && settings?.state ? ', ' : ''}{settings?.state} {settings?.zipCode}
-                    </p>
-                  )}
-                  {settings?.phone && <p>Phone: {settings.phone}</p>}
-                  {settings?.email && <p>Email: {settings.email}</p>}
-                  {settings?.website && <p>Web: {settings.website}</p>}
-                  {/* Business Identifiers */}
-                  {settings?.vatNumber && <p>VAT Number: {settings.vatNumber}</p>}
-                  {settings?.registrationNumber && <p>Reg Number: {settings.registrationNumber}</p>}
-                </div>
-              </div>
-              
-              <div className="text-right">
-                <h2 className="text-2xl font-bold text-primary">QUOTE</h2>
-                {quoteId && (
-                  <p className="text-sm text-muted-foreground">Quote #{quoteId}</p>
-                )}
+                {settings?.phone && <p>Phone: {settings.phone}</p>}
+                {settings?.email && <p>Email: {settings.email}</p>}
+                {settings?.website && <p>Web: {settings.website}</p>}
+                {/* Business Identifiers */}
+                {settings?.vatNumber && <p>VAT Number: {settings.vatNumber}</p>}
+                {settings?.registrationNumber && <p>Reg Number: {settings.registrationNumber}</p>}
               </div>
             </div>
             
-            {/* Company certifications */}
-            {settings?.certifications && settings.certifications.length > 0 && (
-              <div className="mt-4 flex flex-wrap gap-2 justify-end">
-                {settings.certifications.map((cert, index) => (
-                  <Badge key={index} variant="outline" className="text-xs">
-                    {cert}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+            <div className="text-right">
+              <h2 className="text-2xl font-bold text-primary">QUOTE</h2>
+              {quoteId && (
+                <p className="text-sm text-muted-foreground">Quote #{quoteId}</p>
+              )}
+            </div>
+          </div>
+          
+          {/* Company certifications */}
+          {settings?.certifications && settings.certifications.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-2 justify-end">
+              {settings.certifications.map((cert, index) => (
+                <Badge key={index} variant="outline" className="text-xs">
+                  {cert}
+                </Badge>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+      
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <Card>
@@ -709,14 +714,30 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                 </div>
               ))}
 
-              <Button
-                type="button"
-                variant="outline"
-                className="mt-2"
-                onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0 })}
-              >
-                <Plus className="mr-2 h-4 w-4" /> Add Item
-              </Button>
+              <div className="flex gap-2 mt-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0 })}
+                >
+                  <Plus className="mr-2 h-4 w-4" /> Add Item
+                </Button>
+                <CatalogItemSelector 
+                  onItemSelect={(item) => {
+                    append({
+                      description: item.name,
+                      quantity: 1,
+                      unitPrice: item.unitPrice,
+                      total: item.unitPrice
+                    });
+                    toast({
+                      title: "Item added",
+                      description: `${item.name} has been added to the quote.`
+                    });
+                  }}
+                  buttonLabel="Add from Catalog"
+                />
+              </div>
             </div>
             
             <div className="mt-8 space-y-4">
@@ -803,7 +824,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
             {isSubmitting ? "Saving..." : quoteId ? "Update Quote" : "Create Quote"}
           </Button>
         </div>
-      </form>
+        </form>
+      </Form>
       
       {/* Dialogs */}
       <Dialog open={isCreateCustomerDialogOpen} onOpenChange={setIsCreateCustomerDialogOpen}>
@@ -835,6 +857,6 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
           />
         </DialogContent>
       </Dialog>
-    </Form>
+    </div>
   );
 }
