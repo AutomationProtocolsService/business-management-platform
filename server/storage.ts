@@ -2036,6 +2036,28 @@ export class DatabaseStorage implements IStorage {
       .returning();
     return result[0];
   }
+  
+  // System Settings methods
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    const result = await db.query.systemSettings.findFirst();
+    return result;
+  }
+
+  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
+    const result = await db.insert(schema.systemSettings).values({
+      ...settings,
+      updatedAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateSystemSettings(id: number, settingsData: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
+    const result = await db.update(schema.systemSettings)
+      .set(settingsData)
+      .where(eq(schema.systemSettings.id, id))
+      .returning();
+    return result[0];
+  }
 
   // Supplier methods
   async getSupplier(id: number): Promise<Supplier | undefined> {
