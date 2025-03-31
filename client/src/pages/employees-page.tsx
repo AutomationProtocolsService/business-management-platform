@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { 
   Plus, 
   Search, 
@@ -52,6 +52,7 @@ import EmployeeForm from "@/components/forms/employee-form";
 
 export default function EmployeesPage() {
   const { toast } = useToast();
+  const [_, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
@@ -282,6 +283,15 @@ export default function EmployeesPage() {
                                       <Clock className="h-4 w-4 mr-2" /> View Timesheets
                                     </div>
                                   </Link>
+                                </DropdownMenuItem>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setLocation(`/timesheets/new?employeeId=${employee.id}`);
+                                  }}
+                                >
+                                  <div className="w-full flex items-center">
+                                    <Plus className="h-4 w-4 mr-2" /> Add Timesheet
+                                  </div>
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
