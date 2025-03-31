@@ -212,12 +212,19 @@ export default function TimesheetsPage() {
     const employee = employees.find((e: any) => e.id === employeeId);
     if (!employee) return `Employee #${employeeId}`;
     
-    if (employee.userId) {
-      const user = users.find((u: any) => u.id === employee.userId);
-      if (user) return user.fullName;
+    // Always use employee.fullName if available
+    if (employee.fullName) {
+      return employee.fullName;
     }
     
-    return employee.position ? employee.position : `Employee #${employeeId}`;
+    // Fallback to user name if linked to a user
+    if (employee.userId) {
+      const user = users.find((u: any) => u.id === employee.userId);
+      if (user && user.fullName) return user.fullName;
+    }
+    
+    // Last resort fallbacks
+    return employee.position ? `${employee.position} (No name)` : `Employee #${employeeId}`;
   };
 
   // Get project name by ID
