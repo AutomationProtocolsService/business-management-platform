@@ -2611,23 +2611,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Add PATCH endpoint for system settings without ID (for direct updates from settings page)
   app.patch("/api/settings/system", requireAuth, async (req, res) => {
     try {
+      console.log("Patching system settings:", req.body);
       const settings = await storage.getSystemSettings();
       
       // If no settings exist yet, create them instead of updating
       if (!settings) {
+        console.log("No system settings found, creating new ones");
         const newSettings = await storage.createSystemSettings({
           ...req.body,
-          createdBy: req.user?.id
+          updatedBy: req.user?.id
         });
         
         return res.status(201).json(newSettings);
       }
       
       // Update existing settings
+      console.log("Updating existing system settings with ID:", settings.id);
       const updatedSettings = await storage.updateSystemSettings(settings.id, {
         ...req.body,
         updatedBy: req.user?.id
       });
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedSettings) {
+        wsManager.broadcast("settings:updated", {
+          id: updatedSettings.id,
+          data: updatedSettings,
+          message: "System settings updated"
+        });
+      }
       
       res.json(updatedSettings);
     } catch (error) {
@@ -2639,26 +2652,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // PATCH endpoint for system settings with ID parameter
   app.patch("/api/settings/system/:id", requireAuth, async (req, res) => {
     try {
+      console.log("Patching system settings with ID param:", req.body);
       const settings = await storage.getSystemSettings();
       
       // If no settings exist yet, create them instead of updating
       if (!settings) {
+        console.log("No system settings found with ID, creating new ones");
         const newSettings = await storage.createSystemSettings({
           ...req.body,
-          createdBy: req.user?.id
+          updatedBy: req.user?.id
         });
         
         return res.status(201).json(newSettings);
       }
       
       // Update existing settings
+      console.log("Updating existing system settings with ID:", settings.id);
       const updatedSettings = await storage.updateSystemSettings(settings.id, {
         ...req.body,
         updatedBy: req.user?.id
       });
       
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager && updatedSettings) {
+        wsManager.broadcast("settings:updated", {
+          id: updatedSettings.id,
+          data: updatedSettings,
+          message: "System settings updated"
+        });
+      }
+      
       res.json(updatedSettings);
     } catch (error) {
+      console.error("Failed to update system settings with ID:", error);
       res.status(500).json({ message: "Failed to update system settings" });
     }
   });
@@ -2679,9 +2706,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const wsManager = getWebSocketManager();
         if (wsManager && newSettings) {
           wsManager.broadcast("settings:updated", {
+            id: newSettings.id,
             data: newSettings,
-            message: "Company settings created",
-            timestamp: new Date().toISOString()
+            message: "Company settings created"
           });
         }
         
@@ -2699,9 +2726,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const wsManager = getWebSocketManager();
       if (wsManager && updatedSettings) {
         wsManager.broadcast("settings:updated", {
+          id: updatedSettings.id,
           data: updatedSettings,
-          message: "Company settings updated",
-          timestamp: new Date().toISOString()
+          message: "Company settings updated"
         });
       }
       

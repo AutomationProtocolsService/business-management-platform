@@ -437,6 +437,16 @@ export const systemSettings = pgTable("system_settings", {
   emailNotifications: boolean("email_notifications").default(true),
   autoSave: boolean("auto_save").default(true),
   defaultPageSize: integer("default_page_size").default(10),
+  // Terminology settings
+  termCustomer: text("term_customer").default("Customer"),
+  termProject: text("term_project").default("Project"),
+  termQuote: text("term_quote").default("Quote"),
+  termInvoice: text("term_invoice").default("Invoice"),
+  termSurvey: text("term_survey").default("Survey"),
+  termInstallation: text("term_installation").default("Installation"),
+  termSupplier: text("term_supplier").default("Supplier"),
+  termExpense: text("term_expense").default("Expense"),
+  termPurchaseOrder: text("term_purchase_order").default("Purchase Order"),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => users.id),
 });
