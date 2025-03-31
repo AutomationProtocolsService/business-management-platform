@@ -4,15 +4,27 @@ async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
     try {
       // First try to parse as JSON for structured error messages
-      const errorData = await res.json();
-      throw new Error(errorData.message || `${res.status}: ${res.statusText}`);
-    } catch (e) {
-      // If JSON parsing fails, fall back to text
-      if (e instanceof Error && e.message !== "Unexpected end of JSON input") {
-        throw e;
+      const contentType = res.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const errorData = await res.json();
+        throw new Error(errorData.message || `${res.status}: ${res.statusText}`);
+      } else {
+        // If it's not JSON, read as text
+        const text = await res.text();
+        
+        // Check if the text contains HTML (likely an error page)
+        if (text.includes('<!DOCTYPE') || text.includes('<html')) {
+          throw new Error(`${res.status}: ${res.statusText}`);
+        } else {
+          throw new Error(text || `${res.status}: ${res.statusText}`);
+        }
       }
-      const text = await res.text();
-      throw new Error(text || `${res.status}: ${res.statusText}`);
+    } catch (e) {
+      // If any parsing fails, provide a fallback error
+      if (e instanceof Error && !e.message.includes(res.status.toString())) {
+        throw new Error(`${res.status}: ${res.statusText}`);
+      }
+      throw e;
     }
   }
 }

@@ -76,12 +76,44 @@ export default function AuthPage() {
 
   // Handle login form submission
   function onLoginSubmit(values: LoginValues) {
-    loginMutation.mutate(values);
+    try {
+      loginMutation.mutate(values, {
+        onError: (error) => {
+          console.error("Login error in form handler:", error);
+          loginForm.setError("root", {
+            type: "manual",
+            message: error.message || "Login failed. Please check your credentials and try again."
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Exception in login handler:", error);
+      loginForm.setError("root", {
+        type: "manual",
+        message: error instanceof Error ? error.message : "An unexpected error occurred"
+      });
+    }
   }
 
   // Handle register form submission
   function onRegisterSubmit(values: RegisterValues) {
-    registerMutation.mutate(values);
+    try {
+      registerMutation.mutate(values, {
+        onError: (error) => {
+          console.error("Registration error in form handler:", error);
+          registerForm.setError("root", {
+            type: "manual",
+            message: error.message || "Registration failed. Please try again with different credentials."
+          });
+        }
+      });
+    } catch (error) {
+      console.error("Exception in registration handler:", error);
+      registerForm.setError("root", {
+        type: "manual",
+        message: error instanceof Error ? error.message : "An unexpected error occurred"
+      });
+    }
   }
 
   return (
@@ -129,6 +161,23 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Show root form errors */}
+                  {loginForm.formState.errors.root && (
+                    <div className="p-3 text-sm text-white bg-destructive rounded">
+                      {loginForm.formState.errors.root.message}
+                    </div>
+                  )}
+                  
+                  {/* Show API errors */}
+                  {loginMutation.isError && (
+                    <div className="p-3 text-sm text-white bg-destructive rounded">
+                      {loginMutation.error instanceof Error 
+                        ? loginMutation.error.message 
+                        : "An unexpected error occurred"}
+                    </div>
+                  )}
+                  
                   <Button 
                     type="submit" 
                     className="w-full" 
@@ -195,6 +244,22 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
+                  {/* Show root form errors */}
+                  {registerForm.formState.errors.root && (
+                    <div className="p-3 text-sm text-white bg-destructive rounded">
+                      {registerForm.formState.errors.root.message}
+                    </div>
+                  )}
+                  
+                  {/* Show API errors */}
+                  {registerMutation.isError && (
+                    <div className="p-3 text-sm text-white bg-destructive rounded">
+                      {registerMutation.error instanceof Error 
+                        ? registerMutation.error.message 
+                        : "An unexpected error occurred"}
+                    </div>
+                  )}
+                  
                   <Button 
                     type="submit" 
                     className="w-full" 
