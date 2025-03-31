@@ -830,9 +830,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/timesheets", requireAuth, validateBody(insertTimesheetSchema), async (req, res) => {
     try {
+      console.log("Timesheet data received:", req.body);
+      
+      // Validate required fields
+      if (!req.body.employeeId) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["employeeId"], message: "Employee is required" }] 
+        });
+      }
+      
+      if (!req.body.date) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["date"], message: "Date is required" }] 
+        });
+      }
+      
+      if (!req.body.startTime) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["startTime"], message: "Start time is required" }] 
+        });
+      }
+      
+      if (!req.body.endTime) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["endTime"], message: "End time is required" }] 
+        });
+      }
+      
+      // Create the timesheet with validated data
       const timesheet = await storage.createTimesheet(req.body);
       res.status(201).json(timesheet);
     } catch (error) {
+      console.error("Error creating timesheet:", error);
       res.status(500).json({ message: "Failed to create timesheet" });
     }
   });

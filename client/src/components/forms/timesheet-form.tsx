@@ -139,14 +139,20 @@ export default function TimesheetForm({
 
   // Form submission handler
   function onSubmit(values: TimesheetFormValues) {
-    // Format dates into proper ISO strings for the server
+    // Just format the date values but keep them as strings
+    // This avoids sending full Date objects to the server which can cause validation issues
     const formattedValues = {
       ...values,
-      // Convert to proper date format before sending to server
-      date: new Date(values.date).toISOString(),
-      startTime: new Date(values.startTime).toISOString(),
-      endTime: new Date(values.endTime).toISOString()
+      date: values.date, // Keep as YYYY-MM-DD format
+      startTime: values.startTime, // Keep as YYYY-MM-DDThh:mm format
+      endTime: values.endTime, // Keep as YYYY-MM-DDThh:mm format
+      // Convert breakDuration to number if it's a string
+      breakDuration: typeof values.breakDuration === 'string' 
+        ? parseInt(values.breakDuration) 
+        : values.breakDuration
     };
+
+    console.log("Submitting timesheet with values:", formattedValues);
     
     if (timesheetId) {
       updateTimesheet.mutate(formattedValues);
