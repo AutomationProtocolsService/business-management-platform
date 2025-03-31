@@ -162,8 +162,6 @@ export const surveys = pgTable("surveys", {
   projectId: integer("project_id").references(() => projects.id).notNull(),
   quoteId: integer("quote_id").references(() => quotes.id), // Link to the quote that led to this survey
   scheduledDate: date("scheduled_date").notNull(),
-  startTime: timestamp("start_time"),
-  endTime: timestamp("end_time"),
   status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled
   notes: text("notes"),
   measurementsCollected: boolean("measurements_collected").default(false), // Whether measurements were collected during survey
@@ -183,8 +181,6 @@ export const installations = pgTable("installations", {
   projectId: integer("project_id").references(() => projects.id).notNull(),
   depositInvoiceId: integer("deposit_invoice_id").references(() => invoices.id), // Link to the deposit invoice that enabled scheduling this installation
   scheduledDate: date("scheduled_date").notNull(),
-  startTime: timestamp("start_time"),
-  endTime: timestamp("end_time"),
   status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled, snagging
   notes: text("notes"),
   assignedTo: jsonb("assigned_to").$type<number[]>(), // Team members assigned to installation
