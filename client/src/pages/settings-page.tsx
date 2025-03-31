@@ -117,7 +117,7 @@ export default function SettingsPage() {
         phone: data.phone,
         address: data.address,
         website: data.website,
-        taxId: data.taxId,
+        tax_id: data.taxId, // Use snake_case to match database column
         currencyCode: data.currencyCode,
         defaultTaxRate: data.defaultTaxRate,
         termsAndConditions: data.termsAndConditions,
