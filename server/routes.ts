@@ -1165,13 +1165,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/installations", requireAuth, validateBody(insertInstallationSchema), async (req, res) => {
     try {
-      const installation = await storage.createInstallation({
+      // Add extra validation for dates
+      if (!req.body.scheduledDate) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["scheduledDate"], message: "Scheduled date is required" }] 
+        });
+      }
+      
+      if (!req.body.projectId) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["projectId"], message: "Project is required" }] 
+        });
+      }
+      
+      console.log("Original installation data received:", req.body);
+      
+      // Safely convert dates ensuring valid formats
+      let scheduledDate;
+      try {
+        scheduledDate = new Date(req.body.scheduledDate);
+        if (isNaN(scheduledDate.getTime())) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+          });
+        }
+      } catch (e) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+        });
+      }
+      
+      // Process startTime and endTime safely
+      let startTime = undefined;
+      if (req.body.startTime) {
+        try {
+          startTime = new Date(req.body.startTime);
+          if (isNaN(startTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+            });
+          }
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+          });
+        }
+      }
+      
+      let endTime = undefined;
+      if (req.body.endTime) {
+        try {
+          endTime = new Date(req.body.endTime);
+          if (isNaN(endTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+            });
+          }
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+          });
+        }
+      }
+      
+      // Process assignedTo - installations use array type
+      let assignedTo = req.body.assignedTo;
+      if (Array.isArray(assignedTo) && assignedTo.length === 0) {
+        assignedTo = undefined;
+      } else if (assignedTo === "unassigned") {
+        assignedTo = undefined;
+      }
+      
+      // Prepare the data for storage
+      const formattedBody = {
         ...req.body,
+        scheduledDate,
+        startTime,
+        endTime,
+        assignedTo,
         createdBy: req.user?.id
-      });
+      };
+      
+      console.log("Formatted installation data to save:", formattedBody);
+      
+      const installation = await storage.createInstallation(formattedBody);
+      console.log("Installation created successfully:", installation);
       res.status(201).json(installation);
     } catch (error) {
-      res.status(500).json({ message: "Failed to create installation" });
+      console.error("Installation creation error:", error);
+      res.status(500).json({ 
+        message: "Failed to create installation", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
@@ -1184,10 +1277,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Installation not found" });
       }
       
-      const updatedInstallation = await storage.updateInstallation(installationId, req.body);
+      console.log("Original installation update data received:", req.body);
+      
+      // Process dates safely
+      let formattedBody = { ...req.body };
+      
+      // Process scheduledDate
+      if (req.body.scheduledDate) {
+        try {
+          const scheduledDate = new Date(req.body.scheduledDate);
+          if (isNaN(scheduledDate.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+            });
+          }
+          formattedBody.scheduledDate = scheduledDate;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+          });
+        }
+      }
+      
+      // Process startTime
+      if (req.body.startTime) {
+        try {
+          const startTime = new Date(req.body.startTime);
+          if (isNaN(startTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+            });
+          }
+          formattedBody.startTime = startTime;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+          });
+        }
+      }
+      
+      // Process endTime
+      if (req.body.endTime) {
+        try {
+          const endTime = new Date(req.body.endTime);
+          if (isNaN(endTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+            });
+          }
+          formattedBody.endTime = endTime;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+          });
+        }
+      }
+      
+      // Handle assignedTo for installations (array type)
+      if (formattedBody.assignedTo === "unassigned" || 
+          (Array.isArray(formattedBody.assignedTo) && formattedBody.assignedTo.length === 0)) {
+        formattedBody.assignedTo = undefined;
+      }
+      
+      console.log("Formatted installation update data to save:", formattedBody);
+      
+      const updatedInstallation = await storage.updateInstallation(installationId, formattedBody);
+      console.log("Installation updated successfully:", updatedInstallation);
       res.json(updatedInstallation);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update installation" });
+      console.error("Installation update error:", error);
+      res.status(500).json({ 
+        message: "Failed to update installation", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
