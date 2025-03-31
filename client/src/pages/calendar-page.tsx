@@ -274,18 +274,17 @@ export default function CalendarPage() {
                               <Link 
                                 key={event.id} 
                                 href={`/${event.type}s/${event.id.split('-')[1]}`}
+                                className="block px-2 py-1 text-xs rounded-md border border-gray-200 hover:bg-gray-50"
                               >
-                                <a className="block px-2 py-1 text-xs rounded-md border border-gray-200 hover:bg-gray-50">
-                                  <div className="flex justify-between">
-                                    {renderEventBadge(event)}
-                                    <span className="text-gray-500">
-                                      {formatDate(event.start, "h:mm a")}
-                                    </span>
-                                  </div>
-                                  <div className="font-medium text-gray-800 truncate mt-1">
-                                    {event.projectName}
-                                  </div>
-                                </a>
+                                <div className="flex justify-between">
+                                  {renderEventBadge(event)}
+                                  <span className="text-gray-500">
+                                    {formatDate(event.start, "h:mm a")}
+                                  </span>
+                                </div>
+                                <div className="font-medium text-gray-800 truncate mt-1">
+                                  {event.projectName}
+                                </div>
                               </Link>
                             ))}
                           </div>
@@ -333,7 +332,7 @@ export default function CalendarPage() {
             <p className="text-sm text-gray-500 mb-3">
               Create a new survey appointment for a project.
             </p>
-            <Link href="/surveys?schedule=new">
+            <Link href="/surveys?schedule=new" className="inline-block">
               <Button variant="outline" size="sm">Schedule Survey</Button>
             </Link>
           </CardContent>
@@ -350,7 +349,7 @@ export default function CalendarPage() {
             <p className="text-sm text-gray-500 mb-3">
               Plan a new installation for a project.
             </p>
-            <Link href="/installations?schedule=new">
+            <Link href="/installations?schedule=new" className="inline-block">
               <Button variant="outline" size="sm">Schedule Installation</Button>
             </Link>
           </CardContent>

@@ -70,7 +70,11 @@ function Router() {
       <ProtectedRoute path="/employees" component={EmployeesPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
       <ProtectedRoute path="/surveys" component={SurveysPage} />
+      <ProtectedRoute path="/surveys/:id" component={SurveysPage} />
+      <ProtectedRoute path="/surveys/:id/edit" component={SurveysPage} />
       <ProtectedRoute path="/installations" component={InstallationsPage} />
+      <ProtectedRoute path="/installations/:id" component={InstallationsPage} />
+      <ProtectedRoute path="/installations/:id/edit" component={InstallationsPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/customers" component={CustomersPage} />
       <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
