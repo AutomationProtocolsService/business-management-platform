@@ -30,10 +30,10 @@ import { useEffect } from "react";
 const timesheetFormSchema = insertTimesheetSchema.extend({
   employeeId: z.number(),
   projectId: z.number().optional(),
-  date: z.string(),
-  startTime: z.string(),
-  endTime: z.string(),
-  breakDuration: z.string().optional().transform(val => val ? parseInt(val) : undefined),
+  date: z.string(), // Keep as string in the form and convert before submission
+  startTime: z.string(), // Keep as string in the form and convert before submission
+  endTime: z.string(), // Keep as string in the form and convert before submission
+  breakDuration: z.number().optional().or(z.string().transform(val => val ? parseInt(val) : undefined)),
   notes: z.string().optional(),
   status: z.string().default("pending"),
 });
@@ -72,7 +72,7 @@ export default function TimesheetForm({
       date: getInputDateString(new Date()),
       startTime: getInputDateTimeString(new Date()),
       endTime: getInputDateTimeString(new Date(Date.now() + 8 * 60 * 60 * 1000)), // 8 hours later
-      breakDuration: "30",
+      breakDuration: 30,
       notes: "",
       status: "pending",
     },
@@ -89,6 +89,10 @@ export default function TimesheetForm({
   const createTimesheet = useMutation({
     mutationFn: async (values: TimesheetFormValues) => {
       const res = await apiRequest("POST", "/api/timesheets", values);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.message || "Failed to create timesheet");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -100,8 +104,9 @@ export default function TimesheetForm({
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
+      console.error("Timesheet creation error:", error);
       toast({
-        title: "Error",
+        title: "Error creating timesheet",
         description: error.message,
         variant: "destructive",
       });
@@ -112,6 +117,10 @@ export default function TimesheetForm({
   const updateTimesheet = useMutation({
     mutationFn: async (values: TimesheetFormValues) => {
       const res = await apiRequest("PUT", `/api/timesheets/${timesheetId}`, values);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.message || "Failed to update timesheet");
+      }
       return res.json();
     },
     onSuccess: (data) => {
@@ -124,8 +133,9 @@ export default function TimesheetForm({
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
+      console.error("Timesheet update error:", error);
       toast({
-        title: "Error",
+        title: "Error updating timesheet",
         description: error.message,
         variant: "destructive",
       });
@@ -134,10 +144,21 @@ export default function TimesheetForm({
 
   // Form submission handler
   function onSubmit(values: TimesheetFormValues) {
+    // Format dates into proper ISO strings for the server
+    const formattedValues = {
+      ...values,
+      // Convert to proper date format before sending to server
+      date: new Date(values.date).toISOString(),
+      startTime: new Date(values.startTime).toISOString(),
+      endTime: new Date(values.endTime).toISOString(),
+      // Ensure projectId is undefined if "none" is selected
+      projectId: values.projectId === 0 ? undefined : values.projectId
+    };
+    
     if (timesheetId) {
-      updateTimesheet.mutate(values);
+      updateTimesheet.mutate(formattedValues);
     } else {
-      createTimesheet.mutate(values);
+      createTimesheet.mutate(formattedValues);
     }
   }
 
@@ -258,7 +279,14 @@ export default function TimesheetForm({
             <FormItem>
               <FormLabel>Break Duration (minutes)</FormLabel>
               <FormControl>
-                <Input type="number" min="0" step="1" placeholder="Enter break duration" {...field} />
+                <Input 
+                  type="number" 
+                  min="0" 
+                  step="1" 
+                  placeholder="Enter break duration" 
+                  value={field.value?.toString() || ""}
+                  onChange={(e) => field.onChange(e.target.value === "" ? undefined : parseInt(e.target.value))}
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
