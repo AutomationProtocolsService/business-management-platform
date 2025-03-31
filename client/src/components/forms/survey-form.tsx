@@ -43,26 +43,6 @@ const surveyFormSchema = insertSurveySchema.extend({
   }, {
     message: "Invalid date format"
   }),
-  startTime: z.string().optional().refine(val => {
-    if (!val) return true; // Optional field
-    try {
-      return !isNaN(new Date(val).getTime());
-    } catch (e) {
-      return false;
-    }
-  }, {
-    message: "Invalid start time format"
-  }),
-  endTime: z.string().optional().refine(val => {
-    if (!val) return true; // Optional field
-    try {
-      return !isNaN(new Date(val).getTime());
-    } catch (e) {
-      return false;
-    }
-  }, {
-    message: "Invalid end time format"
-  }),
   status: z.string(),
   notes: z.string().optional().default(""),
   assignedTo: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional()
@@ -102,8 +82,6 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       status: "scheduled",
       notes: "",
       projectId: 0, // Default value that will be overridden if defaultValues has a value
-      startTime: "",
-      endTime: "",
       assignedTo: undefined,
       ...(defaultValues || {})
     },
@@ -123,19 +101,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
     }
   };
 
-  // Helper to format datetime values safely
-  const formatDateTimeValue = (dateTimeValue: unknown): string | undefined => {
-    if (!dateTimeValue) return undefined;
-    
-    try {
-      const date = typeof dateTimeValue === 'string' ? new Date(dateTimeValue) : dateTimeValue instanceof Date ? dateTimeValue : null;
-      if (!date || isNaN(date.getTime())) return undefined;
-      return date.toISOString();
-    } catch (e) {
-      console.error("Error formatting datetime:", e);
-      return undefined;
-    }
-  };
+
 
   // Create survey mutation
   const createSurvey = useMutation({
@@ -145,9 +111,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
         const formattedValues = {
           ...values,
           // Convert values to strings and then back to dates in ISO format
-          scheduledDate: formatDateValue(values.scheduledDate),
-          startTime: formatDateTimeValue(values.startTime),
-          endTime: formatDateTimeValue(values.endTime)
+          scheduledDate: formatDateValue(values.scheduledDate)
         };
         
         console.log("Submitting survey with formatted values:", formattedValues);
@@ -228,9 +192,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
         const formattedValues = {
           ...values,
           // Convert values to strings and then back to dates in ISO format
-          scheduledDate: formatDateValue(values.scheduledDate),
-          startTime: formatDateTimeValue(values.startTime),
-          endTime: formatDateTimeValue(values.endTime)
+          scheduledDate: formatDateValue(values.scheduledDate)
         };
         
         console.log("Updating survey with formatted values:", formattedValues);
@@ -363,35 +325,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="startTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Start Time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
 
-          <FormField
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
 
         <FormField
           control={form.control}
