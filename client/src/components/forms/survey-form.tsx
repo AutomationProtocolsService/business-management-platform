@@ -27,14 +27,48 @@ import { getInputDateString, getInputDateTimeString } from "@/lib/date-utils";
 
 // Extend the insert schema with client-side validation
 const surveyFormSchema = insertSurveySchema.extend({
-  projectId: z.number(),
-  scheduledDate: z.string(),
-  startTime: z.string().optional().transform(val => val ? new Date(val).toISOString() : undefined),
-  endTime: z.string().optional().transform(val => val ? new Date(val).toISOString() : undefined),
+  projectId: z.number({
+    required_error: "Project is required",
+    invalid_type_error: "Project must be a number"
+  }),
+  scheduledDate: z.string({
+    required_error: "Scheduled date is required"
+  }).transform(val => {
+    try {
+      // Convert to ISO date string (YYYY-MM-DD)
+      return new Date(val).toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Error transforming scheduledDate:", e);
+      return val; // Return original value if transformation fails
+    }
+  }),
+  startTime: z.string().optional().transform(val => {
+    if (!val) return undefined;
+    try {
+      return new Date(val).toISOString();
+    } catch (e) {
+      console.error("Error transforming startTime:", e);
+      return undefined;
+    }
+  }),
+  endTime: z.string().optional().transform(val => {
+    if (!val) return undefined;
+    try {
+      return new Date(val).toISOString();
+    } catch (e) {
+      console.error("Error transforming endTime:", e);
+      return undefined;
+    }
+  }),
   status: z.string(),
   notes: z.string().optional().default(""),
-  assignedTo: z.union([z.number(), z.string()]).optional()
-    .transform(val => val === "unassigned" ? undefined : typeof val === "string" ? parseInt(val, 10) : val),
+  assignedTo: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional()
+    .transform(val => {
+      if (val === "unassigned" || val === null || val === undefined) {
+        return undefined;
+      }
+      return typeof val === "string" ? parseInt(val, 10) : val;
+    }),
 });
 
 export type SurveyFormValues = z.infer<typeof surveyFormSchema>;
@@ -57,26 +91,37 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
     queryKey: ["/api/users"],
   });
 
-  // Initialize form
+  // Initialize form with properly typed default values
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveyFormSchema),
     defaultValues: {
       scheduledDate: getInputDateString(new Date()),
-      status: "scheduled" as string,
-      notes: "" as string,
+      status: "scheduled",
+      notes: "",
       projectId: undefined as unknown as number,
-      startTime: "" as string,
-      endTime: "" as string,
-      assignedTo: undefined as unknown as number,
-      ...(defaultValues as object)
-    },
+      startTime: undefined as unknown as string,
+      endTime: undefined as unknown as string,
+      assignedTo: undefined,
+      ...(defaultValues || {})
+    } as any, // Use type assertion to avoid type errors with complex schemas
   });
 
   // Create survey mutation
   const createSurvey = useMutation({
     mutationFn: async (values: SurveyFormValues) => {
-      const res = await apiRequest("POST", "/api/surveys", values);
-      return res.json();
+      try {
+        console.log("Submitting survey with values:", values);
+        const res = await apiRequest("POST", "/api/surveys", values);
+        const data = await res.json();
+        return data;
+      } catch (error) {
+        console.error("Survey creation error:", error);
+        if (error instanceof Error) {
+          throw error;
+        } else {
+          throw new Error("Failed to create survey. Please try again.");
+        }
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -88,9 +133,27 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
+      console.error("Survey mutation error:", error);
+      
+      // Check if this is a validation error with details
+      const errorMessage = error.message || "Failed to create survey";
+      let detailedMessage = errorMessage;
+      
+      // Try to parse detailed validation errors
+      try {
+        if (errorMessage.includes("Validation failed")) {
+          const errorData = JSON.parse(errorMessage.replace("Error: ", ""));
+          if (errorData.errors && errorData.errors.length > 0) {
+            detailedMessage = errorData.errors.map((e: any) => e.message).join(", ");
+          }
+        }
+      } catch (e) {
+        // If parsing fails, just use the original message
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: detailedMessage,
         variant: "destructive",
       });
     },
@@ -99,8 +162,19 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
   // Update survey mutation
   const updateSurvey = useMutation({
     mutationFn: async (values: SurveyFormValues) => {
-      const res = await apiRequest("PUT", `/api/surveys/${surveyId}`, values);
-      return res.json();
+      try {
+        console.log("Updating survey with values:", values);
+        const res = await apiRequest("PUT", `/api/surveys/${surveyId}`, values);
+        const data = await res.json();
+        return data;
+      } catch (error) {
+        console.error("Survey update error:", error);
+        if (error instanceof Error) {
+          throw error;
+        } else {
+          throw new Error("Failed to update survey. Please try again.");
+        }
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -113,9 +187,27 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
+      console.error("Survey update error:", error);
+      
+      // Check if this is a validation error with details
+      const errorMessage = error.message || "Failed to update survey";
+      let detailedMessage = errorMessage;
+      
+      // Try to parse detailed validation errors
+      try {
+        if (errorMessage.includes("Validation failed")) {
+          const errorData = JSON.parse(errorMessage.replace("Error: ", ""));
+          if (errorData.errors && errorData.errors.length > 0) {
+            detailedMessage = errorData.errors.map((e: any) => e.message).join(", ");
+          }
+        }
+      } catch (e) {
+        // If parsing fails, just use the original message
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: detailedMessage,
         variant: "destructive",
       });
     },
