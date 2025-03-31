@@ -27,7 +27,7 @@ import { getInputDateString, getInputDateTimeString } from "@/lib/date-utils";
 
 // Extend the insert schema with client-side validation
 const surveyFormSchema = insertSurveySchema.extend({
-  projectId: z.number({
+  projectId: z.coerce.number({
     required_error: "Project is required",
     invalid_type_error: "Project must be a number"
   }),
@@ -101,22 +101,21 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       scheduledDate: getInputDateString(new Date()),
       status: "scheduled",
       notes: "",
-      projectId: undefined as unknown as number,
-      startTime: undefined as unknown as string,
-      endTime: undefined as unknown as string,
+      projectId: 0, // Default value that will be overridden if defaultValues has a value
+      startTime: "",
+      endTime: "",
       assignedTo: undefined,
       ...(defaultValues || {})
-    } as any, // Use type assertion to avoid type errors with complex schemas
+    },
   });
 
   // Helper to format date values safely
   const formatDateValue = (dateValue: unknown): string | undefined => {
     if (!dateValue) return undefined;
-    if (typeof dateValue !== 'string') return undefined;
     
     try {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return undefined;
+      const date = typeof dateValue === 'string' ? new Date(dateValue) : dateValue instanceof Date ? dateValue : null;
+      if (!date || isNaN(date.getTime())) return undefined;
       return date.toISOString().split('T')[0];
     } catch (e) {
       console.error("Error formatting date:", e);
@@ -127,11 +126,10 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
   // Helper to format datetime values safely
   const formatDateTimeValue = (dateTimeValue: unknown): string | undefined => {
     if (!dateTimeValue) return undefined;
-    if (typeof dateTimeValue !== 'string') return undefined;
     
     try {
-      const date = new Date(dateTimeValue);
-      if (isNaN(date.getTime())) return undefined;
+      const date = typeof dateTimeValue === 'string' ? new Date(dateTimeValue) : dateTimeValue instanceof Date ? dateTimeValue : null;
+      if (!date || isNaN(date.getTime())) return undefined;
       return date.toISOString();
     } catch (e) {
       console.error("Error formatting datetime:", e);
@@ -329,7 +327,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
               <FormLabel>Project *</FormLabel>
               <Select
                 onValueChange={(value) => field.onChange(Number(value))}
-                value={field.value?.toString()}
+                value={field.value?.toString() || ""}
               >
                 <FormControl>
                   <SelectTrigger>
