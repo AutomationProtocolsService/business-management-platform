@@ -24,9 +24,7 @@ const companyFormSchema = z.object({
   phone: z.string().optional(),
   address: z.string().optional(),
   website: z.string().url("Must be a valid URL").or(z.string().length(0)),
-  taxId: z.string().optional(),
   currencyCode: z.string().min(1, "Currency code is required"),
-  defaultTaxRate: z.number().min(0).max(100),
   termsAndConditions: z.string().optional(),
 });
 
@@ -89,9 +87,7 @@ export default function SettingsPage() {
       phone: settings?.phone || "",
       address: settings?.address || "",
       website: settings?.website || "",
-      taxId: settings?.taxId || "",
       currencyCode: settings?.currencyCode || "USD",
-      defaultTaxRate: settings?.defaultTaxRate || 0,
       termsAndConditions: settings?.termsAndConditions || "",
     },
   });
@@ -117,9 +113,7 @@ export default function SettingsPage() {
         phone: data.phone,
         address: data.address,
         website: data.website,
-        tax_id: data.taxId, // Use snake_case to match database column
         currencyCode: data.currencyCode,
-        defaultTaxRate: data.defaultTaxRate,
         termsAndConditions: data.termsAndConditions,
       };
       
@@ -279,19 +273,7 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={companyForm.control}
-                      name="taxId"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax ID / VAT Number</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Tax ID or VAT Number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+
                     <FormField
                       control={companyForm.control}
                       name="currencyCode"
@@ -308,26 +290,7 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-                    <FormField
-                      control={companyForm.control}
-                      name="defaultTaxRate"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Default Tax Rate (%)</FormLabel>
-                          <FormControl>
-                            <Input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="0.01"
-                              placeholder="0.00"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+
                   </div>
 
                   <FormField
