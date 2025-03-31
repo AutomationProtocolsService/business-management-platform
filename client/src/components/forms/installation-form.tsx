@@ -69,11 +69,52 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     },
   });
 
+  // Helper to format date values safely
+  const formatDateValue = (dateValue: unknown): string | undefined => {
+    if (!dateValue) return undefined;
+    if (typeof dateValue !== 'string') return undefined;
+    
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return undefined;
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return undefined;
+    }
+  };
+
+  // Helper to format datetime values safely
+  const formatDateTimeValue = (dateTimeValue: unknown): string | undefined => {
+    if (!dateTimeValue) return undefined;
+    if (typeof dateTimeValue !== 'string') return undefined;
+    
+    try {
+      const date = new Date(dateTimeValue);
+      if (isNaN(date.getTime())) return undefined;
+      return date.toISOString();
+    } catch (e) {
+      console.error("Error formatting datetime:", e);
+      return undefined;
+    }
+  };
+
   // Create installation mutation with enhanced error handling
   const createInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
       try {
-        const res = await apiRequest("POST", "/api/installations", values);
+        // Format data for API submission
+        const formattedValues = {
+          ...values,
+          // Convert values to strings and then back to dates in ISO format
+          scheduledDate: formatDateValue(values.scheduledDate),
+          startTime: formatDateTimeValue(values.startTime),
+          endTime: formatDateTimeValue(values.endTime)
+        };
+
+        console.log("Submitting installation with formatted values:", formattedValues);
+        
+        const res = await apiRequest("POST", "/api/installations", formattedValues);
         
         // Check if response is OK before parsing JSON
         if (!res.ok) {
@@ -122,7 +163,18 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
   const updateInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
       try {
-        const res = await apiRequest("PUT", `/api/installations/${installationId}`, values);
+        // Format data for API submission
+        const formattedValues = {
+          ...values,
+          // Convert values to strings and then back to dates in ISO format
+          scheduledDate: formatDateValue(values.scheduledDate),
+          startTime: formatDateTimeValue(values.startTime),
+          endTime: formatDateTimeValue(values.endTime)
+        };
+
+        console.log("Updating installation with formatted values:", formattedValues);
+        
+        const res = await apiRequest("PUT", `/api/installations/${installationId}`, formattedValues);
         
         // Check if response is OK before parsing JSON
         if (!res.ok) {
@@ -173,21 +225,11 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     console.log("Submitting installation form with values:", values);
     
     try {
-      // Format dates properly for API
-      const processedValues = {
-        ...values,
-        // These transformations ensure we're sending correctly formatted strings
-        scheduledDate: values.scheduledDate,
-        startTime: values.startTime ? values.startTime : undefined,
-        endTime: values.endTime ? values.endTime : undefined
-      };
-      
-      console.log("Processed values for API submission:", processedValues);
-      
+      // No need for additional processing here - the mutations handle date formatting
       if (installationId) {
-        updateInstallation.mutate(processedValues);
+        updateInstallation.mutate(values);
       } else {
-        createInstallation.mutate(processedValues);
+        createInstallation.mutate(values);
       }
     } catch (error) {
       console.error("Error processing form data:", error);
@@ -245,7 +287,7 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
             <FormItem>
               <FormLabel>Scheduled Date *</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input type="date" {...field} value={field.value as string || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -260,7 +302,7 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
               <FormItem>
                 <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <Input type="datetime-local" {...field} />
+                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -274,7 +316,7 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
               <FormItem>
                 <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <Input type="datetime-local" {...field} />
+                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -302,9 +344,9 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
                             <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                               <FormControl>
                                 <Checkbox
-                                  checked={field.value?.includes(user.id)}
+                                  checked={Array.isArray(field.value) && field.value.includes(user.id)}
                                   onCheckedChange={(checked) => {
-                                    const currentValue = field.value || [];
+                                    const currentValue = Array.isArray(field.value) ? field.value : [];
                                     return checked
                                       ? field.onChange([...currentValue, user.id])
                                       : field.onChange(
@@ -337,7 +379,7 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
           render={({ field }) => (
             <FormItem>
               <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value as string || "scheduled"}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -363,7 +405,7 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea rows={4} placeholder="Enter installation notes, equipment required, etc." {...field} />
+                <Textarea rows={4} placeholder="Enter installation notes, equipment required, etc." {...field} value={field.value as string || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>

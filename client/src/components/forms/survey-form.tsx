@@ -33,32 +33,35 @@ const surveyFormSchema = insertSurveySchema.extend({
   }),
   scheduledDate: z.string({
     required_error: "Scheduled date is required"
-  }).transform(val => {
+  }).refine(val => {
     try {
-      // Convert to ISO date string (YYYY-MM-DD)
-      return new Date(val).toISOString().split('T')[0];
+      // Check if the date is valid
+      return !isNaN(new Date(val).getTime());
     } catch (e) {
-      console.error("Error transforming scheduledDate:", e);
-      return val; // Return original value if transformation fails
+      return false;
     }
+  }, {
+    message: "Invalid date format"
   }),
-  startTime: z.string().optional().transform(val => {
-    if (!val) return undefined;
+  startTime: z.string().optional().refine(val => {
+    if (!val) return true; // Optional field
     try {
-      return new Date(val).toISOString();
+      return !isNaN(new Date(val).getTime());
     } catch (e) {
-      console.error("Error transforming startTime:", e);
-      return undefined;
+      return false;
     }
+  }, {
+    message: "Invalid start time format"
   }),
-  endTime: z.string().optional().transform(val => {
-    if (!val) return undefined;
+  endTime: z.string().optional().refine(val => {
+    if (!val) return true; // Optional field
     try {
-      return new Date(val).toISOString();
+      return !isNaN(new Date(val).getTime());
     } catch (e) {
-      console.error("Error transforming endTime:", e);
-      return undefined;
+      return false;
     }
+  }, {
+    message: "Invalid end time format"
   }),
   status: z.string(),
   notes: z.string().optional().default(""),
@@ -106,12 +109,70 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
     } as any, // Use type assertion to avoid type errors with complex schemas
   });
 
+  // Helper to format date values safely
+  const formatDateValue = (dateValue: unknown): string | undefined => {
+    if (!dateValue) return undefined;
+    if (typeof dateValue !== 'string') return undefined;
+    
+    try {
+      const date = new Date(dateValue);
+      if (isNaN(date.getTime())) return undefined;
+      return date.toISOString().split('T')[0];
+    } catch (e) {
+      console.error("Error formatting date:", e);
+      return undefined;
+    }
+  };
+
+  // Helper to format datetime values safely
+  const formatDateTimeValue = (dateTimeValue: unknown): string | undefined => {
+    if (!dateTimeValue) return undefined;
+    if (typeof dateTimeValue !== 'string') return undefined;
+    
+    try {
+      const date = new Date(dateTimeValue);
+      if (isNaN(date.getTime())) return undefined;
+      return date.toISOString();
+    } catch (e) {
+      console.error("Error formatting datetime:", e);
+      return undefined;
+    }
+  };
+
   // Create survey mutation
   const createSurvey = useMutation({
     mutationFn: async (values: SurveyFormValues) => {
       try {
-        console.log("Submitting survey with values:", values);
-        const res = await apiRequest("POST", "/api/surveys", values);
+        // Format data for API submission
+        const formattedValues = {
+          ...values,
+          // Convert values to strings and then back to dates in ISO format
+          scheduledDate: formatDateValue(values.scheduledDate),
+          startTime: formatDateTimeValue(values.startTime),
+          endTime: formatDateTimeValue(values.endTime)
+        };
+        
+        console.log("Submitting survey with formatted values:", formattedValues);
+        
+        const res = await apiRequest("POST", "/api/surveys", formattedValues);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          try {
+            // Try to parse as JSON
+            const errorData = JSON.parse(errorText);
+            throw new Error(
+              JSON.stringify({
+                message: errorData.message || "Failed to create survey",
+                errors: errorData.errors || []
+              })
+            );
+          } catch (e) {
+            // If parsing fails, use the raw error text
+            throw new Error(`Server Error: ${errorText}`);
+          }
+        }
+        
         const data = await res.json();
         return data;
       } catch (error) {
@@ -141,10 +202,12 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       
       // Try to parse detailed validation errors
       try {
-        if (errorMessage.includes("Validation failed")) {
-          const errorData = JSON.parse(errorMessage.replace("Error: ", ""));
+        if (errorMessage.startsWith("{")) {
+          const errorData = JSON.parse(errorMessage);
           if (errorData.errors && errorData.errors.length > 0) {
             detailedMessage = errorData.errors.map((e: any) => e.message).join(", ");
+          } else {
+            detailedMessage = errorData.message;
           }
         }
       } catch (e) {
@@ -163,8 +226,36 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
   const updateSurvey = useMutation({
     mutationFn: async (values: SurveyFormValues) => {
       try {
-        console.log("Updating survey with values:", values);
-        const res = await apiRequest("PUT", `/api/surveys/${surveyId}`, values);
+        // Format data for API submission
+        const formattedValues = {
+          ...values,
+          // Convert values to strings and then back to dates in ISO format
+          scheduledDate: formatDateValue(values.scheduledDate),
+          startTime: formatDateTimeValue(values.startTime),
+          endTime: formatDateTimeValue(values.endTime)
+        };
+        
+        console.log("Updating survey with formatted values:", formattedValues);
+        
+        const res = await apiRequest("PUT", `/api/surveys/${surveyId}`, formattedValues);
+        
+        if (!res.ok) {
+          const errorText = await res.text();
+          try {
+            // Try to parse as JSON
+            const errorData = JSON.parse(errorText);
+            throw new Error(
+              JSON.stringify({
+                message: errorData.message || "Failed to update survey",
+                errors: errorData.errors || []
+              })
+            );
+          } catch (e) {
+            // If parsing fails, use the raw error text
+            throw new Error(`Server Error: ${errorText}`);
+          }
+        }
+        
         const data = await res.json();
         return data;
       } catch (error) {
@@ -195,10 +286,12 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       
       // Try to parse detailed validation errors
       try {
-        if (errorMessage.includes("Validation failed")) {
-          const errorData = JSON.parse(errorMessage.replace("Error: ", ""));
+        if (errorMessage.startsWith("{")) {
+          const errorData = JSON.parse(errorMessage);
           if (errorData.errors && errorData.errors.length > 0) {
             detailedMessage = errorData.errors.map((e: any) => e.message).join(", ");
+          } else {
+            detailedMessage = errorData.message;
           }
         }
       } catch (e) {
@@ -265,7 +358,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
             <FormItem>
               <FormLabel>Scheduled Date *</FormLabel>
               <FormControl>
-                <Input type="date" {...field} value={field.value as string} />
+                <Input type="date" {...field} value={field.value as string || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
