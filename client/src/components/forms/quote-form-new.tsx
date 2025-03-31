@@ -457,7 +457,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Status</FormLabel>
-                          <Select onValueChange={field.onChange} value={field.value}>
+                          <Select 
+                            onValueChange={field.onChange} 
+                            value={field.value || "draft"} // Added default value to prevent empty string
+                            defaultValue="draft"
+                          >
                             <FormControl>
                               <SelectTrigger>
                                 <SelectValue placeholder="Select status" />
@@ -502,7 +506,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                           </div>
                           <Select
                             onValueChange={(value) => field.onChange(Number(value))}
-                            value={field.value?.toString()}
+                            value={field.value?.toString() || ""} // Added empty string as fallback
+                            defaultValue=""
                           >
                             <FormControl>
                               <SelectTrigger>
@@ -540,7 +545,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                           </div>
                           <Select
                             onValueChange={(value) => field.onChange(Number(value))}
-                            value={field.value?.toString()}
+                            value={field.value?.toString() || ""} // Added empty string as fallback
+                            defaultValue=""
                           >
                             <FormControl>
                               <SelectTrigger>
