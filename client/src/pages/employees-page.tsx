@@ -9,7 +9,8 @@ import {
   Trash2,
   UserCircle,
   Mail,
-  Phone 
+  Phone,
+  Clock
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
