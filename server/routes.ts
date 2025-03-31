@@ -915,16 +915,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Convert date strings to Date objects if needed
+      console.log("Original survey data received:", req.body);
+      
+      // Safely convert dates ensuring valid formats
+      let scheduledDate;
+      try {
+        scheduledDate = new Date(req.body.scheduledDate);
+        if (isNaN(scheduledDate.getTime())) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+          });
+        }
+      } catch (e) {
+        return res.status(400).json({
+          message: "Validation failed",
+          errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+        });
+      }
+      
+      // Process startTime and endTime safely
+      let startTime = undefined;
+      if (req.body.startTime) {
+        try {
+          startTime = new Date(req.body.startTime);
+          if (isNaN(startTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+            });
+          }
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+          });
+        }
+      }
+      
+      let endTime = undefined;
+      if (req.body.endTime) {
+        try {
+          endTime = new Date(req.body.endTime);
+          if (isNaN(endTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+            });
+          }
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+          });
+        }
+      }
+      
+      // Prepare the data for storage
       const formattedBody = {
         ...req.body,
-        scheduledDate: new Date(req.body.scheduledDate),
-        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
-        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
+        scheduledDate,
+        startTime,
+        endTime,
+        assignedTo: req.body.assignedTo === "unassigned" ? undefined : req.body.assignedTo,
         createdBy: req.user?.id
       };
       
+      console.log("Formatted survey data to save:", formattedBody);
+      
       const survey = await storage.createSurvey(formattedBody);
+      console.log("Survey created successfully:", survey);
       res.status(201).json(survey);
     } catch (error) {
       console.error("Survey creation error:", error);
@@ -944,10 +1004,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Survey not found" });
       }
       
-      const updatedSurvey = await storage.updateSurvey(surveyId, req.body);
+      console.log("Original survey update data received:", req.body);
+      
+      // Process dates safely
+      let formattedBody = { ...req.body };
+      
+      // Process scheduledDate
+      if (req.body.scheduledDate) {
+        try {
+          const scheduledDate = new Date(req.body.scheduledDate);
+          if (isNaN(scheduledDate.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+            });
+          }
+          formattedBody.scheduledDate = scheduledDate;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+          });
+        }
+      }
+      
+      // Process startTime
+      if (req.body.startTime) {
+        try {
+          const startTime = new Date(req.body.startTime);
+          if (isNaN(startTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+            });
+          }
+          formattedBody.startTime = startTime;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
+          });
+        }
+      }
+      
+      // Process endTime
+      if (req.body.endTime) {
+        try {
+          const endTime = new Date(req.body.endTime);
+          if (isNaN(endTime.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+            });
+          }
+          formattedBody.endTime = endTime;
+        } catch (e) {
+          return res.status(400).json({
+            message: "Validation failed",
+            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
+          });
+        }
+      }
+      
+      // Handle assignedTo
+      if (formattedBody.assignedTo === "unassigned") {
+        formattedBody.assignedTo = undefined;
+      }
+      
+      console.log("Formatted survey update data to save:", formattedBody);
+      
+      const updatedSurvey = await storage.updateSurvey(surveyId, formattedBody);
+      console.log("Survey updated successfully:", updatedSurvey);
       res.json(updatedSurvey);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update survey" });
+      console.error("Survey update error:", error);
+      res.status(500).json({ 
+        message: "Failed to update survey", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
