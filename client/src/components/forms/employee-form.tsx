@@ -9,6 +9,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -28,6 +29,9 @@ import { getInputDateString } from "@/lib/date-utils";
 // Extend the insert schema with client-side validation
 const employeeFormSchema = insertEmployeeSchema.extend({
   userId: z.number().optional(),
+  fullName: z.string().min(2, "Employee name must be at least 2 characters.").optional(),
+  email: z.string().email("Must be a valid email address").optional(),
+  phone: z.string().optional(),
   position: z.string().min(2, "Position must be at least 2 characters.").optional(),
   department: z.string().optional(),
   hireDate: z.string().optional(),
@@ -57,6 +61,9 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
   const form = useForm<EmployeeFormValues>({
     resolver: zodResolver(employeeFormSchema),
     defaultValues: defaultValues || {
+      fullName: "",
+      email: "",
+      phone: "",
       position: "",
       department: "",
       hireDate: getInputDateString(new Date()),
@@ -128,12 +135,56 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <FormField
+            control={form.control}
+            name="fullName"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Employee Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter employee full name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="email"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Email</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter employee email" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
+
+        <FormField
+          control={form.control}
+          name="phone"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Phone Number</FormLabel>
+              <FormControl>
+                <Input placeholder="Enter employee phone number" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+
         <FormField
           control={form.control}
           name="userId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>User Account</FormLabel>
+              <FormLabel>User Account (Optional)</FormLabel>
               <Select
                 onValueChange={(value) => field.onChange(Number(value))}
                 value={field.value?.toString()}
@@ -154,6 +205,9 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
                     ))}
                 </SelectContent>
               </Select>
+              <FormDescription>
+                Only needed if employee needs system access
+              </FormDescription>
               <FormMessage />
             </FormItem>
           )}
