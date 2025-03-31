@@ -69,11 +69,33 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     },
   });
 
-  // Create installation mutation
+  // Create installation mutation with enhanced error handling
   const createInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
-      const res = await apiRequest("POST", "/api/installations", values);
-      return res.json();
+      try {
+        const res = await apiRequest("POST", "/api/installations", values);
+        
+        // Check if response is OK before parsing JSON
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ message: "Unknown error occurred" }));
+          console.error("Server error response:", errorData);
+          
+          // Handle validation errors specifically
+          if (res.status === 400 && errorData.errors) {
+            const fieldErrors = errorData.errors.map((err: any) => 
+              `${err.path.join('.')}: ${err.message}`
+            ).join(', ');
+            throw new Error(`Validation error: ${fieldErrors}`);
+          }
+          
+          throw new Error(errorData.message || `Error ${res.status}: ${res.statusText}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error creating installation:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -86,18 +108,43 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Error scheduling installation",
         description: error.message,
         variant: "destructive",
       });
+      
+      // Log the error for debugging
+      console.error("Installation creation error:", error);
     },
   });
 
-  // Update installation mutation
+  // Update installation mutation with enhanced error handling
   const updateInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
-      const res = await apiRequest("PUT", `/api/installations/${installationId}`, values);
-      return res.json();
+      try {
+        const res = await apiRequest("PUT", `/api/installations/${installationId}`, values);
+        
+        // Check if response is OK before parsing JSON
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({ message: "Unknown error occurred" }));
+          console.error("Server error response:", errorData);
+          
+          // Handle validation errors specifically
+          if (res.status === 400 && errorData.errors) {
+            const fieldErrors = errorData.errors.map((err: any) => 
+              `${err.path.join('.')}: ${err.message}`
+            ).join(', ');
+            throw new Error(`Validation error: ${fieldErrors}`);
+          }
+          
+          throw new Error(errorData.message || `Error ${res.status}: ${res.statusText}`);
+        }
+        
+        return await res.json();
+      } catch (error) {
+        console.error("Error updating installation:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -111,19 +158,44 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     },
     onError: (error: Error) => {
       toast({
-        title: "Error",
+        title: "Error updating installation",
         description: error.message,
         variant: "destructive",
       });
+      
+      // Log the error for debugging
+      console.error("Installation update error:", error);
     },
   });
 
-  // Form submission handler
+  // Form submission handler with improved error handling
   function onSubmit(values: InstallationFormValues) {
-    if (installationId) {
-      updateInstallation.mutate(values);
-    } else {
-      createInstallation.mutate(values);
+    console.log("Submitting installation form with values:", values);
+    
+    try {
+      // Format dates properly for API
+      const processedValues = {
+        ...values,
+        // These transformations ensure we're sending correctly formatted strings
+        scheduledDate: values.scheduledDate,
+        startTime: values.startTime ? values.startTime : undefined,
+        endTime: values.endTime ? values.endTime : undefined
+      };
+      
+      console.log("Processed values for API submission:", processedValues);
+      
+      if (installationId) {
+        updateInstallation.mutate(processedValues);
+      } else {
+        createInstallation.mutate(processedValues);
+      }
+    } catch (error) {
+      console.error("Error processing form data:", error);
+      toast({
+        title: "Form Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred processing the form data",
+        variant: "destructive",
+      });
     }
   }
 

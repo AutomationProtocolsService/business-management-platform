@@ -877,12 +877,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (startDate && endDate) {
         surveys = await storage.getSurveysByDateRange(new Date(startDate as string), new Date(endDate as string));
       } else {
+        console.log("Fetching all surveys");
         surveys = await storage.getAllSurveys();
       }
       
+      console.log(`Successfully retrieved ${surveys.length} surveys`);
       res.json(surveys);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch surveys" });
+      console.error("Error fetching surveys:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch surveys", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
@@ -1142,12 +1148,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (startDate && endDate) {
         installations = await storage.getInstallationsByDateRange(new Date(startDate as string), new Date(endDate as string));
       } else {
+        console.log("Fetching all installations");
         installations = await storage.getAllInstallations();
       }
       
+      console.log(`Successfully retrieved ${installations.length} installations`);
       res.json(installations);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch installations" });
+      console.error("Error fetching installations:", error);
+      res.status(500).json({ 
+        message: "Failed to fetch installations", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
@@ -1390,6 +1402,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Installation not found" });
       }
       
+      console.log(`Completing installation ${installationId} with data:`, req.body);
+      
       const updatedInstallation = await storage.updateInstallation(installationId, { 
         status: "completed",
         completedBy: req.user?.id,
@@ -1397,9 +1411,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...req.body
       });
       
+      console.log("Installation completed successfully:", updatedInstallation);
       res.json(updatedInstallation);
     } catch (error) {
-      res.status(500).json({ message: "Failed to complete installation" });
+      console.error("Error completing installation:", error);
+      res.status(500).json({ 
+        message: "Failed to complete installation", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
