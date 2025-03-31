@@ -61,7 +61,7 @@ export default function SurveysPage() {
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
-  const [dateRangeFilter, setDateRangeFilter] = useState("upcoming");
+  const [dateRangeFilter, setDateRangeFilter] = useState("all");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -76,7 +76,7 @@ export default function SurveysPage() {
       const params = new URLSearchParams();
       if (status) params.append("status", status);
       
-      if (dateRange) {
+      if (dateRange && dateRange !== "all") {
         const today = new Date();
         let startDate = new Date();
         let endDate = new Date();
@@ -255,6 +255,7 @@ export default function SurveysPage() {
               <SelectValue placeholder="Date Range" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="all">All Dates</SelectItem>
               <SelectItem value="upcoming">Upcoming</SelectItem>
               <SelectItem value="past">Past</SelectItem>
               <SelectItem value="this-month">This Month</SelectItem>
