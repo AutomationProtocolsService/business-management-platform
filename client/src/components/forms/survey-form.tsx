@@ -29,11 +29,12 @@ import { getInputDateString, getInputDateTimeString } from "@/lib/date-utils";
 const surveyFormSchema = insertSurveySchema.extend({
   projectId: z.number(),
   scheduledDate: z.string(),
-  startTime: z.string().optional(),
-  endTime: z.string().optional(),
+  startTime: z.string().optional().transform(val => val ? new Date(val).toISOString() : undefined),
+  endTime: z.string().optional().transform(val => val ? new Date(val).toISOString() : undefined),
   status: z.string(),
-  notes: z.string().optional(),
-  assignedTo: z.number().optional(),
+  notes: z.string().optional().default(""),
+  assignedTo: z.union([z.number(), z.string()]).optional()
+    .transform(val => val === "unassigned" ? undefined : typeof val === "string" ? parseInt(val, 10) : val),
 });
 
 export type SurveyFormValues = z.infer<typeof surveyFormSchema>;
@@ -59,10 +60,15 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
   // Initialize form
   const form = useForm<SurveyFormValues>({
     resolver: zodResolver(surveyFormSchema),
-    defaultValues: defaultValues || {
+    defaultValues: {
       scheduledDate: getInputDateString(new Date()),
-      status: "scheduled",
-      notes: "",
+      status: "scheduled" as string,
+      notes: "" as string,
+      projectId: undefined as unknown as number,
+      startTime: "" as string,
+      endTime: "" as string,
+      assignedTo: undefined as unknown as number,
+      ...(defaultValues as object)
     },
   });
 
@@ -167,7 +173,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
             <FormItem>
               <FormLabel>Scheduled Date *</FormLabel>
               <FormControl>
-                <Input type="date" {...field} />
+                <Input type="date" {...field} value={field.value as string} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -182,7 +188,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
               <FormItem>
                 <FormLabel>Start Time</FormLabel>
                 <FormControl>
-                  <Input type="datetime-local" {...field} />
+                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -196,7 +202,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
               <FormItem>
                 <FormLabel>End Time</FormLabel>
                 <FormControl>
-                  <Input type="datetime-local" {...field} />
+                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -211,8 +217,8 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
             <FormItem>
               <FormLabel>Assigned To</FormLabel>
               <Select
-                onValueChange={(value) => field.onChange(Number(value))}
-                value={field.value?.toString()}
+                onValueChange={(value) => field.onChange(value)}
+                value={field.value?.toString() || "unassigned"}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -241,7 +247,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
           render={({ field }) => (
             <FormItem>
               <FormLabel>Status</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
+              <Select onValueChange={field.onChange} value={field.value as string}>
                 <FormControl>
                   <SelectTrigger>
                     <SelectValue placeholder="Select status" />
@@ -267,7 +273,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
             <FormItem>
               <FormLabel>Notes</FormLabel>
               <FormControl>
-                <Textarea rows={4} placeholder="Enter survey notes" {...field} />
+                <Textarea rows={4} placeholder="Enter survey notes" {...field} value={field.value as string || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>

@@ -900,13 +900,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/surveys", requireAuth, validateBody(insertSurveySchema), async (req, res) => {
     try {
-      const survey = await storage.createSurvey({
+      // Add extra validation for dates
+      if (!req.body.scheduledDate) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["scheduledDate"], message: "Scheduled date is required" }] 
+        });
+      }
+      
+      if (!req.body.projectId) {
+        return res.status(400).json({ 
+          message: "Validation failed", 
+          errors: [{ path: ["projectId"], message: "Project is required" }] 
+        });
+      }
+      
+      // Convert date strings to Date objects if needed
+      const formattedBody = {
         ...req.body,
+        scheduledDate: new Date(req.body.scheduledDate),
+        startTime: req.body.startTime ? new Date(req.body.startTime) : undefined,
+        endTime: req.body.endTime ? new Date(req.body.endTime) : undefined,
         createdBy: req.user?.id
-      });
+      };
+      
+      const survey = await storage.createSurvey(formattedBody);
       res.status(201).json(survey);
     } catch (error) {
-      res.status(500).json({ message: "Failed to create survey" });
+      console.error("Survey creation error:", error);
+      res.status(500).json({ 
+        message: "Failed to create survey", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
