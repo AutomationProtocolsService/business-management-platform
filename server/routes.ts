@@ -710,11 +710,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/employees", requireAuth, validateBody(insertEmployeeSchema), async (req, res) => {
+  app.post("/api/employees", requireAuth, async (req, res) => {
     try {
-      const employee = await storage.createEmployee(req.body);
+      // Extract employee data from request
+      const { fullName, email, phone, position, department, hireDate, terminationDate, 
+              hourlyRate, salary, notes, userId } = req.body;
+      
+      // Create the employee with the provided data
+      const employee = await storage.createEmployee({
+        fullName,
+        email,
+        phone,
+        position,
+        department,
+        hireDate: hireDate ? new Date(hireDate) : undefined,
+        terminationDate: terminationDate ? new Date(terminationDate) : undefined,
+        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+        salary: salary ? parseFloat(salary) : undefined,
+        notes,
+        userId: userId && userId > 0 ? userId : undefined
+      });
+      
       res.status(201).json(employee);
     } catch (error) {
+      console.error("Error creating employee:", error);
       res.status(500).json({ message: "Failed to create employee" });
     }
   });
@@ -728,9 +747,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Employee not found" });
       }
       
-      const updatedEmployee = await storage.updateEmployee(employeeId, req.body);
+      // Extract employee data from request
+      const { fullName, email, phone, position, department, hireDate, terminationDate, 
+              hourlyRate, salary, notes, userId } = req.body;
+      
+      // Update the employee with the provided data
+      const updatedEmployee = await storage.updateEmployee(employeeId, {
+        fullName,
+        email,
+        phone,
+        position,
+        department,
+        hireDate: hireDate ? new Date(hireDate) : undefined,
+        terminationDate: terminationDate ? new Date(terminationDate) : undefined,
+        hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
+        salary: salary ? parseFloat(salary) : undefined,
+        notes,
+        userId: userId && userId > 0 ? userId : undefined
+      });
+      
       res.json(updatedEmployee);
     } catch (error) {
+      console.error("Error updating employee:", error);
       res.status(500).json({ message: "Failed to update employee" });
     }
   });

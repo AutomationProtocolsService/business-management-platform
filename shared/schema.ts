@@ -130,6 +130,9 @@ export const invoiceItems = pgTable("invoice_items", {
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
   userId: integer("user_id").references(() => users.id).unique(),
+  fullName: text("full_name"),
+  email: text("email"),
+  phone: text("phone"),
   position: text("position"),
   department: text("department"),
   hireDate: date("hire_date"),

@@ -104,13 +104,16 @@ export default function EmployeesPage() {
       ? users.find((u: any) => u.id === employee.userId) 
       : null;
     
-    if (!user) return true; // Include employees without user accounts
+    // Get name from employee directly or from linked user account
+    const employeeName = employee.fullName || (user?.fullName || '');
     
-    // Search by position, department, or user name
+    // Search by name, position, department, email, or phone
     return (
+      (employeeName.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (employee.position && employee.position.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (employee.department && employee.department.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (user.fullName && user.fullName.toLowerCase().includes(searchQuery.toLowerCase()))
+      (employee.email && employee.email.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (employee.phone && employee.phone.toLowerCase().includes(searchQuery.toLowerCase()))
     );
   });
 
@@ -201,12 +204,12 @@ export default function EmployeesPage() {
                             <div className="flex items-center">
                               <Avatar className="h-8 w-8 mr-2">
                                 <AvatarFallback className="bg-primary-600 text-white">
-                                  {user ? getInitials(user.fullName) : "??"}
+                                  {employee.fullName ? getInitials(employee.fullName) : (user ? getInitials(user.fullName) : "??")}
                                 </AvatarFallback>
                               </Avatar>
                               <div>
                                 <div className="font-medium text-sm text-gray-900">
-                                  {user ? user.fullName : `Employee #${employee.id}`}
+                                  {employee.fullName || (user ? user.fullName : `Employee #${employee.id}`)}
                                 </div>
                                 {user && <div className="text-xs text-gray-500">{user.username}</div>}
                               </div>
@@ -222,14 +225,26 @@ export default function EmployeesPage() {
                             {employee.hireDate ? formatDate(employee.hireDate, "MMM dd, yyyy") : "—"}
                           </TableCell>
                           <TableCell>
-                            {user && (
-                              <div className="flex flex-col">
+                            <div className="flex flex-col">
+                              {employee.email && (
+                                <div className="flex items-center text-xs text-gray-500">
+                                  <Mail className="h-3 w-3 mr-1" />
+                                  {employee.email}
+                                </div>
+                              )}
+                              {employee.phone && (
+                                <div className="flex items-center text-xs text-gray-500 mt-1">
+                                  <Phone className="h-3 w-3 mr-1" />
+                                  {employee.phone}
+                                </div>
+                              )}
+                              {!employee.email && !employee.phone && user && user.email && (
                                 <div className="flex items-center text-xs text-gray-500">
                                   <Mail className="h-3 w-3 mr-1" />
                                   {user.email}
                                 </div>
-                              </div>
-                            )}
+                              )}
+                            </div>
                           </TableCell>
                           <TableCell>
                             {employee.terminationDate ? (
