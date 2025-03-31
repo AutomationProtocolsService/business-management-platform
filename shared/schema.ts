@@ -395,7 +395,6 @@ export const companySettings = pgTable("company_settings", {
   website: text("website"),
   vatNumber: text("vat_number"),
   registrationNumber: text("registration_number"),
-  taxId: text("tax_id"), // Tax ID (EIN, ABN, VAT, etc.)
   certifications: jsonb("certifications").$type<string[]>(), // Array of certification URLs or descriptions
   defaultInvoiceTerms: text("default_invoice_terms"),
   defaultQuoteTerms: text("default_quote_terms"),
@@ -406,7 +405,6 @@ export const companySettings = pgTable("company_settings", {
   currency: text("currency").default("USD"), // Default currency for quotes and invoices
   currencyCode: text("currency_code").default("USD"), // Currency code (USD, EUR, GBP)
   currencySymbol: text("currency_symbol").default("$"), // Default currency symbol
-  defaultTaxRate: doublePrecision("default_tax_rate").default(0),
   // Custom terminology
   customTerminology: jsonb("custom_terminology").$type<{
     survey?: string;
