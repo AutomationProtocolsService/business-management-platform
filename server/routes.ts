@@ -716,15 +716,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { fullName, email, phone, position, department, hireDate, terminationDate, 
               hourlyRate, salary, notes, userId } = req.body;
       
-      // Create the employee with the provided data
+      // Create the employee with the provided data - keep dates as strings
       const employee = await storage.createEmployee({
         fullName,
         email,
         phone,
         position,
         department,
-        hireDate: hireDate ? new Date(hireDate) : undefined,
-        terminationDate: terminationDate ? new Date(terminationDate) : undefined,
+        hireDate,
+        terminationDate,
         hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
         salary: salary ? parseFloat(salary) : undefined,
         notes,
@@ -751,15 +751,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { fullName, email, phone, position, department, hireDate, terminationDate, 
               hourlyRate, salary, notes, userId } = req.body;
       
-      // Update the employee with the provided data
+      // Update the employee with the provided data - keep dates as strings
       const updatedEmployee = await storage.updateEmployee(employeeId, {
         fullName,
         email,
         phone,
         position,
         department,
-        hireDate: hireDate ? new Date(hireDate) : undefined,
-        terminationDate: terminationDate ? new Date(terminationDate) : undefined,
+        hireDate,
+        terminationDate,
         hourlyRate: hourlyRate ? parseFloat(hourlyRate) : undefined,
         salary: salary ? parseFloat(salary) : undefined,
         notes,
