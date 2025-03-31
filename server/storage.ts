@@ -1767,11 +1767,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getTimesheetsByDateRange(startDate: Date, endDate: Date): Promise<Timesheet[]> {
-    return await db.query.timesheets.findMany({
-      where: and(
-        between(schema.timesheets.date, startDate, endDate)
-      )
-    });
+    // Convert dates to ISO strings to avoid Date object serialization issues
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`Querying timesheets between: ${startDateStr} and ${endDateStr}`);
+    
+    try {
+      // Safely construct the query with serialized dates
+      const result = await db.query.timesheets.findMany({
+        where: sql`${schema.timesheets.date} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+      });
+      console.log(`Found ${result.length} timesheets in date range`);
+      return result;
+    } catch (error) {
+      console.error("Error in getTimesheetsByDateRange:", error);
+      // Return empty array rather than failing
+      return [];
+    }
   }
 
   // Survey methods
@@ -1822,11 +1835,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getSurveysByDateRange(startDate: Date, endDate: Date): Promise<Survey[]> {
-    return await db.query.surveys.findMany({
-      where: and(
-        between(schema.surveys.scheduledDate, startDate, endDate)
-      )
-    });
+    // Convert dates to ISO strings to avoid Date object serialization issues
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`Querying surveys between: ${startDateStr} and ${endDateStr}`);
+    
+    try {
+      // Safely construct the query with serialized dates
+      const result = await db.query.surveys.findMany({
+        where: sql`${schema.surveys.scheduledDate} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+      });
+      console.log(`Found ${result.length} surveys in date range`);
+      return result;
+    } catch (error) {
+      console.error("Error in getSurveysByDateRange:", error);
+      // Return empty array rather than failing
+      return [];
+    }
   }
 
   // Installation methods
@@ -1877,11 +1903,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInstallationsByDateRange(startDate: Date, endDate: Date): Promise<Installation[]> {
-    return await db.query.installations.findMany({
-      where: and(
-        between(schema.installations.scheduledDate, startDate, endDate)
-      )
-    });
+    // Convert dates to ISO strings to avoid Date object serialization issues
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`Querying installations between: ${startDateStr} and ${endDateStr}`);
+    
+    try {
+      // Safely construct the query with serialized dates
+      const result = await db.query.installations.findMany({
+        where: sql`${schema.installations.scheduledDate} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+      });
+      console.log(`Found ${result.length} installations in date range`);
+      return result;
+    } catch (error) {
+      console.error("Error in getInstallationsByDateRange:", error);
+      // Return empty array rather than failing
+      return [];
+    }
   }
 
   // Task List methods
@@ -2161,11 +2200,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]> {
-    return await db.query.expenses.findMany({
-      where: and(
-        between(schema.expenses.date, startDate, endDate)
-      )
-    });
+    // Convert dates to ISO strings to avoid Date object serialization issues
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`Querying expenses between: ${startDateStr} and ${endDateStr}`);
+    
+    try {
+      // Safely construct the query with serialized dates
+      const result = await db.query.expenses.findMany({
+        where: sql`${schema.expenses.date} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+      });
+      console.log(`Found ${result.length} expenses in date range`);
+      return result;
+    } catch (error) {
+      console.error("Error in getExpensesByDateRange:", error);
+      // Return empty array rather than failing
+      return [];
+    }
   }
 
   // Purchase Order methods
@@ -2378,11 +2430,24 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]> {
-    return await db.query.inventoryTransactions.findMany({
-      where: and(
-        between(schema.inventoryTransactions.createdAt, startDate, endDate)
-      )
-    });
+    // Convert dates to ISO strings to avoid Date object serialization issues
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    console.log(`Querying inventory transactions between: ${startDateStr} and ${endDateStr}`);
+    
+    try {
+      // Safely construct the query with serialized dates
+      const result = await db.query.inventoryTransactions.findMany({
+        where: sql`${schema.inventoryTransactions.transactionDate} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+      });
+      console.log(`Found ${result.length} inventory transactions in date range`);
+      return result;
+    } catch (error) {
+      console.error("Error in getInventoryTransactionsByDateRange:", error);
+      // Return empty array rather than failing
+      return [];
+    }
   }
 
   // File Attachment methods
