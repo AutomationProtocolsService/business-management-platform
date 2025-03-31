@@ -923,66 +923,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Original survey data received:", req.body);
       
-      // Safely convert dates ensuring valid formats
-      let scheduledDate;
-      try {
-        scheduledDate = new Date(req.body.scheduledDate);
-        if (isNaN(scheduledDate.getTime())) {
+      // Validate the date format but keep it as a string for the database
+      if (req.body.scheduledDate) {
+        try {
+          const testDate = new Date(req.body.scheduledDate);
+          if (isNaN(testDate.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+            });
+          }
+        } catch (e) {
           return res.status(400).json({
             message: "Validation failed",
             errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
           });
         }
-      } catch (e) {
-        return res.status(400).json({
-          message: "Validation failed",
-          errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
-        });
       }
       
-      // Process startTime and endTime safely
-      let startTime = undefined;
-      if (req.body.startTime) {
-        try {
-          startTime = new Date(req.body.startTime);
-          if (isNaN(startTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-            });
-          }
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-          });
-        }
-      }
-      
-      let endTime = undefined;
-      if (req.body.endTime) {
-        try {
-          endTime = new Date(req.body.endTime);
-          if (isNaN(endTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
-            });
-          }
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
-          });
-        }
-      }
-      
-      // Prepare the data for storage
+      // Prepare the data for storage - keep scheduledDate as string
       const formattedBody = {
         ...req.body,
-        scheduledDate,
-        startTime,
-        endTime,
         assignedTo: req.body.assignedTo === "unassigned" ? undefined : req.body.assignedTo,
         createdBy: req.user?.id
       };
@@ -1012,62 +973,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Original survey update data received:", req.body);
       
-      // Process dates safely
+      // Process dates safely - validate but keep as strings
       let formattedBody = { ...req.body };
       
-      // Process scheduledDate
+      // Validate scheduledDate but keep as string
       if (req.body.scheduledDate) {
         try {
-          const scheduledDate = new Date(req.body.scheduledDate);
-          if (isNaN(scheduledDate.getTime())) {
+          const testDate = new Date(req.body.scheduledDate);
+          if (isNaN(testDate.getTime())) {
             return res.status(400).json({
               message: "Validation failed",
               errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
             });
           }
-          formattedBody.scheduledDate = scheduledDate;
+          // Keep the string value, don't convert to Date
         } catch (e) {
           return res.status(400).json({
             message: "Validation failed",
             errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
-          });
-        }
-      }
-      
-      // Process startTime
-      if (req.body.startTime) {
-        try {
-          const startTime = new Date(req.body.startTime);
-          if (isNaN(startTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-            });
-          }
-          formattedBody.startTime = startTime;
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-          });
-        }
-      }
-      
-      // Process endTime
-      if (req.body.endTime) {
-        try {
-          const endTime = new Date(req.body.endTime);
-          if (isNaN(endTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
-            });
-          }
-          formattedBody.endTime = endTime;
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
           });
         }
       }
@@ -1194,56 +1117,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Original installation data received:", req.body);
       
-      // Safely convert dates ensuring valid formats
-      let scheduledDate;
-      try {
-        scheduledDate = new Date(req.body.scheduledDate);
-        if (isNaN(scheduledDate.getTime())) {
+      // Validate the date format but keep it as a string for the database
+      if (req.body.scheduledDate) {
+        try {
+          const testDate = new Date(req.body.scheduledDate);
+          if (isNaN(testDate.getTime())) {
+            return res.status(400).json({
+              message: "Validation failed",
+              errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
+            });
+          }
+        } catch (e) {
           return res.status(400).json({
             message: "Validation failed",
             errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
-          });
-        }
-      } catch (e) {
-        return res.status(400).json({
-          message: "Validation failed",
-          errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
-        });
-      }
-      
-      // Process startTime and endTime safely
-      let startTime = undefined;
-      if (req.body.startTime) {
-        try {
-          startTime = new Date(req.body.startTime);
-          if (isNaN(startTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-            });
-          }
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-          });
-        }
-      }
-      
-      let endTime = undefined;
-      if (req.body.endTime) {
-        try {
-          endTime = new Date(req.body.endTime);
-          if (isNaN(endTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
-            });
-          }
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
           });
         }
       }
@@ -1256,12 +1143,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         assignedTo = undefined;
       }
       
-      // Prepare the data for storage
+      // Prepare the data for storage - keep scheduledDate as string
       const formattedBody = {
         ...req.body,
-        scheduledDate,
-        startTime,
-        endTime,
         assignedTo,
         createdBy: req.user?.id
       };
@@ -1291,62 +1175,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Original installation update data received:", req.body);
       
-      // Process dates safely
+      // Process dates safely - validate but keep as strings
       let formattedBody = { ...req.body };
       
-      // Process scheduledDate
+      // Validate scheduledDate but keep as string
       if (req.body.scheduledDate) {
         try {
-          const scheduledDate = new Date(req.body.scheduledDate);
-          if (isNaN(scheduledDate.getTime())) {
+          const testDate = new Date(req.body.scheduledDate);
+          if (isNaN(testDate.getTime())) {
             return res.status(400).json({
               message: "Validation failed",
               errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
             });
           }
-          formattedBody.scheduledDate = scheduledDate;
+          // Keep the string value, don't convert to Date
         } catch (e) {
           return res.status(400).json({
             message: "Validation failed",
             errors: [{ path: ["scheduledDate"], message: "Invalid date format for scheduledDate" }]
-          });
-        }
-      }
-      
-      // Process startTime
-      if (req.body.startTime) {
-        try {
-          const startTime = new Date(req.body.startTime);
-          if (isNaN(startTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-            });
-          }
-          formattedBody.startTime = startTime;
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["startTime"], message: "Invalid date format for startTime" }]
-          });
-        }
-      }
-      
-      // Process endTime
-      if (req.body.endTime) {
-        try {
-          const endTime = new Date(req.body.endTime);
-          if (isNaN(endTime.getTime())) {
-            return res.status(400).json({
-              message: "Validation failed",
-              errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
-            });
-          }
-          formattedBody.endTime = endTime;
-        } catch (e) {
-          return res.status(400).json({
-            message: "Validation failed",
-            errors: [{ path: ["endTime"], message: "Invalid date format for endTime" }]
           });
         }
       }
