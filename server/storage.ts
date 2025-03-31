@@ -1824,7 +1824,7 @@ export class DatabaseStorage implements IStorage {
   async getSurveysByDateRange(startDate: Date, endDate: Date): Promise<Survey[]> {
     return await db.query.surveys.findMany({
       where: and(
-        between(schema.surveys.surveyDate, startDate, endDate)
+        between(schema.surveys.scheduledDate, startDate, endDate)
       )
     });
   }
@@ -1879,7 +1879,7 @@ export class DatabaseStorage implements IStorage {
   async getInstallationsByDateRange(startDate: Date, endDate: Date): Promise<Installation[]> {
     return await db.query.installations.findMany({
       where: and(
-        between(schema.installations.installationDate, startDate, endDate)
+        between(schema.installations.scheduledDate, startDate, endDate)
       )
     });
   }
