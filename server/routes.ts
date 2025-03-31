@@ -847,19 +847,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      if (!req.body.startTime) {
-        return res.status(400).json({ 
-          message: "Validation failed", 
-          errors: [{ path: ["startTime"], message: "Start time is required" }] 
-        });
-      }
-      
-      if (!req.body.endTime) {
-        return res.status(400).json({ 
-          message: "Validation failed", 
-          errors: [{ path: ["endTime"], message: "End time is required" }] 
-        });
-      }
+      // Start and end times are now optional
+      // If provided, they should be valid
       
       // Create the timesheet with validated data
       const timesheet = await storage.createTimesheet(req.body);
