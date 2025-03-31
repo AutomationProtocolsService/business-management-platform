@@ -29,7 +29,6 @@ import { useEffect } from "react";
 // Extend the insert schema with client-side validation
 const timesheetFormSchema = insertTimesheetSchema.extend({
   employeeId: z.number(),
-  projectId: z.number().optional(),
   date: z.string(), // Keep as string in the form and convert before submission
   startTime: z.string(), // Keep as string in the form and convert before submission
   endTime: z.string(), // Keep as string in the form and convert before submission
@@ -55,13 +54,9 @@ export default function TimesheetForm({
 }: TimesheetFormProps) {
   const { toast } = useToast();
 
-  // Fetch employees and projects for dropdowns
+  // Fetch employees for dropdown
   const { data: employees = [] } = useQuery<Employee[]>({
     queryKey: ["/api/employees"],
-  });
-
-  const { data: projects = [] } = useQuery<Project[]>({
-    queryKey: ["/api/projects"],
   });
 
   // Initialize form
@@ -150,9 +145,7 @@ export default function TimesheetForm({
       // Convert to proper date format before sending to server
       date: new Date(values.date).toISOString(),
       startTime: new Date(values.startTime).toISOString(),
-      endTime: new Date(values.endTime).toISOString(),
-      // Ensure projectId is undefined if "none" is selected
-      projectId: values.projectId === 0 ? undefined : values.projectId
+      endTime: new Date(values.endTime).toISOString()
     };
     
     if (timesheetId) {
@@ -196,38 +189,7 @@ export default function TimesheetForm({
             </FormItem>
           )}
         />
-
-        <FormField
-          control={form.control}
-          name="projectId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>Project</FormLabel>
-              <Select
-                onValueChange={(value) => field.onChange(Number(value))}
-                value={field.value?.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a project (optional)" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="none">None</SelectItem>
-                  {projects
-                    .filter(project => project.status !== 'completed' && project.status !== 'cancelled')
-                    .map((project) => (
-                      <SelectItem key={project.id} value={project.id.toString()}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-
+        
         <FormField
           control={form.control}
           name="date"
