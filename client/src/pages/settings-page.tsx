@@ -3,10 +3,10 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSettings } from "@/hooks/use-settings";
-import { useTerminology } from "@/hooks/use-terminology";
+import { useTerminology, Terminology } from "@/hooks/use-terminology";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 
 // Company settings form schema
 const companyFormSchema = z.object({
@@ -46,6 +47,38 @@ export default function SettingsPage() {
   const { toast } = useToast();
   const terminology = useTerminology();
   const [activeTab, setActiveTab] = useState("company");
+  const [selectedTerm, setSelectedTerm] = useState<{ key: keyof Terminology; value: string } | null>(null);
+  
+  // Terminology update mutation
+  const updateTerminologyMutation = useMutation({
+    mutationFn: async (data: { [key: string]: string }) => {
+      // Format the data for the API
+      const customTerminology = { ...settings?.customTerminology, ...data };
+      
+      // Update the company settings with the new terminology
+      const res = await apiRequest("PATCH", "/api/settings/company", { 
+        customTerminology
+      });
+      return await res.json();
+    },
+    onSuccess: (updatedSettings) => {
+      // Use the settings mutation to update the global state
+      queryClient.setQueryData(["/api/settings/company"], updatedSettings);
+      toast({
+        title: "Terminology updated",
+        description: "Your custom terminology has been saved successfully.",
+      });
+      setSelectedTerm(null); // Close the dialog
+    },
+    onError: (error: Error) => {
+      console.error("Failed to update terminology:", error);
+      toast({
+        title: "Error updating terminology",
+        description: error.message || "Failed to update terminology",
+        variant: "destructive",
+      });
+    },
+  });
 
   // Company settings form
   const companyForm = useForm<CompanyFormValues>({
@@ -500,7 +533,11 @@ export default function SettingsPage() {
                         Current term: <span className="font-medium">{terminology.project}</span>
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'project', value: terminology.project })}
+                    >
                       Change
                     </Button>
                   </div>
@@ -512,7 +549,43 @@ export default function SettingsPage() {
                         Current term: <span className="font-medium">{terminology.quote}</span>
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'quote', value: terminology.quote })}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Survey</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.survey}</span>
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'survey', value: terminology.survey })}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Employee</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.employee}</span>
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'employee', value: terminology.employee })}
+                    >
                       Change
                     </Button>
                   </div>
@@ -526,7 +599,11 @@ export default function SettingsPage() {
                         Current term: <span className="font-medium">{terminology.invoice}</span>
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'invoice', value: terminology.invoice })}
+                    >
                       Change
                     </Button>
                   </div>
@@ -538,17 +615,101 @@ export default function SettingsPage() {
                         Current term: <span className="font-medium">{terminology.customer}</span>
                       </p>
                     </div>
-                    <Button variant="outline" size="sm">
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'customer', value: terminology.customer })}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Installation</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.installation}</span>
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'installation', value: terminology.installation })}
+                    >
+                      Change
+                    </Button>
+                  </div>
+                  
+                  <div className="flex items-center justify-between rounded-lg border p-4">
+                    <div className="space-y-0.5">
+                      <h4 className="text-base font-medium">Timesheet</h4>
+                      <p className="text-sm text-muted-foreground">
+                        Current term: <span className="font-medium">{terminology.timesheet}</span>
+                      </p>
+                    </div>
+                    <Button 
+                      variant="outline" 
+                      size="sm"
+                      onClick={() => setSelectedTerm({ key: 'timesheet', value: terminology.timesheet })}
+                    >
                       Change
                     </Button>
                   </div>
                 </div>
               </div>
             </CardContent>
-            <CardFooter className="border-t px-6 py-4 flex justify-end">
-              <Button>Save Terminology</Button>
-            </CardFooter>
           </Card>
+          
+          {/* Term editing dialog */}
+          <Dialog open={!!selectedTerm} onOpenChange={(open) => !open && setSelectedTerm(null)}>
+            <DialogContent className="sm:max-w-[425px]">
+              <DialogHeader>
+                <DialogTitle>Edit Term: {selectedTerm?.key}</DialogTitle>
+              </DialogHeader>
+              <div className="py-4">
+                <div className="space-y-4">
+                  <div className="grid w-full gap-1.5">
+                    <label htmlFor="term" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                      New term
+                    </label>
+                    <Input
+                      id="term"
+                      placeholder="Enter new term"
+                      value={selectedTerm?.value || ""}
+                      onChange={(e) => setSelectedTerm(prev => prev ? { ...prev, value: e.target.value } : null)}
+                      className="col-span-3"
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      This will replace all instances of "{selectedTerm?.key}" with your custom term.
+                    </p>
+                  </div>
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setSelectedTerm(null)}>
+                  Cancel
+                </Button>
+                <Button 
+                  onClick={() => {
+                    if (selectedTerm) {
+                      // Create an object with just the one terminology change
+                      const data = { [selectedTerm.key]: selectedTerm.value };
+                      updateTerminologyMutation.mutate(data);
+                    }
+                  }}
+                  disabled={updateTerminologyMutation.isPending}
+                >
+                  {updateTerminologyMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                    </>
+                  ) : (
+                    "Save Change"
+                  )}
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         </TabsContent>
       </Tabs>
     </div>
