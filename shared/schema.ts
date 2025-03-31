@@ -149,8 +149,8 @@ export const timesheets = pgTable("timesheets", {
   employeeId: integer("employee_id").references(() => employees.id).notNull(),
   projectId: integer("project_id").references(() => projects.id),
   date: date("date").notNull(),
-  startTime: timestamp("start_time").notNull(),
-  endTime: timestamp("end_time").notNull(),
+  startTime: timestamp("start_time"), // Made optional
+  endTime: timestamp("end_time"),     // Made optional
   breakDuration: integer("break_duration"),
   notes: text("notes"),
   status: text("status").default("pending"),

@@ -30,8 +30,8 @@ import { useEffect } from "react";
 const timesheetFormSchema = insertTimesheetSchema.extend({
   employeeId: z.number(),
   date: z.string(), // Keep as string in the form and convert before submission
-  startTime: z.string(), // Keep as string in the form and convert before submission
-  endTime: z.string(), // Keep as string in the form and convert before submission
+  startTime: z.string().optional(), // Made optional - employee will fill in later
+  endTime: z.string().optional(), // Made optional - employee will fill in later 
   breakDuration: z.number().optional().or(z.string().transform(val => val ? parseInt(val) : undefined)),
   notes: z.string().optional(),
   status: z.string().default("pending"),
@@ -65,8 +65,8 @@ export default function TimesheetForm({
     defaultValues: defaultValues || {
       employeeId: preselectedEmployeeId || 0,
       date: getInputDateString(new Date()),
-      startTime: getInputDateTimeString(new Date()),
-      endTime: getInputDateTimeString(new Date(Date.now() + 8 * 60 * 60 * 1000)), // 8 hours later
+      startTime: "", // Leave blank for employee to fill in
+      endTime: "", // Leave blank for employee to fill in
       breakDuration: 30,
       notes: "",
       status: "pending",
@@ -167,6 +167,12 @@ export default function TimesheetForm({
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <div className="bg-muted/50 p-4 rounded-lg mb-4">
+          <p className="text-sm text-muted-foreground">
+            You can schedule a timesheet now and fill in the actual start/end times later.
+            Only the employee name and date are required to create a timesheet.
+          </p>
+        </div>
         <FormField
           control={form.control}
           name="employeeId"
@@ -216,10 +222,11 @@ export default function TimesheetForm({
             name="startTime"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>Start Time *</FormLabel>
+                <FormLabel>Start Time</FormLabel>
                 <FormControl>
                   <Input type="datetime-local" {...field} />
                 </FormControl>
+                <p className="text-sm text-muted-foreground">Optional - can be filled in later</p>
                 <FormMessage />
               </FormItem>
             )}
@@ -230,10 +237,11 @@ export default function TimesheetForm({
             name="endTime"
             render={({ field }) => (
               <FormItem>
-                <FormLabel>End Time *</FormLabel>
+                <FormLabel>End Time</FormLabel>
                 <FormControl>
                   <Input type="datetime-local" {...field} />
                 </FormControl>
+                <p className="text-sm text-muted-foreground">Optional - can be filled in later</p>
                 <FormMessage />
               </FormItem>
             )}
