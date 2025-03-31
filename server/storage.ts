@@ -1498,11 +1498,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createQuote(quote: InsertQuote): Promise<Quote> {
-    const result = await db.insert(schema.quotes).values({
-      ...quote,
-      createdAt: new Date()
-    }).returning();
-    return result[0];
+    console.log("Storage: Creating quote with data:", quote);
+    try {
+      const result = await db.insert(schema.quotes).values({
+        ...quote,
+        createdAt: new Date()
+      }).returning();
+      console.log("Storage: Created quote:", result[0]);
+      return result[0];
+    } catch (error) {
+      console.error("Storage: Error creating quote:", error);
+      throw error;
+    }
   }
 
   async updateQuote(id: number, quoteData: Partial<Quote>): Promise<Quote | undefined> {

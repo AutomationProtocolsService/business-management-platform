@@ -77,10 +77,25 @@ export default function SettingsPage() {
   // Local company settings mutation
   const localCompanySettingsMutation = useMutation({
     mutationFn: async (data: CompanyFormValues) => {
-      const res = await apiRequest("PATCH", "/api/settings/company", data);
+      // Extract only the values we want to update
+      const updatedData = {
+        companyName: data.companyName,
+        email: data.email,
+        phone: data.phone,
+        address: data.address,
+        website: data.website,
+        taxId: data.taxId,
+        currencyCode: data.currencyCode,
+        defaultTaxRate: data.defaultTaxRate,
+        termsAndConditions: data.termsAndConditions,
+      };
+      
+      // Direct update to the correct endpoint
+      const res = await apiRequest("PATCH", "/api/settings/company", updatedData);
       return await res.json();
     },
     onSuccess: (updatedSettings) => {
+      // Use the settings mutation to update the global state
       updateSettingsMutation.mutate({ ...settings, ...updatedSettings });
       toast({
         title: "Company settings updated",
@@ -88,9 +103,10 @@ export default function SettingsPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Failed to update company settings:", error);
       toast({
         title: "Error updating settings",
-        description: error.message,
+        description: error.message || "Failed to update company settings",
         variant: "destructive",
       });
     },
@@ -99,10 +115,20 @@ export default function SettingsPage() {
   // Local system settings mutation
   const localSystemSettingsMutation = useMutation({
     mutationFn: async (data: SystemFormValues) => {
-      const res = await apiRequest("PATCH", "/api/settings/system", data);
+      // Extract only the values we want to update
+      const updatedData = {
+        darkMode: data.darkMode,
+        emailNotifications: data.emailNotifications,
+        autoSave: data.autoSave,
+        defaultPageSize: data.defaultPageSize,
+      };
+      
+      // Direct update to the correct endpoint
+      const res = await apiRequest("PATCH", "/api/settings/system", updatedData);
       return await res.json();
     },
     onSuccess: (updatedSettings) => {
+      // Use the settings mutation to update the global state
       updateSystemSettingsMutation.mutate({ ...settings, ...updatedSettings });
       toast({
         title: "System settings updated",
@@ -110,9 +136,10 @@ export default function SettingsPage() {
       });
     },
     onError: (error: Error) => {
+      console.error("Failed to update system settings:", error);
       toast({
         title: "Error updating settings",
-        description: error.message,
+        description: error.message || "Failed to update system settings",
         variant: "destructive",
       });
     },

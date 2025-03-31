@@ -69,8 +69,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const res = await apiRequest("POST", "/api/settings/company", data);
         return await res.json();
       } else {
-        // Otherwise update existing settings
-        const res = await apiRequest("PATCH", `/api/settings/company/${companySettings.id}`, data);
+        // Otherwise update existing settings using the endpoint without ID parameter
+        const res = await apiRequest("PATCH", "/api/settings/company", data);
         return await res.json();
       }
     },
@@ -82,9 +82,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Failed to update company settings:", error);
       toast({
         title: "Failed to update settings",
-        description: error.message,
+        description: error.message || "Failed to update company settings",
         variant: "destructive",
       });
     },
@@ -98,8 +99,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         const res = await apiRequest("POST", "/api/settings/system", data);
         return await res.json();
       } else {
-        // Otherwise update existing settings
-        const res = await apiRequest("PATCH", `/api/settings/system/${systemSettings.id}`, data);
+        // Otherwise update existing settings using the endpoint without ID parameter
+        const res = await apiRequest("PATCH", "/api/settings/system", data);
         return await res.json();
       }
     },
@@ -111,9 +112,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       });
     },
     onError: (error: Error) => {
+      console.error("Failed to update system settings:", error);
       toast({
         title: "Failed to update settings",
-        description: error.message,
+        description: error.message || "Failed to update system settings",
         variant: "destructive",
       });
     },

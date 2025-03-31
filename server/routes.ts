@@ -305,6 +305,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes", requireAuth, validateBody(insertQuoteSchema), async (req, res) => {
     try {
       // Generate quote number
+      console.log("Creating quote with body:", req.body);
       const quoteNumber = `Q-${Date.now().toString().substr(-6)}`;
       
       const quote = await storage.createQuote({
@@ -313,8 +314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         createdBy: req.user?.id
       });
       
+      console.log("Created quote:", quote);
       res.status(201).json(quote);
     } catch (error) {
+      console.error("Failed to create quote:", error);
       res.status(500).json({ message: "Failed to create quote" });
     }
   });
@@ -2550,8 +2553,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // New API endpoint that matches useSettings hook - redirects to /api/company-settings
-  // Add PATCH endpoint for company settings
+  // Add PATCH endpoint for company settings without ID (for direct updates from settings page)
+  app.patch("/api/settings/company", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      
+      // If no settings exist yet, create them instead of updating
+      if (!settings) {
+        const newSettings = await storage.createCompanySettings({
+          ...req.body,
+          createdBy: req.user?.id
+        });
+        
+        return res.status(201).json(newSettings);
+      }
+      
+      // Update existing settings
+      const updatedSettings = await storage.updateCompanySettings(settings.id, {
+        ...req.body,
+        updatedBy: req.user?.id
+      });
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Failed to update company settings:", error);
+      res.status(500).json({ message: "Failed to update company settings" });
+    }
+  });
+  
+  // PATCH endpoint for company settings with ID parameter
   app.patch("/api/settings/company/:id", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getCompanySettings();
@@ -2578,7 +2608,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Add PATCH endpoint for system settings
+  // Add PATCH endpoint for system settings without ID (for direct updates from settings page)
+  app.patch("/api/settings/system", requireAuth, async (req, res) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      
+      // If no settings exist yet, create them instead of updating
+      if (!settings) {
+        const newSettings = await storage.createSystemSettings({
+          ...req.body,
+          createdBy: req.user?.id
+        });
+        
+        return res.status(201).json(newSettings);
+      }
+      
+      // Update existing settings
+      const updatedSettings = await storage.updateSystemSettings(settings.id, {
+        ...req.body,
+        updatedBy: req.user?.id
+      });
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error("Failed to update system settings:", error);
+      res.status(500).json({ message: "Failed to update system settings" });
+    }
+  });
+  
+  // PATCH endpoint for system settings with ID parameter
   app.patch("/api/settings/system/:id", requireAuth, async (req, res) => {
     try {
       const settings = await storage.getSystemSettings();
