@@ -12,6 +12,7 @@ import QuoteDetailsPage from "@/pages/quote-details-page";
 import InvoicesPage from "@/pages/invoices-page";
 import EmployeesPage from "@/pages/employees-page";
 import TimesheetsPage from "@/pages/timesheets-page";
+import NewTimesheetPage from "@/pages/new-timesheet-page";
 import SurveysPage from "@/pages/surveys-page";
 import InstallationsPage from "@/pages/installations-page";
 import CalendarPage from "@/pages/calendar-page";
@@ -69,6 +70,7 @@ function Router() {
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/employees" component={EmployeesPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
+      <ProtectedRoute path="/timesheets/new" component={NewTimesheetPage} />
       <ProtectedRoute path="/surveys" component={SurveysPage} />
       <ProtectedRoute path="/surveys/:id" component={SurveysPage} />
       <ProtectedRoute path="/surveys/:id/edit" component={SurveysPage} />
