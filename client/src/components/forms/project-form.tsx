@@ -40,9 +40,10 @@ interface ProjectFormProps {
   defaultValues?: Partial<ProjectFormValues>;
   projectId?: number; // Only for editing existing project
   onSuccess?: (data: Project) => void;
+  onCancel?: () => void;
 }
 
-export default function ProjectForm({ defaultValues, projectId, onSuccess }: ProjectFormProps) {
+export default function ProjectForm({ defaultValues, projectId, onSuccess, onCancel }: ProjectFormProps) {
   const { toast } = useToast();
 
   // Fetch customers for the dropdown

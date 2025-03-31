@@ -36,9 +36,10 @@ interface CustomerFormProps {
   defaultValues?: Partial<CustomerFormValues>;
   customerId?: number; // Only for editing existing customer
   onSuccess?: (data: Customer) => void;
+  onCancel?: () => void;
 }
 
-export default function CustomerForm({ defaultValues, customerId, onSuccess }: CustomerFormProps) {
+export default function CustomerForm({ defaultValues, customerId, onSuccess, onCancel }: CustomerFormProps) {
   const { toast } = useToast();
 
   // Initialize form
