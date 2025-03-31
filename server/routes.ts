@@ -828,11 +828,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/timesheets", requireAuth, validateBody(insertTimesheetSchema), async (req, res) => {
+  app.post("/api/timesheets", requireAuth, async (req, res) => {
     try {
       console.log("Timesheet data received:", req.body);
       
-      // Validate required fields
+      // Direct validation without using Zod validation middleware
+      // Validate only the required fields
       if (!req.body.employeeId) {
         return res.status(400).json({ 
           message: "Validation failed", 
@@ -847,15 +848,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Start and end times are now optional
-      // If provided, they should be valid
+      // Format the data for storage - keep only essential fields
+      const timesheetData = {
+        employeeId: req.body.employeeId,
+        date: req.body.date,
+        // Only include these fields if they're provided and not empty
+        startTime: req.body.startTime && req.body.startTime.trim() !== "" ? req.body.startTime : null,
+        endTime: req.body.endTime && req.body.endTime.trim() !== "" ? req.body.endTime : null,
+        breakDuration: req.body.breakDuration || null,
+        notes: req.body.notes || "",
+        status: req.body.status || "pending"
+      };
+      
+      console.log("Formatted timesheet data to save:", timesheetData);
       
       // Create the timesheet with validated data
-      const timesheet = await storage.createTimesheet(req.body);
+      const timesheet = await storage.createTimesheet(timesheetData);
       res.status(201).json(timesheet);
     } catch (error) {
       console.error("Error creating timesheet:", error);
-      res.status(500).json({ message: "Failed to create timesheet" });
+      console.error("Error details:", error instanceof Error ? error.message : "Unknown error");
+      res.status(500).json({ 
+        message: "Failed to create timesheet", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
@@ -868,10 +884,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Timesheet not found" });
       }
       
-      const updatedTimesheet = await storage.updateTimesheet(timesheetId, req.body);
+      console.log("Original timesheet update data received:", req.body);
+      
+      // Format the data for storage - keep only essential fields
+      const timesheetData = {
+        ...req.body,
+        // Only include these fields if they're provided and not empty
+        startTime: req.body.startTime && req.body.startTime.trim() !== "" ? req.body.startTime : null,
+        endTime: req.body.endTime && req.body.endTime.trim() !== "" ? req.body.endTime : null,
+        breakDuration: req.body.breakDuration || null,
+      };
+      
+      console.log("Formatted timesheet update data to save:", timesheetData);
+      
+      const updatedTimesheet = await storage.updateTimesheet(timesheetId, timesheetData);
       res.json(updatedTimesheet);
     } catch (error) {
-      res.status(500).json({ message: "Failed to update timesheet" });
+      console.error("Error updating timesheet:", error);
+      console.error("Error details:", error instanceof Error ? error.message : "Unknown error");
+      res.status(500).json({ 
+        message: "Failed to update timesheet", 
+        details: error instanceof Error ? error.message : "Unknown error" 
+      });
     }
   });
 
