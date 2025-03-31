@@ -857,7 +857,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         endTime: req.body.endTime && req.body.endTime.trim() !== "" ? req.body.endTime : null,
         breakDuration: req.body.breakDuration || null,
         notes: req.body.notes || "",
-        status: req.body.status || "pending"
+        status: req.body.status || "pending",
+        createdBy: req.user?.id
       };
       
       console.log("Formatted timesheet data to save:", timesheetData);
