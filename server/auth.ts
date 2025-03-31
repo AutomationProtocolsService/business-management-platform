@@ -119,12 +119,30 @@ export function setupAuth(app: Express) {
   });
 
   app.post("/api/login", (req, res, next) => {
+    console.log("Login attempt received:", req.body?.username ? req.body.username : "No username provided");
+    
+    // Validate request body
+    if (!req.body || !req.body.username || !req.body.password) {
+      console.error("Login failed: Missing username or password");
+      return res.status(400).json({ message: "Username and password are required" });
+    }
+    
     passport.authenticate("local", (err, user, info) => {
-      if (err) return next(err);
-      if (!user) return res.status(401).json({ message: "Invalid credentials" });
+      if (err) {
+        console.error("Login error from passport:", err);
+        return res.status(500).json({ message: "Authentication error", details: err.message });
+      }
+      
+      if (!user) {
+        console.log("Login failed: Invalid credentials");
+        return res.status(401).json({ message: "Invalid credentials" });
+      }
       
       req.login(user, (err) => {
-        if (err) return next(err);
+        if (err) {
+          console.error("Login session error:", err);
+          return res.status(500).json({ message: "Session error", details: err.message });
+        }
         
         // Store user_id in session for connect-pg-simple
         if (req.session) {
@@ -134,6 +152,7 @@ export function setupAuth(app: Express) {
         // Remove password from the response
         const { password, ...userWithoutPassword } = user;
         
+        console.log("Login successful for user:", user.username);
         res.status(200).json(userWithoutPassword);
       });
     })(req, res, next);
