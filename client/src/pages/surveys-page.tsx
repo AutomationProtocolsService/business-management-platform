@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
+import SurveyDetails from "@/components/survey-details";
 import { 
   Plus, 
   Search, 
@@ -58,6 +59,8 @@ import SurveyForm from "@/components/forms/survey-form";
 
 export default function SurveysPage() {
   const [location, navigate] = useLocation();
+  const [isDetailsRoute, detailsParams] = useRoute("/surveys/:id");
+  const [isEditRoute, editParams] = useRoute("/surveys/:id/edit");
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -66,6 +69,54 @@ export default function SurveysPage() {
   const [selectedSurveyId, setSelectedSurveyId] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Extract survey ID from the URL for edit or details view
+  const getSurveyIdFromUrl = () => {
+    if (detailsParams && detailsParams.id) {
+      return parseInt(detailsParams.id);
+    }
+    if (editParams && editParams.id) {
+      return parseInt(editParams.id);
+    }
+    return null;
+  };
+  
+  const surveyIdFromUrl = getSurveyIdFromUrl();
+  
+  // Effect to open edit dialog when navigating to the edit route
+  useEffect(() => {
+    if (isEditRoute && surveyIdFromUrl) {
+      setSelectedSurveyId(surveyIdFromUrl);
+      setIsEditDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the edit route anymore
+      setIsEditDialogOpen(false);
+    }
+  }, [isEditRoute, surveyIdFromUrl]);
+  
+  // Effect to open details dialog when navigating to the details route
+  useEffect(() => {
+    if (isDetailsRoute && !isEditRoute && surveyIdFromUrl) {
+      setSelectedSurveyId(surveyIdFromUrl);
+      setIsDetailsDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the details route anymore
+      setIsDetailsDialogOpen(false);
+    }
+  }, [isDetailsRoute, isEditRoute, surveyIdFromUrl]);
+  
+  // Handle dialog close events
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    navigate("/surveys"); // Navigate back to the main surveys page
+  };
+  
+  const handleDetailsDialogClose = () => {
+    setIsDetailsDialogOpen(false);
+    navigate("/surveys"); // Navigate back to the main surveys page
+  };
 
   // Fetch surveys
   const { data: surveys = [], isLoading } = useQuery({
@@ -113,12 +164,12 @@ export default function SurveysPage() {
   });
 
   // Fetch projects for the survey details
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
 
   // Fetch users for the assigned team members
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
 
@@ -323,11 +374,7 @@ export default function SurveysPage() {
                           </div>
                         </TableCell>
                         <TableCell className="text-sm text-gray-500">
-                          {survey.startTime && survey.endTime ? (
-                            <span>{formatDate(survey.startTime, "h:mm a")} - {formatDate(survey.endTime, "h:mm a")}</span>
-                          ) : (
-                            <span>To be determined</span>
-                          )}
+                          <span>Full Day</span>
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center text-sm text-gray-900">
@@ -449,6 +496,62 @@ export default function SurveysPage() {
               {completeSurvey.isPending ? "Updating..." : "Mark as Completed"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Survey Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Survey</DialogTitle>
+            <DialogDescription>
+              Make changes to the survey details below.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedSurveyId && (
+            <SurveyForm
+              surveyId={selectedSurveyId}
+              onSuccess={() => {
+                handleEditDialogClose();
+                toast({
+                  title: "Survey updated",
+                  description: "Survey has been updated successfully."
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Survey Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={handleDetailsDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Survey Details</DialogTitle>
+          </DialogHeader>
+          {selectedSurveyId && (
+            <>
+              {/* Fetch the specific survey details */}
+              <SurveyDetails surveyId={selectedSurveyId} />
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button 
+                  onClick={() => {
+                    handleDetailsDialogClose();
+                    navigate(`/surveys/${selectedSurveyId}/edit`);
+                  }}
+                  variant="outline"
+                >
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDetailsDialogClose}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>

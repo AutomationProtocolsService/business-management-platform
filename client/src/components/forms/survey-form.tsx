@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -65,6 +66,12 @@ interface SurveyFormProps {
 export default function SurveyForm({ defaultValues, surveyId, onSuccess }: SurveyFormProps) {
   const { toast } = useToast();
 
+  // Fetch survey data if editing
+  const { data: surveyData, isLoading: isLoadingSurvey } = useQuery<Survey>({
+    queryKey: [`/api/surveys/${surveyId}`],
+    enabled: !!surveyId, // Only run this query if surveyId is provided
+  });
+
   // Fetch projects and users for dropdowns
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
@@ -86,6 +93,21 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       ...(defaultValues || {})
     },
   });
+  
+  // Update form values when survey data is loaded
+  useEffect(() => {
+    if (surveyData && surveyId) {
+      // Reset form with the fetched survey data
+      const surveyFormValues: SurveyFormValues = {
+        projectId: surveyData.projectId,
+        scheduledDate: getInputDateString(new Date(surveyData.scheduledDate)),
+        status: surveyData.status,
+        notes: surveyData.notes || "",
+        assignedTo: surveyData.assignedTo
+      };
+      form.reset(surveyFormValues);
+    }
+  }, [surveyData, form, surveyId]);
 
   // Helper to format date values safely
   const formatDateValue = (dateValue: unknown): string | undefined => {
