@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Expense } from "@shared/schema";
 import { 
   Card, 
@@ -59,6 +60,7 @@ export default function ExpensesPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   
   // Get all expenses
@@ -86,10 +88,39 @@ export default function ExpensesPage() {
   // Get unique categories for filter dropdown
   const categories = Array.from(new Set(expenses.map(expense => expense.category)));
 
+  // Delete expense mutation
+  const deleteExpense = useMutation({
+    mutationFn: async (id: number) => {
+      await apiRequest("DELETE", `/api/expenses/${id}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Expense deleted",
+        description: "The expense has been deleted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/expenses"] });
+      setIsDeleteDialogOpen(false);
+      setSelectedExpense(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error deleting expense",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
   // Handle edit expense
   const handleEditExpense = (expense: Expense) => {
     setSelectedExpense(expense);
     setIsDialogOpen(true);
+  };
+
+  // Handle delete expense
+  const handleDeleteExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setIsDeleteDialogOpen(true);
   };
 
   // Get badge color based on approval status
@@ -294,12 +325,7 @@ export default function ExpensesPage() {
                             variant="ghost"
                             size="icon"
                             className="text-red-500"
-                            onClick={() => {
-                              toast({
-                                title: "Not implemented",
-                                description: "Delete functionality will be added soon",
-                              });
-                            }}
+                            onClick={() => handleDeleteExpense(expense)}
                           >
                             <Trash2 className="h-4 w-4" />
                           </Button>
@@ -313,6 +339,47 @@ export default function ExpensesPage() {
           )}
         </CardContent>
       </Card>
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Confirm Deletion</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete this expense? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4">
+            {selectedExpense && (
+              <div className="space-y-2">
+                <div>
+                  <span className="font-medium">Description:</span> {selectedExpense.description}
+                </div>
+                <div>
+                  <span className="font-medium">Amount:</span> {formatMoney(selectedExpense.amount)}
+                </div>
+                <div>
+                  <span className="font-medium">Date:</span> {format(new Date(selectedExpense.date), "MMM d, yyyy")}
+                </div>
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => selectedExpense && deleteExpense.mutate(selectedExpense.id)}
+              disabled={deleteExpense.isPending}
+            >
+              {deleteExpense.isPending ? "Deleting..." : "Delete Expense"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

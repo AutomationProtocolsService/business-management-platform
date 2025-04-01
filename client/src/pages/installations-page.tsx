@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
+import InstallationDetails from "@/components/installation-details";
 import { 
   Plus, 
   Search, 
@@ -58,6 +59,8 @@ import InstallationForm from "@/components/forms/installation-form";
 
 export default function InstallationsPage() {
   const [location, navigate] = useLocation();
+  const [isDetailsRoute, detailsParams] = useRoute("/installations/:id");
+  const [isEditRoute, editParams] = useRoute("/installations/:id/edit");
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -66,6 +69,54 @@ export default function InstallationsPage() {
   const [selectedInstallationId, setSelectedInstallationId] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isCompleteDialogOpen, setIsCompleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Extract installation ID from the URL for edit or details view
+  const getInstallationIdFromUrl = () => {
+    if (detailsParams && detailsParams.id) {
+      return parseInt(detailsParams.id);
+    }
+    if (editParams && editParams.id) {
+      return parseInt(editParams.id);
+    }
+    return null;
+  };
+  
+  const installationIdFromUrl = getInstallationIdFromUrl();
+  
+  // Effect to open edit dialog when navigating to the edit route
+  useEffect(() => {
+    if (isEditRoute && installationIdFromUrl) {
+      setSelectedInstallationId(installationIdFromUrl);
+      setIsEditDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the edit route anymore
+      setIsEditDialogOpen(false);
+    }
+  }, [isEditRoute, installationIdFromUrl]);
+  
+  // Effect to open details dialog when navigating to the details route
+  useEffect(() => {
+    if (isDetailsRoute && !isEditRoute && installationIdFromUrl) {
+      setSelectedInstallationId(installationIdFromUrl);
+      setIsDetailsDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the details route anymore
+      setIsDetailsDialogOpen(false);
+    }
+  }, [isDetailsRoute, isEditRoute, installationIdFromUrl]);
+  
+  // Handle dialog close events
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    navigate("/installations"); // Navigate back to the main installations page
+  };
+  
+  const handleDetailsDialogClose = () => {
+    setIsDetailsDialogOpen(false);
+    navigate("/installations"); // Navigate back to the main installations page
+  };
 
   // Fetch installations
   const { data: installations = [], isLoading } = useQuery({
@@ -113,12 +164,12 @@ export default function InstallationsPage() {
   });
 
   // Fetch projects for the installation details
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
 
   // Fetch users for the assigned team members
-  const { data: users = [] } = useQuery({
+  const { data: users = [] } = useQuery<any[]>({
     queryKey: ["/api/users"],
   });
 
@@ -458,6 +509,53 @@ export default function InstallationsPage() {
               {completeInstallation.isPending ? "Updating..." : "Mark as Completed"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Installation Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Installation</DialogTitle>
+            <DialogDescription>
+              Make changes to the installation details below.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedInstallationId && (
+            <InstallationForm 
+              installationId={selectedInstallationId}
+              onSuccess={() => {
+                handleEditDialogClose();
+                toast({
+                  title: "Installation updated",
+                  description: "Installation has been updated successfully."
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Installation Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={handleDetailsDialogClose}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Installation Details</DialogTitle>
+          </DialogHeader>
+          {selectedInstallationId && (
+            <InstallationDetails 
+              installationId={selectedInstallationId}
+              onEdit={() => {
+                handleDetailsDialogClose();
+                navigate(`/installations/${selectedInstallationId}/edit`);
+              }}
+              onComplete={() => {
+                handleDetailsDialogClose();
+                setSelectedInstallationId(selectedInstallationId);
+                setIsCompleteDialogOpen(true);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
