@@ -65,12 +65,21 @@ function Router() {
       <ProtectedRoute path="/" component={DashboardPage} />
       <ProtectedRoute path="/projects" component={ProjectsPage} />
       <ProtectedRoute path="/projects/new" component={ProjectNewPage} />
+      <ProtectedRoute path="/projects/:id" component={ProjectsPage} />
+      <ProtectedRoute path="/projects/:id/edit" component={ProjectsPage} />
       <ProtectedRoute path="/quotes" component={QuotesPage} />
       <ProtectedRoute path="/quotes/:id" component={QuoteDetailsPage} />
+      <ProtectedRoute path="/quotes/:id/edit" component={QuotesPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
+      <ProtectedRoute path="/invoices/:id" component={InvoicesPage} />
+      <ProtectedRoute path="/invoices/:id/edit" component={InvoicesPage} />
       <ProtectedRoute path="/employees" component={EmployeesPage} />
+      <ProtectedRoute path="/employees/:id" component={EmployeesPage} />
+      <ProtectedRoute path="/employees/:id/edit" component={EmployeesPage} />
       <ProtectedRoute path="/timesheets" component={TimesheetsPage} />
       <ProtectedRoute path="/timesheets/new" component={NewTimesheetPage} />
+      <ProtectedRoute path="/timesheets/:id" component={TimesheetsPage} />
+      <ProtectedRoute path="/timesheets/:id/edit" component={TimesheetsPage} />
       <ProtectedRoute path="/surveys" component={SurveysPage} />
       <ProtectedRoute path="/surveys/:id" component={SurveysPage} />
       <ProtectedRoute path="/surveys/:id/edit" component={SurveysPage} />
@@ -79,11 +88,23 @@ function Router() {
       <ProtectedRoute path="/installations/:id/edit" component={InstallationsPage} />
       <ProtectedRoute path="/calendar" component={CalendarPage} />
       <ProtectedRoute path="/customers" component={CustomersPage} />
+      <ProtectedRoute path="/customers/:id" component={CustomersPage} />
+      <ProtectedRoute path="/customers/:id/edit" component={CustomersPage} />
       <ProtectedRoute path="/catalog-items" component={CatalogItemsPage} />
+      <ProtectedRoute path="/catalog-items/:id" component={CatalogItemsPage} />
+      <ProtectedRoute path="/catalog-items/:id/edit" component={CatalogItemsPage} />
       <ProtectedRoute path="/suppliers" component={SuppliersPage} />
+      <ProtectedRoute path="/suppliers/:id" component={SuppliersPage} />
+      <ProtectedRoute path="/suppliers/:id/edit" component={SuppliersPage} />
       <ProtectedRoute path="/expenses" component={ExpensesPage} />
+      <ProtectedRoute path="/expenses/:id" component={ExpensesPage} />
+      <ProtectedRoute path="/expenses/:id/edit" component={ExpensesPage} />
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/purchase-orders/:id/edit" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/inventory" component={InventoryPage} />
+      <ProtectedRoute path="/inventory/:id" component={InventoryPage} />
+      <ProtectedRoute path="/inventory/:id/edit" component={InventoryPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
