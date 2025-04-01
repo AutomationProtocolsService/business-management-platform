@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
+import { Link, useLocation, useRoute } from "wouter";
+import ProjectDetails from "@/components/project-details";
 import { 
   Plus, 
   Search, 
@@ -60,12 +61,62 @@ import ProjectForm from "@/components/forms/project-form";
 
 export default function ProjectsPage() {
   const [location, navigate] = useLocation();
+  const [isDetailsRoute, detailsParams] = useRoute("/projects/:id");
+  const [isEditRoute, editParams] = useRoute("/projects/:id/edit");
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isDetailsDialogOpen, setIsDetailsDialogOpen] = useState(false);
+  
+  // Extract project ID from the URL for edit or details view
+  const getProjectIdFromUrl = () => {
+    if (detailsParams && detailsParams.id) {
+      return parseInt(detailsParams.id);
+    }
+    if (editParams && editParams.id) {
+      return parseInt(editParams.id);
+    }
+    return null;
+  };
+  
+  const projectIdFromUrl = getProjectIdFromUrl();
+  
+  // Effect to open edit dialog when navigating to the edit route
+  useEffect(() => {
+    if (isEditRoute && projectIdFromUrl) {
+      setSelectedProjectId(projectIdFromUrl);
+      setIsEditDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the edit route anymore
+      setIsEditDialogOpen(false);
+    }
+  }, [isEditRoute, projectIdFromUrl]);
+  
+  // Effect to open details dialog when navigating to the details route
+  useEffect(() => {
+    if (isDetailsRoute && !isEditRoute && projectIdFromUrl) {
+      setSelectedProjectId(projectIdFromUrl);
+      setIsDetailsDialogOpen(true);
+    } else {
+      // Close the dialog if we're not on the details route anymore
+      setIsDetailsDialogOpen(false);
+    }
+  }, [isDetailsRoute, isEditRoute, projectIdFromUrl]);
+  
+  // Handle dialog close events
+  const handleEditDialogClose = () => {
+    setIsEditDialogOpen(false);
+    navigate("/projects"); // Navigate back to the main projects page
+  };
+  
+  const handleDetailsDialogClose = () => {
+    setIsDetailsDialogOpen(false);
+    navigate("/projects"); // Navigate back to the main projects page
+  };
 
   // Fetch projects
   const { data: projects = [], isLoading } = useQuery({
@@ -84,7 +135,7 @@ export default function ProjectsPage() {
   });
 
   // Fetch customers for the project details
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers"],
   });
 
@@ -314,6 +365,61 @@ export default function ProjectsPage() {
               {deleteProject.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Project Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={handleEditDialogClose}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Project</DialogTitle>
+            <DialogDescription>
+              Make changes to the project details below.
+            </DialogDescription>
+          </DialogHeader>
+          {selectedProjectId && (
+            <ProjectForm
+              projectId={selectedProjectId}
+              onSuccess={() => {
+                handleEditDialogClose();
+                toast({
+                  title: "Project updated",
+                  description: "Project has been updated successfully."
+                });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* View Project Details Dialog */}
+      <Dialog open={isDetailsDialogOpen} onOpenChange={handleDetailsDialogClose}>
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Project Details</DialogTitle>
+          </DialogHeader>
+          {selectedProjectId && (
+            <>
+              <ProjectDetails projectId={selectedProjectId} />
+              <div className="flex justify-end space-x-2 mt-4">
+                <Button 
+                  onClick={() => {
+                    handleDetailsDialogClose();
+                    navigate(`/projects/${selectedProjectId}/edit`);
+                  }}
+                  variant="outline"
+                >
+                  <Edit className="h-4 w-4 mr-2" /> Edit
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDetailsDialogClose}
+                >
+                  Close
+                </Button>
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
