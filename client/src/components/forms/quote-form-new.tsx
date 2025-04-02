@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
@@ -68,6 +69,10 @@ const quoteFormSchema = insertQuoteSchema.extend({
   subtotal: z.number(),
   tax: z.number().optional(),
   discount: z.number().optional(),
+  // Email options
+  emailSubject: z.string().optional(),
+  emailMessage: z.string().optional(),
+  includePdf: z.boolean().optional().default(true),
   total: z.number(),
   notes: z.string().optional(),
   terms: z.string().optional(),
@@ -141,6 +146,10 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       discount: 0,
       total: 0,
       terms: settings?.defaultQuoteTerms || "",
+      // Default email options
+      emailSubject: `Quote from ${settings?.companyName || "Your Company"}`,
+      emailMessage: "Please find attached our quote for your review. Please let us know if you have any questions.",
+      includePdf: true,
       items: [
         {
           description: "",
@@ -255,9 +264,9 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
               try {
                 console.log("Sending quote email notification...");
                 const emailResponse = await apiRequest("POST", `/api/quotes/${quote.id}/email`, {
-                  subject: `Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
-                  message: `Please find the attached quote #${quote.quoteNumber}.`,
-                  includePdf: true
+                  subject: values.emailSubject || `Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
+                  message: values.emailMessage || `Please find the attached quote #${quote.quoteNumber}.`,
+                  includePdf: values.includePdf !== undefined ? values.includePdf : true
                 });
                 
                 if (emailResponse.ok) {
@@ -364,9 +373,9 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
               try {
                 console.log("Sending updated quote email notification...");
                 const emailResponse = await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
-                  subject: `Updated Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
-                  message: `Please find the attached updated quote #${quote.quoteNumber}.`,
-                  includePdf: true
+                  subject: values.emailSubject || `Updated Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
+                  message: values.emailMessage || `Please find the attached updated quote #${quote.quoteNumber}.`,
+                  includePdf: values.includePdf !== undefined ? values.includePdf : true
                 });
                 
                 if (emailResponse.ok) {
@@ -432,7 +441,14 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
         updateQuote.mutate(values);
       } else {
         console.log("Creating new quote");
-        createQuote.mutate(values);
+        createQuote.mutate({
+          ...values,
+          emailOptions: {
+            subject: values.emailSubject,
+            message: values.emailMessage,
+            includePdf: values.includePdf
+          }
+        });
       }
     } catch (error) {
       console.error("Error in quote form submission:", error);
@@ -743,6 +759,73 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                           />
                         </FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </CardContent>
+              </Card>
+              
+              {/* Email Options */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Email Options</CardTitle>
+                  <CardDescription>
+                    Configure email settings for when this quote is sent to the customer
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="emailSubject"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Subject</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Email subject line"
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="emailMessage"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Message</FormLabel>
+                        <FormControl>
+                          <Textarea 
+                            placeholder="Enter the message to be sent with the quote"
+                            rows={5}
+                            {...field} 
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  <FormField
+                    control={form.control}
+                    name="includePdf"
+                    render={({ field }) => (
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                        <div className="space-y-0.5">
+                          <FormLabel>Attach PDF</FormLabel>
+                          <FormDescription>
+                            Include the quote as a PDF attachment
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <Switch
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                          />
+                        </FormControl>
                       </FormItem>
                     )}
                   />
