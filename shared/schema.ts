@@ -85,6 +85,7 @@ export const quoteItems = pgTable("quote_items", {
   quantity: doublePrecision("quantity").notNull(),
   unitPrice: doublePrecision("unit_price").notNull(),
   total: doublePrecision("total").notNull(),
+  catalogItemId: integer("catalog_item_id").references(() => catalogItems.id)
 });
 
 // Invoices
@@ -124,6 +125,7 @@ export const invoiceItems = pgTable("invoice_items", {
   quantity: doublePrecision("quantity").notNull(),
   unitPrice: doublePrecision("unit_price").notNull(),
   total: doublePrecision("total").notNull(),
+  catalogItemId: integer("catalog_item_id").references(() => catalogItems.id),
 });
 
 // Employees
@@ -464,18 +466,56 @@ export const insertProjectSchema = createInsertSchema(projects).omit({
   createdAt: true,
 });
 
-export const insertQuoteSchema = createInsertSchema(quotes).omit({
+export const insertQuoteSchema = createInsertSchema(quotes, {
+  // Override Zod schema for specific fields
+  issueDate: z.string(), // Allow string date format
+  expiryDate: z.string().nullable().optional(), // Make optional and nullable
+  clientAcceptedAt: z.string().nullable().optional(),
+  clientRejectedAt: z.string().nullable().optional(),
+  surveyId: z.number().nullable().optional(),
+  tax: z.number().optional().default(0), // Default to 0
+  discount: z.number().optional().default(0), // Default to 0
+  notes: z.string().nullable().optional(),
+  terms: z.string().nullable().optional(),
+  
+  // Items will be handled separately
+  items: z.array(z.object({
+    description: z.string(),
+    quantity: z.number(),
+    unitPrice: z.number(),
+    total: z.number()
+  })).optional(),
+}).omit({
   id: true,
   createdAt: true,
+  quoteNumber: true, // Generated on the server
 });
 
 export const insertQuoteItemSchema = createInsertSchema(quoteItems).omit({
   id: true,
 });
 
-export const insertInvoiceSchema = createInsertSchema(invoices).omit({
+export const insertInvoiceSchema = createInsertSchema(invoices, {
+  // Override Zod schema for specific fields
+  issueDate: z.string(), // Allow string date format
+  dueDate: z.string().nullable().optional(), // Make optional and nullable
+  paidAt: z.string().nullable().optional(),
+  tax: z.number().optional().default(0), // Default to 0
+  discount: z.number().optional().default(0), // Default to 0
+  notes: z.string().nullable().optional(),
+  terms: z.string().nullable().optional(),
+  
+  // Items will be handled separately
+  items: z.array(z.object({
+    description: z.string(),
+    quantity: z.number(),
+    unitPrice: z.number(),
+    total: z.number()
+  })).optional(),
+}).omit({
   id: true,
   createdAt: true,
+  invoiceNumber: true, // Generated on the server
 });
 
 export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
@@ -539,10 +579,33 @@ export const insertExpenseSchema = createInsertSchema(expenses).omit({
   reimbursedAt: true,
 });
 
-export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders).omit({
+export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders, {
+  // Override Zod schema for specific fields
+  issueDate: z.string(), // Allow string date format
+  expectedDeliveryDate: z.string().nullable().optional(), // Make optional and nullable
+  receivedDate: z.string().nullable().optional(),
+  tax: z.number().nullable().optional(), // Default to null
+  notes: z.string().nullable().optional(),
+  terms: z.string().nullable().optional(),
+  shippingMethod: z.string().nullable().optional(),
+  deliveryAddress: z.string().nullable().optional(),
+  
+  // Items will be handled separately
+  items: z.array(z.object({
+    description: z.string(),
+    quantity: z.number(),
+    unitPrice: z.number(),
+    total: z.number(),
+    unit: z.string().nullable().optional(),
+    sku: z.string().nullable().optional(),
+    notes: z.string().nullable().optional(),
+    inventoryItemId: z.number().nullable().optional(),
+    receivedQuantity: z.number().nullable().optional()
+  })).optional(),
+}).omit({
   id: true,
   createdAt: true,
-  receivedDate: true,
+  poNumber: true, // Generated on the server
 });
 
 export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderItems).omit({
