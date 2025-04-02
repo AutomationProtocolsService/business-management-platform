@@ -182,6 +182,29 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   const calculateTotal = () => {
     return calculateSubtotal() + calculateTax();
   };
+  
+  // Get values from the financial fields
+  const getFinancialValues = () => {
+    // Get the manually entered values from the form inputs
+    const subtotalInputEl = document.querySelector('input[name="subtotal"]') as HTMLInputElement;
+    const taxInputEl = document.querySelector('input[name="tax"]') as HTMLInputElement;
+    const totalInputEl = document.querySelector('input[name="total"]') as HTMLInputElement;
+    
+    // Use the manual values if provided, otherwise calculate them
+    const subtotal = subtotalInputEl && !isNaN(parseFloat(subtotalInputEl.value)) 
+      ? parseFloat(subtotalInputEl.value) 
+      : calculateSubtotal();
+      
+    const tax = taxInputEl && !isNaN(parseFloat(taxInputEl.value)) 
+      ? parseFloat(taxInputEl.value) 
+      : calculateTax();
+      
+    const total = totalInputEl && !isNaN(parseFloat(totalInputEl.value)) 
+      ? parseFloat(totalInputEl.value) 
+      : calculateTotal();
+      
+    return { subtotal, tax, total };
+  };
 
   // Create mutation
   const createMutation = useMutation({
@@ -242,6 +265,14 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
 
   // Handle form submission
   const onSubmit = async (data: FormValues) => {
+    console.log("Form submission triggered", data);
+    
+    // Show submission toast to indicate that the form submission is working
+    toast({
+      title: "Processing form submission",
+      description: "Submitting purchase order data...",
+    });
+    
     if (!user) {
       toast({
         title: "Authentication required",
@@ -276,9 +307,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
         status: data.status,
         notes: data.notes,
         terms: data.terms, // Make sure we're using the correct field name
-        subtotal: calculateSubtotal(),
-        total: calculateTotal(),
-        tax: calculateTax(),
+        ...getFinancialValues(),
         // No supplierName as it's linked through supplierId
         updatedBy: user.id,
       };
@@ -311,9 +340,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
         status: data.status,
         notes: data.notes,
         terms: data.terms, // Make sure we're using the correct field name
-        subtotal: calculateSubtotal(),
-        total: calculateTotal(),
-        tax: calculateTax(),
+        ...getFinancialValues(),
         // No longer need supplierName as it's linked through supplierId
         createdBy: user.id,
         items: lineItems.map(item => ({
@@ -619,8 +646,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold" 
-                        value={calculateSubtotal().toFixed(2)}
-                        readOnly
+                        defaultValue={calculateSubtotal().toFixed(2)}
+                        onChange={(e) => console.log('Subtotal changed:', e.target.value)}
+                        name="subtotal"
                       />
                     </div>
                   </CardContent>
@@ -636,8 +664,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold" 
-                        value={calculateTax().toFixed(2)}
-                        readOnly
+                        defaultValue={calculateTax().toFixed(2)}
+                        onChange={(e) => console.log('Tax changed:', e.target.value)}
+                        name="tax"
                       />
                     </div>
                   </CardContent>
@@ -653,8 +682,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold text-primary" 
-                        value={calculateTotal().toFixed(2)}
-                        readOnly
+                        defaultValue={calculateTotal().toFixed(2)}
+                        onChange={(e) => console.log('Total changed:', e.target.value)}
+                        name="total"
                       />
                     </div>
                   </CardContent>
