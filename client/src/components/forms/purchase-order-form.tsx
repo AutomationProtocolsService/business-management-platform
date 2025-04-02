@@ -613,7 +613,16 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <CardTitle className="text-sm font-medium">Subtotal</CardTitle>
                   </CardHeader>
                   <CardContent className="py-2">
-                    <p className="text-2xl font-bold">{formatMoney(calculateSubtotal())}</p>
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">$</span>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        className="text-2xl font-bold" 
+                        value={calculateSubtotal().toFixed(2)}
+                        readOnly
+                      />
+                    </div>
                   </CardContent>
                 </Card>
                 <Card>
@@ -621,7 +630,16 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <CardTitle className="text-sm font-medium">Tax (20%)</CardTitle>
                   </CardHeader>
                   <CardContent className="py-2">
-                    <p className="text-2xl font-bold">{formatMoney(calculateTax())}</p>
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">$</span>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        className="text-2xl font-bold" 
+                        value={calculateTax().toFixed(2)}
+                        readOnly
+                      />
+                    </div>
                   </CardContent>
                 </Card>
                 <Card className="md:col-span-2 bg-primary/5">
@@ -629,7 +647,16 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <CardTitle className="text-sm font-medium">Total</CardTitle>
                   </CardHeader>
                   <CardContent className="py-2">
-                    <p className="text-2xl font-bold text-primary">{formatMoney(calculateTotal())}</p>
+                    <div className="flex items-center">
+                      <span className="text-xl mr-2">$</span>
+                      <Input 
+                        type="number"
+                        step="0.01"
+                        className="text-2xl font-bold text-primary" 
+                        value={calculateTotal().toFixed(2)}
+                        readOnly
+                      />
+                    </div>
                   </CardContent>
                 </Card>
               </div>
@@ -825,9 +852,10 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 Back to Details
               </Button>
               <Button 
+                type="button"
                 onClick={form.handleSubmit(onSubmit)}
                 disabled={createMutation.isPending || updateMutation.isPending}
-                className="flex items-center gap-1"
+                className="flex items-center gap-1 bg-primary hover:bg-primary/90 text-white font-medium"
               >
                 {(createMutation.isPending || updateMutation.isPending) && (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -883,8 +911,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 Back to Line Items
               </Button>
               <Button 
-                type="submit"
-                onClick={() => form.handleSubmit(onSubmit)()}
+                type="button"
+                onClick={form.handleSubmit(onSubmit)}
+                className="bg-primary hover:bg-primary/90 text-white font-medium"
               >
                 {purchaseOrder ? "Update Purchase Order" : "Create Purchase Order"}
               </Button>
