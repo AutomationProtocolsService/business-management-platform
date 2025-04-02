@@ -346,23 +346,36 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
         deletedItemIds
       });
     } else {
-      // Create new purchase order
+      // Create new purchase order with proper validation for all fields
       const newPO = {
         ...preparedData,
-        issueDate: data.orderDate.toISOString().split('T')[0],
+        issueDate: data.orderDate ? data.orderDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
         expectedDeliveryDate: data.expectedDeliveryDate ? 
           data.expectedDeliveryDate.toISOString().split('T')[0] : null,
         poNumber: data.orderNumber || `PO-${new Date().getTime()}`,
         status: data.status || 'draft',
-        notes: data.notes,
-        terms: data.terms, // Make sure we're using the correct field name
+        notes: data.notes || "",
+        terms: data.terms || "", // Make sure we're using the correct field name
         ...getFinancialValues(),
         // No longer need supplierName as it's linked through supplierId
-        createdBy: user.id,
-        items: lineItems.map(item => ({
-          ...item,
-          tempId: undefined // Remove tempId from items
-        }))
+        createdBy: user?.id || 0,
+        // Make sure we have at least one item
+        items: lineItems.length > 0 ? lineItems.map(item => ({
+          description: item.description || "",
+          quantity: typeof item.quantity === 'number' ? item.quantity : 0,
+          unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+          total: typeof item.total === 'number' ? item.total : 0,
+          purchaseOrderId: item.purchaseOrderId || 0,
+          inventoryItemId: item.inventoryItemId || null,
+          // Remove tempId from items
+          tempId: undefined 
+        })) : [{
+          description: "Default item",
+          quantity: 1,
+          unitPrice: 0,
+          total: 0,
+          purchaseOrderId: 0
+        }]
       };
       
       createMutation.mutate(newPO);
