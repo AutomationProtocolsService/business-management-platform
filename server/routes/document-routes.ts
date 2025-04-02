@@ -8,8 +8,16 @@ import { storage } from '../storage';
  * @param app Express application
  */
 export const registerDocumentRoutes = (app: Express) => {
+  // Common authentication middleware for protected routes
+  const requireAuth = (req: Request, res: Response, next: Function) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    next();
+  };
+
   // Generate and download Quote PDF
-  app.get('/api/quotes/:id/pdf', async (req, res) => {
+  app.get('/api/quotes/:id/pdf', requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
       
@@ -45,7 +53,7 @@ export const registerDocumentRoutes = (app: Express) => {
   });
   
   // Email Quote PDF
-  app.post('/api/quotes/:id/email', async (req, res) => {
+  app.post('/api/quotes/:id/email', requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
       const { recipientEmail } = req.body;
@@ -90,7 +98,7 @@ export const registerDocumentRoutes = (app: Express) => {
   });
   
   // Generate and download Invoice PDF
-  app.get('/api/invoices/:id/pdf', async (req, res) => {
+  app.get('/api/invoices/:id/pdf', requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
       
@@ -126,7 +134,7 @@ export const registerDocumentRoutes = (app: Express) => {
   });
   
   // Email Invoice PDF
-  app.post('/api/invoices/:id/email', async (req, res) => {
+  app.post('/api/invoices/:id/email', requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
       const { recipientEmail } = req.body;
@@ -171,7 +179,7 @@ export const registerDocumentRoutes = (app: Express) => {
   });
   
   // Generate and download Purchase Order PDF
-  app.get('/api/purchase-orders/:id/pdf', async (req, res) => {
+  app.get('/api/purchase-orders/:id/pdf', requireAuth, async (req, res) => {
     try {
       const poId = Number(req.params.id);
       
@@ -207,7 +215,7 @@ export const registerDocumentRoutes = (app: Express) => {
   });
   
   // Email Purchase Order PDF
-  app.post('/api/purchase-orders/:id/email', async (req, res) => {
+  app.post('/api/purchase-orders/:id/email', requireAuth, async (req, res) => {
     try {
       const poId = Number(req.params.id);
       const { recipientEmail } = req.body;
