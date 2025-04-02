@@ -1,0 +1,101 @@
+
+1️⃣ Check API Endpoint & Data Format
+Open Developer Tools (F12) → Network Tab
+
+Click on the request that failed (look for the one with 400 error)
+
+Check the Request Payload (data being sent)
+
+🔹 Does the request payload have all the required fields?
+🔹 Are the field names correct? (Check your API documentation)
+🔹 Is the JSON structure properly formatted?
+
+2️⃣ Fix the Request Format
+Modify your API request to match the expected format. If using fetch() in JavaScript, try:
+
+javascript
+Copy
+Edit
+fetch('/api/create-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        customer_name: "John Doe",  // Make sure this field matches API requirements
+        quote_items: [
+            { item: "Product A", price: 100 }
+        ],
+        total_amount: 100, // Ensure all required fields are included
+    })
+})
+.then(response => response.json())
+.then(data => console.log("Quote Created:", data))
+.catch(error => console.error("Error creating quote:", error));
+3️⃣ Check Backend API (If You Control It)
+If you own the API, check the backend logs for errors. If using Python Flask, modify your API to log incoming requests:
+
+python
+Copy
+Edit
+from flask import Flask, request, jsonify
+
+app = Flask(__name__)
+
+@app.route('/api/create-quote', methods=['POST'])
+def create_quote():
+    try:
+        data = request.json
+        print("Received Data:", data)  # Debugging Log
+
+        # Check if required fields are present
+        if not data.get("customer_name") or not data.get("quote_items"):
+            return jsonify({"error": "Missing required fields"}), 400
+
+        return jsonify({"message": "Quote created successfully"}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+This will print the received data to the console.
+
+Run the backend and test again.
+
+4️⃣ Test API With Postman
+If possible, send a manual API request using Postman or cURL to see if the problem is in the frontend or backend.
+
+Example cURL command:
+
+sh
+Copy
+Edit
+curl -X POST "https://your-api-url.com/api/create-quote" \
+     -H "Content-Type: application/json" \
+     -d '{"customer_name": "John Doe", "quote_items": [{"item": "Product A", "price": 100}], "total_amount": 100}'
+If this also returns 400: Bad Request, the issue is in the backend API.
+
+5️⃣ Check SendGrid Request (If Error Occurs There)
+If the 400 error is coming from SendGrid, check:
+
+API Key: Make sure it's correct and active.
+
+Request Format:
+
+python
+Copy
+Edit
+message = Mail(
+    from_email='your_email@example.com',
+    to_emails='recipient@example.com',
+    subject='Your Quote',
+    html_content='<strong>Here is your quote</strong>'
+)
+response = sg.send(message)
+print(response.status_code, response.body)
+SendGrid Logs: Check the SendGrid dashboard for failed requests.
+
+📌 Next Steps:
+✅ Try each step above.
+❌ If it still fails, share:
+
+The request payload from Developer Tools (Network tab)
+
+Backend error messages (if available)
+
+Any logs from SendGrid (if it's related to email)

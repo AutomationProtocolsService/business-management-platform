@@ -210,21 +210,27 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
     mutationFn: async (values: QuoteFormValues) => {
       try {
         console.log("Creating quote...");
+        
+        // Prepare data ensuring all required fields have proper values
+        const quoteData = {
+          projectId: typeof values.projectId === 'number' ? values.projectId : null,
+          customerId: typeof values.customerId === 'number' ? values.customerId : null,
+          reference: values.reference || "",
+          issueDate: values.issueDate || new Date().toISOString().split('T')[0],
+          expiryDate: values.expiryDate || null,
+          status: values.status || "draft",
+          subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+          tax: typeof values.tax === 'number' ? values.tax : 0,
+          discount: typeof values.discount === 'number' ? values.discount : 0,
+          total: typeof values.total === 'number' ? values.total : 0,
+          notes: values.notes || "",
+          terms: values.terms || ""
+        };
+        
+        console.log("Sending quote data to API:", quoteData);
+        
         // First create the quote
-        const quoteRes = await apiRequest("POST", "/api/quotes", {
-          projectId: values.projectId,
-          customerId: values.customerId,
-          reference: values.reference,
-          issueDate: values.issueDate,
-          expiryDate: values.expiryDate,
-          status: values.status,
-          subtotal: values.subtotal,
-          tax: values.tax,
-          discount: values.discount,
-          total: values.total,
-          notes: values.notes,
-          terms: values.terms
-        });
+        const quoteRes = await apiRequest("POST", "/api/quotes", quoteData);
         
         const quote = await quoteRes.json();
         console.log("Quote created:", quote);
@@ -327,21 +333,27 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
     mutationFn: async (values: QuoteFormValues) => {
       try {
         console.log("Updating quote...");
+        
+        // Prepare data ensuring all required fields have proper values
+        const quoteData = {
+          projectId: typeof values.projectId === 'number' ? values.projectId : null,
+          customerId: typeof values.customerId === 'number' ? values.customerId : null,
+          reference: values.reference || "",
+          issueDate: values.issueDate || new Date().toISOString().split('T')[0],
+          expiryDate: values.expiryDate || null,
+          status: values.status || "draft",
+          subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+          tax: typeof values.tax === 'number' ? values.tax : 0,
+          discount: typeof values.discount === 'number' ? values.discount : 0,
+          total: typeof values.total === 'number' ? values.total : 0,
+          notes: values.notes || "",
+          terms: values.terms || ""
+        };
+        
+        console.log("Sending quote update data to API:", quoteData);
+        
         // First update the quote
-        const quoteRes = await apiRequest("PUT", `/api/quotes/${quoteId}`, {
-          projectId: values.projectId,
-          customerId: values.customerId,
-          reference: values.reference,
-          issueDate: values.issueDate,
-          expiryDate: values.expiryDate,
-          status: values.status,
-          subtotal: values.subtotal,
-          tax: values.tax,
-          discount: values.discount,
-          total: values.total,
-          notes: values.notes,
-          terms: values.terms
-        });
+        const quoteRes = await apiRequest("PUT", `/api/quotes/${quoteId}`, quoteData);
         
         const quote = await quoteRes.json();
         console.log("Quote updated:", quote);

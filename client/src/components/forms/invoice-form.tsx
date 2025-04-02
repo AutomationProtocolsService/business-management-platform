@@ -232,22 +232,27 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
   // Create invoice mutation
   const createInvoice = useMutation({
     mutationFn: async (values: InvoiceFormValues) => {
+      // Prepare data ensuring all required fields have proper values
+      const invoiceData = {
+        projectId: typeof values.projectId === 'number' ? values.projectId : null,
+        customerId: typeof values.customerId === 'number' ? values.customerId : null,
+        quoteId: typeof values.quoteId === 'number' ? values.quoteId : null,
+        reference: values.reference || "",
+        issueDate: values.issueDate || new Date().toISOString().split('T')[0],
+        dueDate: values.dueDate || new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], // 30 days from now
+        status: values.status || "draft",
+        subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+        tax: typeof values.tax === 'number' ? values.tax : 0,
+        discount: typeof values.discount === 'number' ? values.discount : 0,
+        total: typeof values.total === 'number' ? values.total : 0,
+        notes: values.notes || "",
+        terms: values.terms || ""
+      };
+      
+      console.log("Sending invoice data to API:", invoiceData);
+      
       // First create the invoice
-      const invoiceRes = await apiRequest("POST", "/api/invoices", {
-        projectId: values.projectId,
-        customerId: values.customerId,
-        quoteId: values.quoteId,
-        reference: values.reference,
-        issueDate: values.issueDate,
-        dueDate: values.dueDate,
-        status: values.status,
-        subtotal: values.subtotal,
-        tax: values.tax,
-        discount: values.discount,
-        total: values.total,
-        notes: values.notes,
-        terms: values.terms
-      });
+      const invoiceRes = await apiRequest("POST", "/api/invoices", invoiceData);
       
       const invoice = await invoiceRes.json();
       
@@ -281,22 +286,27 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
   // Update invoice mutation
   const updateInvoice = useMutation({
     mutationFn: async (values: InvoiceFormValues) => {
+      // Prepare data ensuring all required fields have proper values
+      const invoiceData = {
+        projectId: typeof values.projectId === 'number' ? values.projectId : null,
+        customerId: typeof values.customerId === 'number' ? values.customerId : null,
+        quoteId: typeof values.quoteId === 'number' ? values.quoteId : null,
+        reference: values.reference || "",
+        issueDate: values.issueDate || new Date().toISOString().split('T')[0],
+        dueDate: values.dueDate || new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0], // 30 days from now
+        status: values.status || "draft",
+        subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+        tax: typeof values.tax === 'number' ? values.tax : 0,
+        discount: typeof values.discount === 'number' ? values.discount : 0,
+        total: typeof values.total === 'number' ? values.total : 0,
+        notes: values.notes || "",
+        terms: values.terms || ""
+      };
+      
+      console.log("Sending invoice update data to API:", invoiceData);
+      
       // First update the invoice
-      const invoiceRes = await apiRequest("PUT", `/api/invoices/${invoiceId}`, {
-        projectId: values.projectId,
-        customerId: values.customerId,
-        quoteId: values.quoteId,
-        reference: values.reference,
-        issueDate: values.issueDate,
-        dueDate: values.dueDate,
-        status: values.status,
-        subtotal: values.subtotal,
-        tax: values.tax,
-        discount: values.discount,
-        total: values.total,
-        notes: values.notes,
-        terms: values.terms
-      });
+      const invoiceRes = await apiRequest("PUT", `/api/invoices/${invoiceId}`, invoiceData);
       
       // Note: For a real application, you would need endpoints to delete and update items
       // For this demo, we'll assume items are handled separately
