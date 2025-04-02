@@ -312,17 +312,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/quotes", requireAuth, validateBody(insertQuoteSchema), async (req, res) => {
     try {
+      // Extract items from the request body if present
+      const { items, ...quoteData } = req.body;
+      
       // Generate quote number
-      console.log("Creating quote with body:", req.body);
+      console.log("Creating quote with body:", quoteData);
       const quoteNumber = `Q-${Date.now().toString().substr(-6)}`;
       
+      // Create the quote without items first
       const quote = await storage.createQuote({
-        ...req.body,
+        ...quoteData,
         quoteNumber,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        status: quoteData.status || "draft"
       });
       
       console.log("Created quote:", quote);
+      
+      // Now add items if provided
+      if (items && Array.isArray(items) && items.length > 0) {
+        console.log("Adding items to quote:", items);
+        
+        for (const item of items) {
+          await storage.createQuoteItem({
+            quoteId: quote.id,
+            description: item.description || '',
+            quantity: typeof item.quantity === 'number' ? item.quantity : 0,
+            unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+            total: typeof item.total === 'number' ? item.total : 0,
+            catalogItemId: item.catalogItemId || null
+          });
+        }
+      }
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("quote:created", {
+          id: quote.id,
+          data: quote,
+          message: `New quote created: ${quote.quoteNumber}`,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
       res.status(201).json(quote);
     } catch (error) {
       console.error("Failed to create quote:", error);
@@ -568,17 +601,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/invoices", requireAuth, validateBody(insertInvoiceSchema), async (req, res) => {
     try {
+      // Extract items from the request body if present
+      const { items, ...invoiceData } = req.body;
+      
       // Generate invoice number
+      console.log("Creating invoice with body:", invoiceData);
       const invoiceNumber = `INV-${Date.now().toString().substr(-6)}`;
       
+      // Create the invoice without items first
       const invoice = await storage.createInvoice({
-        ...req.body,
+        ...invoiceData,
         invoiceNumber,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        status: invoiceData.status || "draft"
       });
+      
+      console.log("Created invoice:", invoice);
+      
+      // Now add items if provided
+      if (items && Array.isArray(items) && items.length > 0) {
+        console.log("Adding items to invoice:", items);
+        
+        for (const item of items) {
+          await storage.createInvoiceItem({
+            invoiceId: invoice.id,
+            description: item.description || '',
+            quantity: typeof item.quantity === 'number' ? item.quantity : 0,
+            unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+            total: typeof item.total === 'number' ? item.total : 0,
+            catalogItemId: item.catalogItemId || null
+          });
+        }
+      }
+      
+      // Send real-time update to all connected clients
+      const wsManager = getWebSocketManager();
+      if (wsManager) {
+        wsManager.broadcast("invoice:created", {
+          id: invoice.id,
+          data: invoice,
+          message: `New invoice created: ${invoice.invoiceNumber}`,
+          timestamp: new Date().toISOString()
+        });
+      }
       
       res.status(201).json(invoice);
     } catch (error) {
+      console.error("Failed to create invoice:", error);
       res.status(500).json({ message: "Failed to create invoice" });
     }
   });
@@ -2425,15 +2494,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/purchase-orders", requireAuth, validateBody(insertPurchaseOrderSchema), async (req, res) => {
     try {
+      // Extract items from the request body if present
+      const { items, ...purchaseOrderData } = req.body;
+      
       // Generate PO number
+      console.log("Creating purchase order with body:", purchaseOrderData);
       const poNumber = `PO-${Date.now().toString().substr(-6)}`;
       
+      // Create the purchase order without items first
       const purchaseOrder = await storage.createPurchaseOrder({
-        ...req.body,
+        ...purchaseOrderData,
         poNumber,
         createdBy: req.user?.id,
-        status: req.body.status || "draft"
+        status: purchaseOrderData.status || "draft"
       });
+      
+      console.log("Created purchase order:", purchaseOrder);
+      
+      // Now add items if provided
+      if (items && Array.isArray(items) && items.length > 0) {
+        console.log("Adding items to purchase order:", items);
+        
+        for (const item of items) {
+          await storage.createPurchaseOrderItem({
+            purchaseOrderId: purchaseOrder.id,
+            description: item.description || '',
+            quantity: typeof item.quantity === 'number' ? item.quantity : 0,
+            unitPrice: typeof item.unitPrice === 'number' ? item.unitPrice : 0,
+            total: typeof item.total === 'number' ? item.total : 0,
+            unit: item.unit || null,
+            sku: item.sku || null,
+            notes: item.notes || null,
+            inventoryItemId: item.inventoryItemId || null,
+            receivedQuantity: null
+          });
+        }
+      }
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
@@ -2448,6 +2544,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(purchaseOrder);
     } catch (error) {
+      console.error("Failed to create purchase order:", error);
       res.status(500).json({ message: "Failed to create purchase order" });
     }
   });
