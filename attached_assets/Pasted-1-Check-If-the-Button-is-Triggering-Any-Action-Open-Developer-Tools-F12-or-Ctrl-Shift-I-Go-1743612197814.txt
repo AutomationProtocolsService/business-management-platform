@@ -1,0 +1,103 @@
+1️⃣ Check If the Button is Triggering Any Action
+Open Developer Tools (F12 or Ctrl + Shift + I).
+
+Go to the Console tab.
+
+Type this command and press Enter:
+
+javascript
+Copy
+Edit
+document.querySelector("button").click();
+Does the button trigger anything? If not, the event listener may be missing.
+
+Fix If the Button Is Not Working
+Add this to your JavaScript code:
+
+javascript
+Copy
+Edit
+document.getElementById("create-quote-btn").addEventListener("click", function() {
+    console.log("Create Quote button clicked!"); // Debugging log
+});
+Now, click the button and check the Console again.
+
+2️⃣ Check If API Call Is Being Made
+Open Developer Tools (F12).
+
+Go to the Network tab.
+
+Click "Create Quote" again.
+
+Look for any failed API requests.
+
+If there is a failed request, click on it and check the Response and Error Message.
+
+If no API request appears, the button is not sending data correctly.
+
+Possible Fix for API Not Sending Data
+Modify your request to ensure it correctly sends the quote details:
+
+javascript
+Copy
+Edit
+fetch('/api/create-quote', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+        customer_name: "Test Customer",
+        quote_items: [{ item: "Product A", price: 100 }],
+    })
+})
+.then(response => response.json())
+.then(data => console.log("Quote Created:", data))
+.catch(error => console.error("Error creating quote:", error));
+Now check if the quote is being created in the Network tab.
+
+3️⃣ Debug PDF Generation
+If the quote is created successfully, check if the PDF is being generated.
+
+Add a debug log to confirm PDF creation:
+
+python
+Copy
+Edit
+print("Generating PDF...")
+If the PDF is not being created, check the error logs.
+
+Possible Fix for PDF Generation
+If using Python (pdfkit), make sure you have installed wkhtmltopdf:
+
+python
+Copy
+Edit
+import pdfkit
+pdfkit.from_string("Quote Details Here", "quote.pdf")
+Then, check if the quote.pdf file is being generated.
+
+4️⃣ Check If SendGrid Email Is Working
+If the PDF is generated, test if SendGrid is sending the email.
+
+Add a test email script:
+
+python
+Copy
+Edit
+import sendgrid
+from sendgrid.helpers.mail import Mail
+
+SENDGRID_API_KEY = "your_api_key_here"
+
+sg = sendgrid.SendGridAPIClient(SENDGRID_API_KEY)
+message = Mail(
+    from_email='your_email@example.com',
+    to_emails='recipient@example.com',
+    subject='Test Email with Quote',
+    html_content='<strong>Your Quote PDF is attached</strong>'
+)
+response = sg.send(message)
+print(response.status_code, response.body, response.headers)
+Check email logs in your SendGrid dashboard.
+
+Next Steps:
+✅ Try each step above.

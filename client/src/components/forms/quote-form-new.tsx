@@ -441,14 +441,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
         updateQuote.mutate(values);
       } else {
         console.log("Creating new quote");
-        createQuote.mutate({
-          ...values,
-          emailOptions: {
-            subject: values.emailSubject,
-            message: values.emailMessage,
-            includePdf: values.includePdf
-          }
-        });
+        createQuote.mutate(values);
       }
     } catch (error) {
       console.error("Error in quote form submission:", error);
@@ -1054,10 +1047,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                     Continue to Attachments
                   </Button>
                   <Button 
-                    type="button"
-                    onClick={() => {
+                    type="submit"
+                    onClick={(e) => {
+                      e.preventDefault();
                       console.log("Create Quote button clicked (items tab)");
-                      form.handleSubmit(onSubmit)();
+                      onSubmit(form.getValues());
                     }}
                     disabled={isSubmitting}
                   >
@@ -1146,10 +1140,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                 Back to Line Items
               </Button>
               <Button 
-                type="button"
-                onClick={() => {
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
                   console.log("Create Quote button clicked");
-                  form.handleSubmit(onSubmit)();
+                  onSubmit(form.getValues());
                 }}
                 disabled={isSubmitting}
               >

@@ -882,8 +882,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 Back to Details
               </Button>
               <Button 
-                type="button"
-                onClick={form.handleSubmit(onSubmit)}
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("Create/Update Purchase Order button clicked (details tab)");
+                  onSubmit(form.getValues());
+                }}
                 disabled={createMutation.isPending || updateMutation.isPending}
                 className="flex items-center gap-1 bg-primary hover:bg-primary/90 text-white font-medium"
               >
@@ -941,8 +945,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 Back to Line Items
               </Button>
               <Button 
-                type="button"
-                onClick={form.handleSubmit(onSubmit)}
+                type="submit"
+                onClick={(e) => {
+                  e.preventDefault();
+                  console.log("Create/Update Purchase Order button clicked");
+                  onSubmit(form.getValues());
+                }}
                 className="bg-primary hover:bg-primary/90 text-white font-medium"
               >
                 {purchaseOrder ? "Update Purchase Order" : "Create Purchase Order"}
