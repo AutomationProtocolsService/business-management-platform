@@ -17,7 +17,6 @@ export default function EmailTestPage() {
   const [result, setResult] = useState<null | {
     success: boolean;
     message: string;
-    previewUrl?: string;
   }>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -144,19 +143,6 @@ export default function EmailTestPage() {
                   <span className="font-medium">{result.success ? 'Success' : 'Error'}</span>
                 </div>
                 <p className="mb-2">{result.message}</p>
-                {result.previewUrl && (
-                  <div className="mt-4">
-                    <p className="text-sm mb-2">This is a test email. You can view it at:</p>
-                    <a 
-                      href={result.previewUrl} 
-                      target="_blank" 
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 underline break-all"
-                    >
-                      {result.previewUrl}
-                    </a>
-                  </div>
-                )}
               </div>
             ) : (
               <div className="text-center py-12 text-gray-500">
@@ -170,8 +156,8 @@ export default function EmailTestPage() {
           </CardContent>
           <CardFooter className="text-sm text-gray-500">
             <p>
-              Note: When using Ethereal Email for testing, a preview URL will be provided 
-              to view the sent email. In production, real emails will be delivered to recipients.
+              Note: This will send a real email using SendGrid. Make sure your SendGrid API key is properly configured 
+              and you're using a valid email address for testing.
             </p>
           </CardFooter>
         </Card>

@@ -1,216 +1,217 @@
-import nodemailer from 'nodemailer';
-import fs from 'fs';
-import { promisify } from 'util';
-import { storage } from '../storage';
+import { MailService } from '@sendgrid/mail';
+import { Quote, Invoice, PurchaseOrder } from '@shared/schema';
+import PDFService from './pdf-service';
 
-// Promisify fs.readFile
-const readFileAsync = promisify(fs.readFile);
+// Initialize SendGrid
+const mailService = new MailService();
 
-interface EmailOptions {
-  to: string;
-  subject: string;
-  html?: string;
-  text?: string;
-  attachments?: Array<{
-    filename: string;
-    path?: string;
-    content?: Buffer;
-    contentType?: string;
-  }>;
-  cc?: string | string[];
-  bcc?: string | string[];
+// Set the API key from environment variables
+if (process.env.SENDGRID_API_KEY) {
+  mailService.setApiKey(process.env.SENDGRID_API_KEY);
 }
 
-class EmailService {
-  private transporter: nodemailer.Transporter | null = null;
-  private fromEmail: string;
+// Email parameters interface
+export interface EmailParams {
+  to: string;
+  from: string;
+  subject: string;
+  text?: string;
+  html?: string;
+  attachments?: Array<{
+    content: string;
+    filename: string;
+    type: string;
+    disposition: 'attachment' | 'inline';
+  }>;
+}
 
-  constructor() {
-    // Initialize with default values
-    this.fromEmail = process.env.EMAIL_FROM || 'noreply@example.com';
-    
-    // Create the transporter based on environment configuration
-    if (process.env.EMAIL_HOST && process.env.EMAIL_PORT) {
-      // SMTP configuration
-      this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: parseInt(process.env.EMAIL_PORT, 10),
-        secure: process.env.EMAIL_SECURE === 'true',
-        auth: {
-          user: process.env.EMAIL_USER || '',
-          pass: process.env.EMAIL_PASSWORD || '',
-        },
-      });
-    } else {
-      // If no SMTP configuration, use ethereal for testing
-      // In production, this should be replaced with a real SMTP service
-      this.createTestAccount();
-    }
-  }
-
-  private async createTestAccount() {
-    // Only used for development/testing
+/**
+ * Service for sending emails with optional PDF attachments
+ */
+export default class EmailService {
+  /**
+   * Send a general email
+   * @param params Email parameters including recipient, subject, text/html body
+   * @returns Success status
+   */
+  static async sendEmail(params: EmailParams): Promise<boolean> {
     try {
-      const testAccount = await nodemailer.createTestAccount();
-      this.transporter = nodemailer.createTransport({
-        host: 'smtp.ethereal.email',
-        port: 587,
-        secure: false,
-        auth: {
-          user: testAccount.user,
-          pass: testAccount.pass,
-        },
-      });
-      console.log('Created test email account:', testAccount.user);
-    } catch (error) {
-      console.error('Failed to create test email account:', error);
-      // Fallback to a dummy transporter that logs instead of sending
-      this.transporter = {
-        sendMail: (options: any) => {
-          console.log('Email would be sent with:', options);
-          return Promise.resolve({ messageId: 'test-id' });
-        },
-      } as any;
-    }
-  }
-
-  async sendEmail(options: EmailOptions): Promise<{ success: boolean; message: string; previewUrl?: string }> {
-    try {
-      if (!this.transporter) {
-        console.error('Transporter not initialized');
-        return { 
-          success: false, 
-          message: 'Email transporter not initialized. Check email configuration.' 
-        };
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error('SendGrid API key not found. Cannot send email.');
+        return false;
       }
 
-      const mailOptions = {
-        from: this.fromEmail,
-        ...options,
-      };
-
-      const info = await this.transporter.sendMail(mailOptions);
+      // Set a default from address if not provided
+      const fromAddress = params.from || 'noreply@example.com';
       
-      // For test accounts, log the URL where the email can be previewed
-      const previewUrl = nodemailer.getTestMessageUrl(info);
-      if (previewUrl) {
-        console.log('Preview URL:', previewUrl);
-        return { success: true, message: 'Email sent successfully', previewUrl };
-      }
+      await mailService.send({
+        to: params.to,
+        from: fromAddress,
+        subject: params.subject,
+        text: params.text || '',
+        html: params.html || '',
+        attachments: params.attachments
+      });
       
-      return { success: true, message: 'Email sent successfully' };
+      console.log(`Email sent successfully to ${params.to}`);
+      return true;
     } catch (error) {
       console.error('Error sending email:', error);
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : 'An unknown error occurred while sending email' 
-      };
+      return false;
     }
   }
 
-  async sendDocumentEmail(
-    documentType: 'quote' | 'invoice' | 'purchaseOrder',
-    documentId: number,
-    customerEmail: string,
-    subject: string,
-    body: string,
-    includeAttachments: boolean = true,
-    attachmentPdfBuffer?: Buffer
-  ): Promise<{ success: boolean; message: string; previewUrl?: string }> {
+  /**
+   * Send a quote via email with PDF attachment
+   * @param quote The quote data including items
+   * @param recipientEmail Email address of the recipient
+   * @param senderEmail Email address of the sender
+   * @returns Success status
+   */
+  static async sendQuote(
+    quote: Quote & { items: any[] }, 
+    recipientEmail: string, 
+    senderEmail: string
+  ): Promise<boolean> {
     try {
-      // Prepare attachments
-      const attachments: Array<{
-        filename: string;
-        content?: Buffer;
-        path?: string;
-        contentType?: string;
-      }> = [];
-
-      // Add the main PDF if provided
-      if (attachmentPdfBuffer) {
-        attachments.push({
-          filename: `${documentType}-${documentId}.pdf`,
-          content: attachmentPdfBuffer,
-          contentType: 'application/pdf',
-        });
-      }
-
-      // Add any additional file attachments from storage if requested
-      if (includeAttachments) {
-        const files = await storage.getFileAttachmentsByRelatedEntity(documentType, documentId);
-        
-        for (const file of files) {
-          try {
-            // For files stored in the filesystem (local development)
-            if (file.fileUrl.startsWith('/') || file.fileUrl.startsWith('file://')) {
-              const filePath = file.fileUrl.replace('file://', '');
-              const fileContent = await readFileAsync(filePath);
-              
-              attachments.push({
-                filename: file.fileName,
-                content: fileContent,
-                contentType: file.fileType,
-              });
-            } else {
-              // For files stored in cloud storage or accessible via URL
-              attachments.push({
-                filename: file.fileName,
-                path: file.fileUrl,
-                contentType: file.fileType,
-              });
-            }
-          } catch (fileError) {
-            console.error(`Error processing attachment ${file.fileName}:`, fileError);
-            // Continue with other attachments
+      // Generate PDF
+      const pdfBuffer = await PDFService.generateQuotePDF(quote);
+      
+      // Convert buffer to base64 for email attachment
+      const base64PDF = pdfBuffer.toString('base64');
+      
+      // Prepare email content
+      const emailParams: EmailParams = {
+        to: recipientEmail,
+        from: senderEmail,
+        subject: `Quote #${quote.quoteNumber}`,
+        html: `
+          <p>Dear Customer,</p>
+          <p>Please find attached the quote #${quote.quoteNumber} for your review.</p>
+          <p>The quote total is $${quote.total.toFixed(2)} and is valid until ${
+            quote.expiryDate ? new Date(quote.expiryDate).toLocaleDateString() : 'N/A'
+          }.</p>
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Thank you for your business!</p>
+        `,
+        attachments: [
+          {
+            content: base64PDF,
+            filename: `Quote_${quote.quoteNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
           }
-        }
-      }
-
-      // Send the email
-      return this.sendEmail({
-        to: customerEmail,
-        subject,
-        html: body,
-        attachments,
-      });
-    } catch (error) {
-      console.error(`Error sending ${documentType} email:`, error);
-      return { 
-        success: false, 
-        message: error instanceof Error ? error.message : `An unknown error occurred while sending ${documentType} email` 
+        ]
       };
+      
+      // Send email
+      return await this.sendEmail(emailParams);
+    } catch (error) {
+      console.error('Error sending quote email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send an invoice via email with PDF attachment
+   * @param invoice The invoice data including items
+   * @param recipientEmail Email address of the recipient
+   * @param senderEmail Email address of the sender
+   * @returns Success status
+   */
+  static async sendInvoice(
+    invoice: Invoice & { items: any[] }, 
+    recipientEmail: string, 
+    senderEmail: string
+  ): Promise<boolean> {
+    try {
+      // Generate PDF
+      const pdfBuffer = await PDFService.generateInvoicePDF(invoice);
+      
+      // Convert buffer to base64 for email attachment
+      const base64PDF = pdfBuffer.toString('base64');
+      
+      // Prepare email content
+      const emailParams: EmailParams = {
+        to: recipientEmail,
+        from: senderEmail,
+        subject: `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}`,
+        html: `
+          <p>Dear Customer,</p>
+          <p>Please find attached the ${invoice.type === 'deposit' ? 'deposit invoice' : 'invoice'} #${invoice.invoiceNumber} for your payment.</p>
+          <p>The invoice total is $${invoice.total.toFixed(2)} and is due on ${new Date(invoice.dueDate).toLocaleDateString()}.</p>
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Thank you for your business!</p>
+        `,
+        attachments: [
+          {
+            content: base64PDF,
+            filename: `Invoice_${invoice.invoiceNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ]
+      };
+      
+      // Send email
+      return await this.sendEmail(emailParams);
+    } catch (error) {
+      console.error('Error sending invoice email:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Send a purchase order via email with PDF attachment
+   * @param purchaseOrder The purchase order data including items
+   * @param recipientEmail Email address of the recipient
+   * @param senderEmail Email address of the sender
+   * @returns Success status
+   */
+  static async sendPurchaseOrder(
+    purchaseOrder: PurchaseOrder & { items: any[] }, 
+    recipientEmail: string, 
+    senderEmail: string
+  ): Promise<boolean> {
+    try {
+      // Generate PDF
+      const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
+      
+      // Convert buffer to base64 for email attachment
+      const base64PDF = pdfBuffer.toString('base64');
+      
+      // Prepare email content
+      const emailParams: EmailParams = {
+        to: recipientEmail,
+        from: senderEmail,
+        subject: `Purchase Order #${purchaseOrder.poNumber}`,
+        html: `
+          <p>Dear Supplier,</p>
+          <p>Please find attached our purchase order #${purchaseOrder.poNumber}.</p>
+          <p>The purchase order total is $${purchaseOrder.total.toFixed(2)}.</p>
+          <p>Expected delivery date: ${
+            purchaseOrder.expectedDeliveryDate 
+              ? new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString() 
+              : 'As soon as possible'
+          }.</p>
+          <p>If you have any questions, please don't hesitate to contact us.</p>
+          <p>Thank you for your cooperation.</p>
+        `,
+        attachments: [
+          {
+            content: base64PDF,
+            filename: `PO_${purchaseOrder.poNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment'
+          }
+        ]
+      };
+      
+      // Send email
+      return await this.sendEmail(emailParams);
+    } catch (error) {
+      console.error('Error sending purchase order email:', error);
+      return false;
     }
   }
 }
-
-// Initialize the email service
-const emailService = new EmailService();
-
-// Export the sendEmail function that wraps the email service
-export const sendEmail = async (options: EmailOptions): Promise<{ success: boolean; message: string; previewUrl?: string }> => {
-  return emailService.sendEmail(options);
-};
-
-// Export the sendDocumentEmail function for use in routes
-export const sendDocumentEmail = async (
-  documentType: 'quote' | 'invoice' | 'purchaseOrder',
-  documentId: number,
-  customerEmail: string,
-  subject: string,
-  body: string,
-  includeAttachments: boolean = true,
-  attachmentPdfBuffer?: Buffer
-): Promise<{ success: boolean; message: string; previewUrl?: string }> => {
-  return emailService.sendDocumentEmail(
-    documentType,
-    documentId,
-    customerEmail,
-    subject,
-    body,
-    includeAttachments,
-    attachmentPdfBuffer
-  );
-};
-
-// Export the service for direct use when needed
-export default emailService;

@@ -3,14 +3,16 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { setupAuth } from "./auth";
 import { z } from "zod";
-import { generatePdf } from "./services/pdf-service";
-import { sendEmail, sendDocumentEmail } from "./services/email-service";
+import PDFService from "./services/pdf-service";
+import EmailService from "./services/email-service";
 import { setupWebSocketServer, WebSocketEvent, getWebSocketManager } from "./websocket";
 import { cloudStorage } from "./services/storage-service";
 import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
+import { tenantFilter } from "./middleware/tenant-filter";
+import { registerDocumentRoutes } from "./routes/document-routes";
 import { 
   insertCustomerSchema, 
   insertProjectSchema, 
@@ -36,6 +38,12 @@ import {
 export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
+  
+  // Apply tenant filter middleware for multi-tenant data isolation
+  app.use(tenantFilter);
+  
+  // Register document routes for PDF generation and email sharing
+  registerDocumentRoutes(app);
 
   // Common authentication middleware for protected routes
   const requireAuth = (req: Request, res: Response, next: Function) => {
@@ -402,15 +410,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Quote not found" });
       }
       
-      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
-      const customer = quote.customerId ? await storage.getCustomer(quote.customerId) : null;
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       
-      const pdfBuffer = await generatePdf('quote', { quote, items: quoteItems, customer });
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      
+      // Generate PDF using the PDFService
+      const pdfBuffer = await PDFService.generateQuotePDF({
+        ...quote,
+        items: quoteItems
+      });
       
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=quote-${quote.quoteNumber}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=Quote_${quote.quoteNumber}.pdf`);
       res.send(pdfBuffer);
     } catch (error) {
+      console.error('Error generating quote PDF:', error);
       res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
@@ -418,36 +435,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes/:id/email", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const { recipientEmail } = req.body;
       
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "Recipient email is required" });
+      }
+      
+      const quote = await storage.getQuote(quoteId);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
       
-      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
-      const customer = quote.customerId ? await storage.getCustomer(quote.customerId) : null;
-      
-      if (!customer || !customer.email) {
-        return res.status(400).json({ message: "Customer email is required" });
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
-      const pdfBuffer = await generatePdf('quote', { quote, items: quoteItems, customer });
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
       
-      await sendEmail({
-        to: customer.email,
-        subject: `Quote ${quote.quoteNumber}`,
-        text: `Please find attached your quote ${quote.quoteNumber}.`,
-        attachments: [
-          {
-            filename: `quote-${quote.quoteNumber}.pdf`,
-            content: pdfBuffer
-          }
-        ]
-      });
+      // Get company settings for sender email
+      const companySettings = await storage.getCompanySettings();
+      const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      res.json({ message: "Quote email sent successfully" });
+      // Send email with PDF using EmailService
+      const success = await EmailService.sendQuote(
+        { ...quote, items: quoteItems },
+        recipientEmail,
+        senderEmail
+      );
+      
+      if (success) {
+        res.json({ message: "Quote sent successfully via email" });
+      } else {
+        res.status(500).json({ message: "Failed to send quote via email" });
+      }
     } catch (error) {
-      res.status(500).json({ message: "Failed to send quote email" });
+      console.error('Error emailing quote:', error);
+      res.status(500).json({ message: "Failed to send quote via email" });
     }
   });
 
@@ -639,15 +663,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
-      const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
       
-      const pdfBuffer = await generatePdf('invoice', { invoice, items: invoiceItems, customer });
+      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
+      
+      // Generate PDF using the PDFService
+      const pdfBuffer = await PDFService.generateInvoicePDF({
+        ...invoice,
+        items: invoiceItems
+      });
       
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=invoice-${invoice.invoiceNumber}.pdf`);
+      res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`);
       res.send(pdfBuffer);
     } catch (error) {
+      console.error('Error generating invoice PDF:', error);
       res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
@@ -655,36 +688,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices/:id/email", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      const invoice = await storage.getInvoice(invoiceId);
+      const { recipientEmail } = req.body;
       
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "Recipient email is required" });
+      }
+      
+      const invoice = await storage.getInvoice(invoiceId);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
-      const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
-      
-      if (!customer || !customer.email) {
-        return res.status(400).json({ message: "Customer email is required" });
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
-      const pdfBuffer = await generatePdf('invoice', { invoice, items: invoiceItems, customer });
+      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
       
-      await sendEmail({
-        to: customer.email,
-        subject: `Invoice ${invoice.invoiceNumber}`,
-        text: `Please find attached your invoice ${invoice.invoiceNumber}.`,
-        attachments: [
-          {
-            filename: `invoice-${invoice.invoiceNumber}.pdf`,
-            content: pdfBuffer
-          }
-        ]
-      });
+      // Get company settings for sender email
+      const companySettings = await storage.getCompanySettings();
+      const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      res.json({ message: "Invoice email sent successfully" });
+      // Send email with PDF using EmailService
+      const success = await EmailService.sendInvoice(
+        { ...invoice, items: invoiceItems },
+        recipientEmail,
+        senderEmail
+      );
+      
+      if (success) {
+        res.json({ message: "Invoice sent successfully via email" });
+      } else {
+        res.status(500).json({ message: "Failed to send invoice via email" });
+      }
     } catch (error) {
-      res.status(500).json({ message: "Failed to send invoice email" });
+      console.error('Error emailing invoice:', error);
+      res.status(500).json({ message: "Failed to send invoice via email" });
     }
   });
 
@@ -1840,16 +1880,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      const result = await sendEmail({
+      // Get company settings for sender email
+      const companySettings = await storage.getCompanySettings();
+      const from = companySettings?.email || 'noreply@example.com';
+      
+      // Use EmailService to send email
+      const success = await EmailService.sendEmail({
         to,
+        from,
         subject,
         text: body
       });
 
       return res.json({
-        success: result.success,
-        message: result.message,
-        previewUrl: result.previewUrl
+        success: success,
+        message: success ? 'Email sent successfully' : 'Failed to send email',
       });
     } catch (error) {
       console.error('Error sending test email:', error);
