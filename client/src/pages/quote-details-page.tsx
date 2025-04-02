@@ -169,8 +169,10 @@ export default function QuoteDetailsPage() {
   // Email quote mutation
   const emailQuote = useMutation({
     mutationFn: async () => {
-      if (!quoteId) return;
-      await apiRequest("POST", `/api/quotes/${quoteId}/email`);
+      if (!quoteId || !customer?.email) return;
+      await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
+        recipientEmail: customer.email
+      });
     },
     onSuccess: () => {
       toast({
@@ -300,16 +302,29 @@ export default function QuoteDetailsPage() {
           <Button
             variant="outline"
             size="sm"
-            asChild
+            onClick={async () => {
+              try {
+                const response = await apiRequest("GET", `/api/quotes/${quoteId}/pdf`, null, { responseType: 'blob' });
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `Quote_${quote.quoteNumber}.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+              } catch (error) {
+                toast({
+                  title: "Error",
+                  description: "Failed to download PDF. Please try again.",
+                  variant: "destructive",
+                });
+              }
+            }}
           >
-            <a 
-              href={`/api/quotes/${quoteId}/pdf`} 
-              target="_blank" 
-              rel="noopener noreferrer"
-            >
-              <Download className="h-4 w-4 mr-2" />
-              Download PDF
-            </a>
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
           </Button>
           
           <Button 
@@ -493,16 +508,29 @@ export default function QuoteDetailsPage() {
               <Button 
                 variant="outline"
                 className="w-full justify-start"
-                asChild
+                onClick={async () => {
+                  try {
+                    const response = await apiRequest("GET", `/api/quotes/${quoteId}/pdf`, null, { responseType: 'blob' });
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `Quote_${quote.quoteNumber}.pdf`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                  } catch (error) {
+                    toast({
+                      title: "Error",
+                      description: "Failed to download PDF. Please try again.",
+                      variant: "destructive",
+                    });
+                  }
+                }}
               >
-                <a 
-                  href={`/api/quotes/${quoteId}/pdf`} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Download PDF
-                </a>
+                <FileText className="h-4 w-4 mr-2" />
+                Download PDF
               </Button>
               
               <Separator />

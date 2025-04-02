@@ -33,6 +33,7 @@ export async function apiRequest(
   method: string,
   url: string,
   data?: unknown | undefined,
+  options?: { responseType?: 'json' | 'text' | 'blob' }
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
@@ -40,6 +41,11 @@ export async function apiRequest(
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
+
+  // Skip error checking for blob responses, will handle in the component
+  if (options?.responseType === 'blob') {
+    return res;
+  }
 
   await throwIfResNotOk(res);
   return res;
