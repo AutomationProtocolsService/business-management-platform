@@ -292,6 +292,22 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
       setActiveTab("items");
       return;
     }
+    
+    // Ensure we have required data properly formatted for form submission
+    const preparedData = {
+      ...data,
+      poNumber: data.orderNumber || `PO-${new Date().getTime()}`,
+      supplierId: data.supplierId || 0,
+      issueDate: data.orderDate ? data.orderDate.toISOString().split('T')[0] : new Date().toISOString().split('T')[0],
+      expectedDeliveryDate: data.expectedDeliveryDate ? data.expectedDeliveryDate.toISOString().split('T')[0] : null,
+      subtotal: typeof data.subtotal === 'number' ? data.subtotal : 0,
+      tax: typeof data.tax === 'number' ? data.tax : 0, 
+      total: typeof data.total === 'number' ? data.total : 0,
+      status: data.status || 'draft',
+      projectId: data.projectId || null
+    };
+    
+    console.log("Prepared purchase order values:", preparedData);
 
     // Get the selected supplier name
     const selectedSupplier = suppliers.find(s => s.id === data.supplierId);
@@ -299,12 +315,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     if (purchaseOrder?.id) {
       // Update existing purchase order
       const updatedPO = {
-        ...data,
+        ...preparedData,
         issueDate: data.orderDate.toISOString().split('T')[0],
         expectedDeliveryDate: data.expectedDeliveryDate ? 
           data.expectedDeliveryDate.toISOString().split('T')[0] : null,
-        poNumber: data.orderNumber,
-        status: data.status,
+        poNumber: data.orderNumber || `PO-${new Date().getTime()}`,
+        status: data.status || 'draft',
         notes: data.notes,
         terms: data.terms, // Make sure we're using the correct field name
         ...getFinancialValues(),
@@ -332,12 +348,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     } else {
       // Create new purchase order
       const newPO = {
-        ...data,
+        ...preparedData,
         issueDate: data.orderDate.toISOString().split('T')[0],
         expectedDeliveryDate: data.expectedDeliveryDate ? 
           data.expectedDeliveryDate.toISOString().split('T')[0] : null,
-        poNumber: data.orderNumber,
-        status: data.status,
+        poNumber: data.orderNumber || `PO-${new Date().getTime()}`,
+        status: data.status || 'draft',
         notes: data.notes,
         terms: data.terms, // Make sure we're using the correct field name
         ...getFinancialValues(),

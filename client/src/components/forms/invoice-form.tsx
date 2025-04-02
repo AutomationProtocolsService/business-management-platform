@@ -323,10 +323,31 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
 
   // Form submission handler
   function onSubmit(values: InvoiceFormValues) {
-    if (invoiceId) {
-      updateInvoice.mutate(values);
-    } else {
-      createInvoice.mutate(values);
+    console.log("Submitting invoice form with values:", values);
+    try {
+      // Ensure required fields are present
+      const preparedValues = {
+        ...values,
+        customerId: values.customerId || null,
+        projectId: values.projectId || null,
+        quoteId: values.quoteId || null,
+        subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+        tax: typeof values.tax === 'number' ? values.tax : 0,
+        discount: typeof values.discount === 'number' ? values.discount : 0,
+        total: typeof values.total === 'number' ? values.total : 0,
+        status: values.status || 'draft',
+        items: Array.isArray(values.items) ? values.items : []
+      };
+      
+      console.log("Prepared invoice values:", preparedValues);
+      
+      if (invoiceId) {
+        updateInvoice.mutate(preparedValues);
+      } else {
+        createInvoice.mutate(preparedValues);
+      }
+    } catch (error) {
+      console.error("Error submitting form:", error);
     }
   }
 
