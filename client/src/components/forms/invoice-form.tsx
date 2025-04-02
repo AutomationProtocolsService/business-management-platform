@@ -894,7 +894,15 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
           <Button type="button" variant="outline" onClick={onCancel}>
             Cancel
           </Button>
-          <Button type="submit" disabled={isSubmitting}>
+          <Button 
+            type="submit" 
+            disabled={isSubmitting}
+            onClick={(e) => {
+              e.preventDefault();
+              console.log("Create/Update Invoice button clicked");
+              onSubmit(form.getValues());
+            }}
+          >
             {isSubmitting ? "Saving..." : invoiceId ? "Update Invoice" : "Create Invoice"}
           </Button>
         </div>
