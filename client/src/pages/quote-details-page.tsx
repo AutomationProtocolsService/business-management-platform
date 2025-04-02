@@ -45,6 +45,10 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 
 export default function QuoteDetailsPage() {
   const [, params] = useRoute("/quotes/:id");
@@ -166,18 +170,39 @@ export default function QuoteDetailsPage() {
     },
   });
 
+  // Email states
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailMessage, setEmailMessage] = useState("");
+  const [includePdf, setIncludePdf] = useState(true);
+  
+  // Set up email defaults when customer data is available
+  useEffect(() => {
+    if (customer && quote) {
+      setEmailSubject(`Quote #${quote.quoteNumber} from ${getCompanyName()}`);
+      setEmailMessage(`Dear ${customer.name},\n\nPlease find attached our quote #${quote.quoteNumber}.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${getCompanyName()}`);
+    }
+  }, [customer, quote]);
+  
+  // Helper function to get company name
+  const getCompanyName = () => {
+    return quote?.companyName || "Your Company";
+  };
+  
   // Email quote mutation
   const emailQuote = useMutation({
     mutationFn: async () => {
       if (!quoteId || !customer?.email) return;
       await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
-        recipientEmail: customer.email
+        recipientEmail: customer.email,
+        subject: emailSubject,
+        message: emailMessage,
+        includePdf: includePdf
       });
     },
     onSuccess: () => {
       toast({
         title: "Quote emailed",
-        description: "Quote has been emailed successfully.",
+        description: "Quote has been emailed successfully to " + customer?.email,
       });
       setIsEmailDialogOpen(false);
     },
@@ -616,13 +641,69 @@ export default function QuoteDetailsPage() {
 
       {/* Email Quote Dialog */}
       <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Email Quote</DialogTitle>
             <DialogDescription>
-              Are you sure you want to email this quote to the customer? This will send the quote as a PDF attachment.
+              Customize your email and send the quote to the customer.
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="recipient" className="text-right">
+                To
+              </Label>
+              <Input
+                id="recipient"
+                value={customer?.email || ""}
+                className="col-span-3"
+                disabled
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="subject" className="text-right">
+                Subject
+              </Label>
+              <Input
+                id="subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="message" className="text-right">
+                Message
+              </Label>
+              <Textarea
+                id="message"
+                value={emailMessage}
+                onChange={(e) => setEmailMessage(e.target.value)}
+                className="col-span-3"
+                rows={6}
+              />
+            </div>
+            
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="attachment" className="text-right">
+                Attachment
+              </Label>
+              <div className="flex items-center space-x-2 col-span-3">
+                <Checkbox 
+                  id="attachment" 
+                  checked={includePdf} 
+                  onCheckedChange={(checked) => setIncludePdf(checked as boolean)}
+                />
+                <Label htmlFor="attachment" className="cursor-pointer">
+                  Include quote as PDF attachment
+                </Label>
+              </div>
+            </div>
+          </div>
+          
           <DialogFooter>
             <Button 
               variant="outline" 
