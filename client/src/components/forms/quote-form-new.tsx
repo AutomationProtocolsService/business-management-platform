@@ -436,12 +436,27 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   function onSubmit(values: QuoteFormValues) {
     console.log("Submitting quote form with values:", values);
     try {
+      // Ensure required fields are present
+      const preparedValues = {
+        ...values,
+        customerId: values.customerId || null,
+        projectId: values.projectId || null,
+        subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
+        tax: typeof values.tax === 'number' ? values.tax : 0,
+        discount: typeof values.discount === 'number' ? values.discount : 0,
+        total: typeof values.total === 'number' ? values.total : 0,
+        status: values.status || 'draft',
+        items: Array.isArray(values.items) ? values.items : []
+      };
+      
+      console.log("Prepared values:", preparedValues);
+      
       if (quoteId) {
         console.log("Updating existing quote");
-        updateQuote.mutate(values);
+        updateQuote.mutate(preparedValues);
       } else {
         console.log("Creating new quote");
-        createQuote.mutate(values);
+        createQuote.mutate(preparedValues);
       }
     } catch (error) {
       console.error("Error in quote form submission:", error);
