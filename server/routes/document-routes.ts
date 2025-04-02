@@ -56,7 +56,7 @@ export const registerDocumentRoutes = (app: Express) => {
   app.post('/api/quotes/:id/email', requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const { recipientEmail } = req.body;
+      const { recipientEmail, subject, message, includePdf } = req.body;
       
       if (!recipientEmail) {
         return res.status(400).json({ message: 'Recipient email is required' });
@@ -79,11 +79,16 @@ export const registerDocumentRoutes = (app: Express) => {
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      // Send email with PDF
+      // Send email with PDF and optional customizations
       const success = await EmailService.sendQuote(
         { ...quote, items: quoteItems },
         recipientEmail,
-        senderEmail
+        senderEmail,
+        {
+          subject,
+          message,
+          includePdf: includePdf !== false
+        }
       );
       
       if (success) {

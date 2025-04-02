@@ -66,26 +66,26 @@ export default class EmailService {
    * @param quote The quote data including items
    * @param recipientEmail Email address of the recipient
    * @param senderEmail Email address of the sender
+   * @param options Optional settings for the email (subject, message, includePdf)
    * @returns Success status
    */
   static async sendQuote(
     quote: Quote & { items: any[] }, 
     recipientEmail: string, 
-    senderEmail: string
+    senderEmail: string,
+    options?: {
+      subject?: string;
+      message?: string;
+      includePdf?: boolean;
+    }
   ): Promise<boolean> {
     try {
-      // Generate PDF
-      const pdfBuffer = await PDFService.generateQuotePDF(quote);
-      
-      // Convert buffer to base64 for email attachment
-      const base64PDF = pdfBuffer.toString('base64');
-      
       // Prepare email content
       const emailParams: EmailParams = {
         to: recipientEmail,
         from: senderEmail,
-        subject: `Quote #${quote.quoteNumber}`,
-        html: `
+        subject: options?.subject || `Quote #${quote.quoteNumber}`,
+        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
           <p>Dear Customer,</p>
           <p>Please find attached the quote #${quote.quoteNumber} for your review.</p>
           <p>The quote total is $${quote.total.toFixed(2)} and is valid until ${
@@ -93,16 +93,26 @@ export default class EmailService {
           }.</p>
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Thank you for your business!</p>
-        `,
-        attachments: [
+        `
+      };
+      
+      // Add PDF attachment if requested (default is true)
+      if (options?.includePdf !== false) {
+        // Generate PDF
+        const pdfBuffer = await PDFService.generateQuotePDF(quote);
+        
+        // Convert buffer to base64 for email attachment
+        const base64PDF = pdfBuffer.toString('base64');
+        
+        emailParams.attachments = [
           {
             content: base64PDF,
             filename: `Quote_${quote.quoteNumber}.pdf`,
             type: 'application/pdf',
             disposition: 'attachment'
           }
-        ]
-      };
+        ];
+      }
       
       // Send email
       return await this.sendEmail(emailParams);

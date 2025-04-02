@@ -199,33 +199,102 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   // Create quote mutation
   const createQuote = useMutation({
     mutationFn: async (values: QuoteFormValues) => {
-      // First create the quote
-      const quoteRes = await apiRequest("POST", "/api/quotes", {
-        projectId: values.projectId,
-        customerId: values.customerId,
-        reference: values.reference,
-        issueDate: values.issueDate,
-        expiryDate: values.expiryDate,
-        status: values.status,
-        subtotal: values.subtotal,
-        tax: values.tax,
-        discount: values.discount,
-        total: values.total,
-        notes: values.notes,
-        terms: values.terms
-      });
-      
-      const quote = await quoteRes.json();
-      
-      // Then add items to the quote
-      for (const item of values.items) {
-        await apiRequest("POST", `/api/quotes/${quote.id}/items`, {
-          ...item,
-          quoteId: quote.id
+      try {
+        console.log("Creating quote...");
+        // First create the quote
+        const quoteRes = await apiRequest("POST", "/api/quotes", {
+          projectId: values.projectId,
+          customerId: values.customerId,
+          reference: values.reference,
+          issueDate: values.issueDate,
+          expiryDate: values.expiryDate,
+          status: values.status,
+          subtotal: values.subtotal,
+          tax: values.tax,
+          discount: values.discount,
+          total: values.total,
+          notes: values.notes,
+          terms: values.terms
         });
+        
+        const quote = await quoteRes.json();
+        console.log("Quote created:", quote);
+        
+        // Then add items to the quote
+        console.log("Adding quote items...");
+        for (const item of values.items) {
+          await apiRequest("POST", `/api/quotes/${quote.id}/items`, {
+            ...item,
+            quoteId: quote.id
+          });
+        }
+        
+        console.log("Quote items added successfully");
+        
+        // Generate PDF for the quote
+        try {
+          console.log("Generating PDF...");
+          const pdfResponse = await apiRequest("GET", `/api/quotes/${quote.id}/pdf`, null, { responseType: 'blob' });
+          
+          if (pdfResponse.ok) {
+            console.log("PDF generated successfully");
+            
+            // Create a download link for the PDF
+            const blob = await pdfResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Quote_${quote.quoteNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Send email notification with the quote
+            if (values.status === "sent") {
+              try {
+                console.log("Sending quote email notification...");
+                const emailResponse = await apiRequest("POST", `/api/quotes/${quote.id}/email`, {
+                  subject: `Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
+                  message: `Please find the attached quote #${quote.quoteNumber}.`,
+                  includePdf: true
+                });
+                
+                if (emailResponse.ok) {
+                  console.log("Email notification sent successfully");
+                  toast({
+                    title: "Email Sent",
+                    description: "Quote has been emailed to the customer.",
+                  });
+                } else {
+                  console.error("Failed to send email notification:", emailResponse.statusText);
+                  toast({
+                    title: "Email Failed",
+                    description: "Could not send email notification. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              } catch (emailError) {
+                console.error("Error sending email notification:", emailError);
+                toast({
+                  title: "Email Failed",
+                  description: "Could not send email notification. Please try again.",
+                  variant: "destructive",
+                });
+              }
+            }
+          } else {
+            console.error("Failed to generate PDF:", pdfResponse.statusText);
+          }
+        } catch (pdfError) {
+          console.error("Error generating PDF:", pdfError);
+        }
+        
+        return quote;
+      } catch (error) {
+        console.error("Error in createQuote mutation:", error);
+        throw error;
       }
-      
-      return quote;
     },
     onSuccess: (data) => {
       toast({
@@ -247,26 +316,94 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   // Update quote mutation
   const updateQuote = useMutation({
     mutationFn: async (values: QuoteFormValues) => {
-      // First update the quote
-      const quoteRes = await apiRequest("PUT", `/api/quotes/${quoteId}`, {
-        projectId: values.projectId,
-        customerId: values.customerId,
-        reference: values.reference,
-        issueDate: values.issueDate,
-        expiryDate: values.expiryDate,
-        status: values.status,
-        subtotal: values.subtotal,
-        tax: values.tax,
-        discount: values.discount,
-        total: values.total,
-        notes: values.notes,
-        terms: values.terms
-      });
-      
-      // Note: For a real application, you would need endpoints to delete and update items
-      // For this demo, we'll assume items are handled separately
-      
-      return await quoteRes.json();
+      try {
+        console.log("Updating quote...");
+        // First update the quote
+        const quoteRes = await apiRequest("PUT", `/api/quotes/${quoteId}`, {
+          projectId: values.projectId,
+          customerId: values.customerId,
+          reference: values.reference,
+          issueDate: values.issueDate,
+          expiryDate: values.expiryDate,
+          status: values.status,
+          subtotal: values.subtotal,
+          tax: values.tax,
+          discount: values.discount,
+          total: values.total,
+          notes: values.notes,
+          terms: values.terms
+        });
+        
+        const quote = await quoteRes.json();
+        console.log("Quote updated:", quote);
+        
+        // Note: For a real application, you would need endpoints to delete and update items
+        // For this demo, we'll assume items are handled separately
+        
+        // Generate PDF for the updated quote
+        try {
+          console.log("Generating PDF for updated quote...");
+          const pdfResponse = await apiRequest("GET", `/api/quotes/${quoteId}/pdf`, null, { responseType: 'blob' });
+          
+          if (pdfResponse.ok) {
+            console.log("PDF generated successfully");
+            
+            // Create a download link for the PDF
+            const blob = await pdfResponse.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Quote_${quote.quoteNumber}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            // Send email notification with the updated quote if status is "sent"
+            if (values.status === "sent") {
+              try {
+                console.log("Sending updated quote email notification...");
+                const emailResponse = await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
+                  subject: `Updated Quote #${quote.quoteNumber} from ${settings?.companyName || "Your Company"}`,
+                  message: `Please find the attached updated quote #${quote.quoteNumber}.`,
+                  includePdf: true
+                });
+                
+                if (emailResponse.ok) {
+                  console.log("Email notification sent successfully");
+                  toast({
+                    title: "Email Sent",
+                    description: "Updated quote has been emailed to the customer.",
+                  });
+                } else {
+                  console.error("Failed to send email notification:", emailResponse.statusText);
+                  toast({
+                    title: "Email Failed",
+                    description: "Could not send email notification. Please try again.",
+                    variant: "destructive",
+                  });
+                }
+              } catch (emailError) {
+                console.error("Error sending email notification:", emailError);
+                toast({
+                  title: "Email Failed",
+                  description: "Could not send email notification. Please try again.",
+                  variant: "destructive",
+                });
+              }
+            }
+          } else {
+            console.error("Failed to generate PDF:", pdfResponse.statusText);
+          }
+        } catch (pdfError) {
+          console.error("Error generating PDF:", pdfError);
+        }
+        
+        return quote;
+      } catch (error) {
+        console.error("Error in updateQuote mutation:", error);
+        throw error;
+      }
     },
     onSuccess: (data) => {
       toast({
@@ -834,8 +971,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                     Continue to Attachments
                   </Button>
                   <Button 
-                    type="submit"
-                    onClick={form.handleSubmit(onSubmit)}
+                    type="button"
+                    onClick={() => {
+                      console.log("Create Quote button clicked (items tab)");
+                      form.handleSubmit(onSubmit)();
+                    }}
                     disabled={isSubmitting}
                   >
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -922,16 +1062,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
               >
                 Back to Line Items
               </Button>
-              <Form {...form}>
-                <Button 
-                  type="submit"
-                  onClick={form.handleSubmit(onSubmit)}
-                  disabled={isSubmitting}
-                >
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  {quoteId ? "Update Quote" : "Create Quote"}
-                </Button>
-              </Form>
+              <Button 
+                type="button"
+                onClick={() => {
+                  console.log("Create Quote button clicked");
+                  form.handleSubmit(onSubmit)();
+                }}
+                disabled={isSubmitting}
+              >
+                {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {quoteId ? "Update Quote" : "Create Quote"}
+              </Button>
             </div>
           </div>
         </TabsContent>
