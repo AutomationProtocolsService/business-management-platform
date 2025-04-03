@@ -468,10 +468,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes/:id/email", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const { recipientEmail } = req.body;
+      const { recipientEmail, subject, message, includePdf = true } = req.body;
+      
+      console.log('Email request:', { quoteId, recipientEmail, subject, hasMessage: !!message, includePdf });
       
       if (!recipientEmail) {
         return res.status(400).json({ message: "Recipient email is required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        return res.status(400).json({ message: "Invalid email format" });
       }
       
       const quote = await storage.getQuote(quoteId);
@@ -485,16 +493,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log(`Retrieved ${quoteItems.length} items for quote ${quoteId}`);
       
       // Get company settings for sender email
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
+      console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
+      
+      // Check SendGrid API key
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error('SendGrid API key not configured. Please set SENDGRID_API_KEY environment variable.');
+        return res.status(500).json({ message: "Email service not properly configured" });
+      }
+      
       // Send email with PDF using EmailService
       const success = await EmailService.sendQuote(
         { ...quote, items: quoteItems },
         recipientEmail,
-        senderEmail
+        senderEmail,
+        { subject, message, includePdf }
       );
       
       if (success) {
@@ -758,10 +776,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices/:id/email", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      const { recipientEmail } = req.body;
+      const { recipientEmail, subject, message, includePdf = true } = req.body;
+      
+      console.log('Email request:', { invoiceId, recipientEmail, subject, hasMessage: !!message, includePdf });
       
       if (!recipientEmail) {
         return res.status(400).json({ message: "Recipient email is required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        return res.status(400).json({ message: "Invalid email format" });
       }
       
       const invoice = await storage.getInvoice(invoiceId);
@@ -775,13 +801,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
+      console.log(`Retrieved ${invoiceItems.length} items for invoice ${invoiceId}`);
       
       // Get company settings for sender email
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      // Get email subject, message, and attachment options from request
-      const { subject, message, includePdf = true } = req.body;
+      console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
+      
+      // Check SendGrid API key
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error('SendGrid API key not configured. Please set SENDGRID_API_KEY environment variable.');
+        return res.status(500).json({ message: "Email service not properly configured" });
+      }
       
       // Send email with PDF using EmailService
       const success = await EmailService.sendInvoice(
@@ -2650,6 +2682,99 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     } catch (error) {
       res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+  
+  // Purchase Order PDF generation and email
+  app.get("/api/purchase-orders/:id/pdf", requireAuth, async (req, res) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      
+      // Generate PDF using the PDFService
+      const pdfBuffer = await PDFService.generatePurchaseOrderPDF({
+        ...purchaseOrder,
+        items
+      });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=PO_${purchaseOrder.poNumber}.pdf`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating purchase order PDF:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
+    }
+  });
+  
+  app.post("/api/purchase-orders/:id/email", requireAuth, async (req, res) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const { recipientEmail, subject, message, includePdf = true } = req.body;
+      
+      console.log('Email request:', { purchaseOrderId, recipientEmail, subject, hasMessage: !!message, includePdf });
+      
+      if (!recipientEmail) {
+        return res.status(400).json({ message: "Recipient email is required" });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(recipientEmail)) {
+        return res.status(400).json({ message: "Invalid email format" });
+      }
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      console.log(`Retrieved ${items.length} items for purchase order ${purchaseOrderId}`);
+      
+      // Get company settings for sender email
+      const companySettings = await storage.getCompanySettings();
+      const senderEmail = companySettings?.email || 'noreply@example.com';
+      
+      console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
+      
+      // Check SendGrid API key
+      if (!process.env.SENDGRID_API_KEY) {
+        console.error('SendGrid API key not configured. Please set SENDGRID_API_KEY environment variable.');
+        return res.status(500).json({ message: "Email service not properly configured" });
+      }
+      
+      // Send email with PDF using EmailService
+      const success = await EmailService.sendPurchaseOrder(
+        { ...purchaseOrder, items },
+        recipientEmail,
+        senderEmail,
+        { subject, message, includePdf }
+      );
+      
+      if (success) {
+        res.json({ message: "Purchase order sent successfully via email" });
+      } else {
+        res.status(500).json({ message: "Failed to send purchase order via email" });
+      }
+    } catch (error) {
+      console.error('Error emailing purchase order:', error);
+      res.status(500).json({ message: "Failed to send purchase order via email" });
     }
   });
 
