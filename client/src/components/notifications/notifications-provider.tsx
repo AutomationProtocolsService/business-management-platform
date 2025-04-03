@@ -49,6 +49,8 @@ export type NotificationsContextType = {
 
 const NotificationsContext = createContext<NotificationsContextType | null>(null);
 
+
+
 // Key for localStorage
 const STORAGE_KEY = 'bms_notifications';
 
@@ -93,10 +95,12 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         reconnectAttempts = 0; // Reset reconnect attempts on successful connection
         
         // Send user identification
-        socket.send(JSON.stringify({ 
-          type: 'connect', 
-          userId: user.id 
-        }));
+        if (socket) {
+          socket.send(JSON.stringify({ 
+            type: 'connect', 
+            userId: user.id 
+          }));
+        }
       });
       
       socket.addEventListener('message', (event) => {
@@ -273,5 +277,30 @@ export const useNotifications = () => {
   if (!context) {
     throw new Error('useNotifications must be used within a NotificationsProvider');
   }
-  return context;
+  
+  // Add a showNotification method to the context
+  return {
+    ...context,
+    showNotification: (notification: { 
+      message: string;
+      type: NotificationType;
+    }) => {
+      // Create a new notification object
+      const newNotification: Notification = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        message: notification.message,
+        type: notification.type,
+        timestamp: new Date().toISOString(),
+        read: false,
+        category: 'system',
+        entityId: undefined
+      };
+      
+      // Add the notification to the state
+      context.notifications.unshift(newNotification);
+      
+      // Return the notification ID
+      return newNotification.id;
+    }
+  };
 };
