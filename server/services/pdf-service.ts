@@ -87,8 +87,18 @@ export default class PDFService {
           console.warn(`Warning: No original document provided for ${filename}`);
         }
         
-        // Create a PDF document
-        const doc = new PDFDocument({ margin: 50 });
+        // Create a PDF document with better settings for text rendering
+        const doc = new PDFDocument({ 
+          margin: 50,
+          bufferPages: true,
+          font: 'Helvetica',
+          size: 'letter',
+          info: {
+            Title: filename,
+            Author: 'System Generated',
+            Subject: 'Business Document' 
+          }
+        });
         
         // Create a writable stream buffer
         const writableStreamBuffer = new StreamBuffers.WritableStreamBuffer({
@@ -166,37 +176,51 @@ export default class PDFService {
             // Debug log the items
             console.log(`Quote items for PDF (${quote.items.length}):`, JSON.stringify(quote.items));
             
-            // Render each item
+            // Try a completely different approach for rendering items
+            let currentY = yPos;
+            
+            // Draw table header borders
+            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
+            
+            // Process each item
             quote.items.forEach((item, index) => {
-              console.log(`Rendering item ${index}:`, JSON.stringify(item));
+              console.log(`Rendering quote item ${index} at position ${currentY}:`, JSON.stringify(item));
               
-              // Handle long descriptions by wrapping the text
-              const description = item.description || '';
-              console.log(`Processing description (${description.length} chars): ${description.substring(0, 50)}...`);
+              // Extract values with defaults to prevent errors
+              const description = String(item.description || 'No description provided');
+              const quantity = String(item.quantity || '0');
+              const unitPrice = Number(item.unitPrice) || 0;
+              const totalPrice = Number(item.total) || 0;
               
-              // Save the current Y position
-              const startYPos = yPos;
+              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
               
-              // Create a text with proper width constraints for wrapping
-              doc.text(description, doc.x, yPos, { 
-                width: colWidths.description,
-                align: 'left'
-              });
+              // Draw description text (multiline supported)
+              const descriptionOptions = { 
+                width: colWidths.description - 10,
+                align: 'left' as const
+              };
               
-              // Get new y position after potentially multiline description
-              const newYPos = doc.y;
+              // Draw description starting at current position
+              const descriptionStart = currentY;
+              doc.text(description, doc.x + 5, currentY, descriptionOptions);
               
-              // Reset y position to render the rest of the line
-              doc.y = startYPos;
+              // Store where description ended
+              const descriptionEnd = doc.y;
               
-              // Render the remaining columns
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              // Reset position to where this row started
+              doc.y = currentY;
               
-              // Update yPos to the lowest point (end of description or other columns)
-              yPos = newYPos + 15; // Add some padding
-              doc.y = yPos;
+              // Draw the other columns aligned with top of description
+              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+              
+              // Move to position after description (which may be multiline)
+              currentY = descriptionEnd + 10;
+              doc.y = currentY;
+              
+              // Draw horizontal line separator
+              doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
             doc.text('No items in this quote', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
@@ -270,37 +294,51 @@ export default class PDFService {
             // Debug log the items
             console.log(`Invoice items for PDF (${invoice.items.length}):`, JSON.stringify(invoice.items));
             
-            // Render each item
+            // Try a completely different approach for rendering items
+            let currentY = yPos;
+            
+            // Draw table header borders
+            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
+            
+            // Process each item
             invoice.items.forEach((item, index) => {
-              console.log(`Rendering invoice item ${index}:`, JSON.stringify(item));
+              console.log(`Rendering invoice item ${index} at position ${currentY}:`, JSON.stringify(item));
               
-              // Handle long descriptions by wrapping the text
-              const description = item.description || '';
-              console.log(`Processing invoice description (${description.length} chars): ${description.substring(0, 50)}...`);
+              // Extract values with defaults to prevent errors
+              const description = String(item.description || 'No description provided');
+              const quantity = String(item.quantity || '0');
+              const unitPrice = Number(item.unitPrice) || 0;
+              const totalPrice = Number(item.total) || 0;
               
-              // Save the current Y position
-              const startYPos = yPos;
+              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
               
-              // Create a text with proper width constraints for wrapping
-              doc.text(description, doc.x, yPos, { 
-                width: colWidths.description,
-                align: 'left'
-              });
+              // Draw description text (multiline supported)
+              const descriptionOptions = { 
+                width: colWidths.description - 10,
+                align: 'left' as const
+              };
               
-              // Get new y position after potentially multiline description
-              const newYPos = doc.y;
+              // Draw description starting at current position
+              const descriptionStart = currentY;
+              doc.text(description, doc.x + 5, currentY, descriptionOptions);
               
-              // Reset y position to render the rest of the line
-              doc.y = startYPos;
+              // Store where description ended
+              const descriptionEnd = doc.y;
               
-              // Render the remaining columns
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              // Reset position to where this row started
+              doc.y = currentY;
               
-              // Update yPos to the lowest point (end of description or other columns)
-              yPos = newYPos + 15; // Add some padding
-              doc.y = yPos;
+              // Draw the other columns aligned with top of description
+              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+              
+              // Move to position after description (which may be multiline)
+              currentY = descriptionEnd + 10;
+              doc.y = currentY;
+              
+              // Draw horizontal line separator
+              doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
             doc.text('No items in this invoice', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
@@ -374,37 +412,51 @@ export default class PDFService {
             // Debug log the items
             console.log(`PO items for PDF (${po.items.length}):`, JSON.stringify(po.items));
             
-            // Render each item
+            // Try a completely different approach for rendering items
+            let currentY = yPos;
+            
+            // Draw table header borders
+            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
+            
+            // Process each item
             po.items.forEach((item, index) => {
-              console.log(`Rendering PO item ${index}:`, JSON.stringify(item));
+              console.log(`Rendering PO item ${index} at position ${currentY}:`, JSON.stringify(item));
               
-              // Handle long descriptions by wrapping the text
-              const description = item.description || '';
-              console.log(`Processing PO description (${description.length} chars): ${description.substring(0, 50)}...`);
+              // Extract values with defaults to prevent errors
+              const description = String(item.description || 'No description provided');
+              const quantity = String(item.quantity || '0');
+              const unitPrice = Number(item.unitPrice) || 0;
+              const totalPrice = Number(item.total) || 0;
               
-              // Save the current Y position
-              const startYPos = yPos;
+              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
               
-              // Create a text with proper width constraints for wrapping
-              doc.text(description, doc.x, yPos, { 
-                width: colWidths.description,
-                align: 'left'
-              });
+              // Draw description text (multiline supported)
+              const descriptionOptions = { 
+                width: colWidths.description - 10,
+                align: 'left' as const
+              };
               
-              // Get new y position after potentially multiline description
-              const newYPos = doc.y;
+              // Draw description starting at current position
+              const descriptionStart = currentY;
+              doc.text(description, doc.x + 5, currentY, descriptionOptions);
               
-              // Reset y position to render the rest of the line
-              doc.y = startYPos;
+              // Store where description ended
+              const descriptionEnd = doc.y;
               
-              // Render the remaining columns
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              // Reset position to where this row started
+              doc.y = currentY;
               
-              // Update yPos to the lowest point (end of description or other columns)
-              yPos = newYPos + 15; // Add some padding
-              doc.y = yPos;
+              // Draw the other columns aligned with top of description
+              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+              
+              // Move to position after description (which may be multiline)
+              currentY = descriptionEnd + 10;
+              doc.y = currentY;
+              
+              // Draw horizontal line separator
+              doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
             doc.text('No items in this purchase order', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
