@@ -384,14 +384,18 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
 
   // Add a line item
   const addLineItem = (itemData: LineItemFormValues) => {
+    console.log("AddLineItem function called with data:", itemData);
     const inventoryItem = inventoryItems.find(item => item.id === itemData.inventoryItemId);
+    
+    // Calculate the total price from quantity and unit price
+    const calculatedTotalPrice = itemData.quantity * itemData.unitPrice;
     
     const newItem: PurchaseOrderItem & { tempId?: string } = {
       ...itemData,
       id: itemData.id || undefined,
       tempId: itemData.tempId || `temp-${Date.now()}`,
       purchaseOrderId: purchaseOrder?.id || 0,
-      totalPrice: itemData.quantity * itemData.unitPrice,
+      totalPrice: calculatedTotalPrice,
       inventoryItemName: inventoryItem?.name || "Unknown Item",
       createdAt: new Date(),
       createdBy: user?.id || 0,
@@ -748,7 +752,11 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 <div className="space-y-6">
                   {/* Line Items Form */}
                   <form
-                    onSubmit={lineItemForm.handleSubmit(addLineItem)}
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      console.log("Add item form submitted", lineItemForm.getValues());
+                      lineItemForm.handleSubmit(addLineItem)(e);
+                    }}
                     className="grid grid-cols-1 md:grid-cols-2 gap-6"
                   >
                     <div className="space-y-4">
@@ -832,7 +840,15 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                       </div>
 
                       <div className="pt-4">
-                        <Button type="submit" className="w-full">
+                        <Button 
+                          type="submit" 
+                          className="w-full bg-primary hover:bg-primary/90 text-white"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            console.log("Add/Update Item button clicked", lineItemForm.getValues());
+                            lineItemForm.handleSubmit(addLineItem)(e);
+                          }}
+                        >
                           {editingItem ? "Update Item" : "Add Item"}
                         </Button>
                       </div>
