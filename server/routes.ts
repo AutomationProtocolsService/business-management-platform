@@ -309,6 +309,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to fetch quote" });
     }
   });
+  
+  // Get quote items for a specific quote
+  app.get("/api/quotes/:id/items", requireAuth, async (req, res) => {
+    try {
+      const quoteId = Number(req.params.id);
+      const quote = await storage.getQuote(quoteId);
+      
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      res.json(quoteItems);
+    } catch (error) {
+      console.error("Error fetching quote items:", error);
+      res.status(500).json({ message: "Failed to fetch quote items" });
+    }
+  });
 
   app.post("/api/quotes", requireAuth, validateBody(insertQuoteSchema), async (req, res) => {
     try {

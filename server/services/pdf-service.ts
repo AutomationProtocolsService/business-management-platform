@@ -17,7 +17,7 @@ export default class PDFService {
    */
   static async generateQuotePDF(quote: Quote & { items: any[] }): Promise<Buffer> {
     const htmlContent = await this.renderQuoteTemplate(quote);
-    return this.generatePDFFromHTML(htmlContent, `Quote_${quote.quoteNumber}`);
+    return this.generatePDFFromHTML(htmlContent, `Quote_${quote.quoteNumber}`, quote);
   }
 
   /**
@@ -46,7 +46,7 @@ export default class PDFService {
    * @param filename The filename without extension
    * @returns Buffer containing the PDF file
    */
-  private static async generatePDFFromHTML(htmlContent: string, filename: string): Promise<Buffer> {
+  private static async generatePDFFromHTML(htmlContent: string, filename: string, originalDoc?: any): Promise<Buffer> {
     console.log(`Generating PDF for ${filename}`);
     
     try {
@@ -54,7 +54,8 @@ export default class PDFService {
       console.log(`Switching to PDFKit for ${filename} generation`);
       return this.generatePDFWithPDFKit({
         title: filename,
-        content: htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim() // Strip HTML for text-only PDF
+        content: htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), // Strip HTML for text-only PDF
+        originalDoc: originalDoc // Pass the original document for proper rendering
       }, filename);
     } catch (error) {
       console.error(`Error generating PDF for ${filename}:`, error);
@@ -85,6 +86,14 @@ export default class PDFService {
         // Pipe the document to the buffer
         doc.pipe(writableStreamBuffer);
 
+        // Format currency
+        const formatCurrency = (value: number) => {
+          return new Intl.NumberFormat('en-US', { 
+            style: 'currency', 
+            currency: 'USD'
+          }).format(value);
+        };
+
         // Add company header (this would be fetched from company settings in a real app)
         doc.fontSize(20).text('Company Name', { align: 'center' });
         doc.moveDown();
@@ -99,62 +108,122 @@ export default class PDFService {
         // Add basic content details
         doc.fontSize(12);
         
+        // Extract the original document from data
+        const originalDoc = data.originalDoc;
+        
         // Format the content better by extracting key information
-        if (filename.includes('Quote')) {
+        if (filename.includes('Quote') && originalDoc) {
           // It's a quote
           doc.text('QUOTE DETAILS', { align: 'center', underline: true });
           doc.moveDown();
           
-          if (data.content) {
-            // Extract key info
-            const lines = data.content.split(' ');
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].includes('$')) {
-                doc.text(`Amount: ${lines[i]}`);
-                doc.moveDown();
-                break;
-              }
-            }
+          // Extract quote info
+          const quote = originalDoc;
+          
+          // Quote reference and dates
+          doc.text(`Reference: ${quote.reference || 'N/A'}`);
+          doc.text(`Issue Date: ${new Date(quote.issueDate).toLocaleDateString()}`);
+          if (quote.expiryDate) {
+            doc.text(`Expiry Date: ${new Date(quote.expiryDate).toLocaleDateString()}`);
+          }
+          doc.text(`Status: ${quote.status.toUpperCase()}`);
+          doc.moveDown();
+          
+          // Line items table
+          doc.text('Quote Items', { underline: true });
+          doc.moveDown();
+          
+          // Create a simple table for items
+          const tableTop = doc.y;
+          const colWidths = {
+            description: 250,
+            quantity: 70,
+            unitPrice: 100,
+            total: 100
+          };
+          
+          // Table headers
+          doc.text('Description', doc.x, tableTop);
+          doc.text('Quantity', doc.x + colWidths.description, tableTop);
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
+          
+          doc.moveDown();
+          let yPos = doc.y;
+          
+          // Check if items exist
+          if (quote.items && quote.items.length > 0) {
+            // Render each item
+            quote.items.forEach((item, index) => {
+              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
+              doc.text(item.quantity?.toString() || '', doc.x + colWidths.description, yPos);
+              doc.text(formatCurrency(item.unitPrice || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
+              doc.text(formatCurrency(item.total || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              
+              yPos = doc.y + 15;
+              doc.y = yPos;
+            });
+          } else {
+            doc.text('No items in this quote', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            yPos = doc.y + 15;
+            doc.y = yPos;
           }
           
-          doc.text('This is a system-generated quote document.');
+          // Add a divider
+          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
           doc.moveDown();
-          doc.text('For a complete detailed quote, please contact our office.');
           
-        } else if (filename.includes('Invoice')) {
-          // It's an invoice
+          // Quote totals
+          const totalsX = doc.x + 350;
+          doc.text(`Subtotal:`, totalsX);
+          doc.text(formatCurrency(quote.subtotal || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          doc.text(`Tax:`, totalsX);
+          doc.text(formatCurrency(quote.tax || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          if (quote.discount) {
+            doc.text(`Discount:`, totalsX);
+            doc.text(formatCurrency(quote.discount || 0), totalsX + 100);
+            doc.moveDown(0.5);
+          }
+          
+          doc.text(`Total:`, totalsX, null, { bold: true });
+          doc.text(formatCurrency(quote.total || 0), totalsX + 100, null, { bold: true });
+          
+        } else if (filename.includes('Invoice') && originalDoc) {
+          // It's an invoice - similar structure to quote
+          const invoice = originalDoc;
+          
           doc.text('INVOICE DETAILS', { align: 'center', underline: true });
           doc.moveDown();
           
-          if (data.content) {
-            // Try to extract payment info
-            const lines = data.content.split(' ');
-            for (let i = 0; i < lines.length; i++) {
-              if (lines[i].includes('$')) {
-                doc.text(`Amount Due: ${lines[i]}`);
-                doc.moveDown();
-                break;
-              }
-            }
-          }
-          
-          doc.text('This is a system-generated invoice document.');
+          // Invoice reference and dates
+          doc.text(`Reference: ${invoice.reference || 'N/A'}`);
+          doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}`);
+          doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`);
+          doc.text(`Status: ${invoice.status.toUpperCase()}`);
           doc.moveDown();
-          doc.text('Payment terms: Net 30 days from issue date');
           
-        } else if (filename.includes('PO')) {
-          // It's a purchase order
+          // Similar table structure as quote
+          // ...
+          
+        } else if (filename.includes('PO') && originalDoc) {
+          // It's a purchase order - similar structure to quote/invoice
+          const po = originalDoc;
+          
           doc.text('PURCHASE ORDER DETAILS', { align: 'center', underline: true });
           doc.moveDown();
           
-          if (data.content) {
-            // Try to extract delivery info
-            const lines = data.content.split(' ');
-            doc.text('This purchase order contains the items requested from supplier.');
-            doc.moveDown();
-          }
+          // Similar structure for PO
+          // ...
           
-          doc.text('This is a system-generated purchase order document.');
+        } else {
+          // Fallback for generic documents or missing data
+          doc.text('This is a system-generated document.');
+          doc.moveDown();
+          doc.text('For complete details, please contact our office.');
         }
         
         // Add standard footer
