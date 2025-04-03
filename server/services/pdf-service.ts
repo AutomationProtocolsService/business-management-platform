@@ -170,12 +170,32 @@ export default class PDFService {
             quote.items.forEach((item, index) => {
               console.log(`Rendering item ${index}:`, JSON.stringify(item));
               
-              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              // Handle long descriptions by wrapping the text
+              const description = item.description || '';
+              console.log(`Processing description (${description.length} chars): ${description.substring(0, 50)}...`);
               
-              yPos = doc.y + 15;
+              // Save the current Y position
+              const startYPos = yPos;
+              
+              // Create a text with proper width constraints for wrapping
+              doc.text(description, doc.x, yPos, { 
+                width: colWidths.description,
+                align: 'left'
+              });
+              
+              // Get new y position after potentially multiline description
+              const newYPos = doc.y;
+              
+              // Reset y position to render the rest of the line
+              doc.y = startYPos;
+              
+              // Render the remaining columns
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              
+              // Update yPos to the lowest point (end of description or other columns)
+              yPos = newYPos + 15; // Add some padding
               doc.y = yPos;
             });
           } else {
@@ -254,12 +274,32 @@ export default class PDFService {
             invoice.items.forEach((item, index) => {
               console.log(`Rendering invoice item ${index}:`, JSON.stringify(item));
               
-              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              // Handle long descriptions by wrapping the text
+              const description = item.description || '';
+              console.log(`Processing invoice description (${description.length} chars): ${description.substring(0, 50)}...`);
               
-              yPos = doc.y + 15;
+              // Save the current Y position
+              const startYPos = yPos;
+              
+              // Create a text with proper width constraints for wrapping
+              doc.text(description, doc.x, yPos, { 
+                width: colWidths.description,
+                align: 'left'
+              });
+              
+              // Get new y position after potentially multiline description
+              const newYPos = doc.y;
+              
+              // Reset y position to render the rest of the line
+              doc.y = startYPos;
+              
+              // Render the remaining columns
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              
+              // Update yPos to the lowest point (end of description or other columns)
+              yPos = newYPos + 15; // Add some padding
               doc.y = yPos;
             });
           } else {
@@ -338,12 +378,32 @@ export default class PDFService {
             po.items.forEach((item, index) => {
               console.log(`Rendering PO item ${index}:`, JSON.stringify(item));
               
-              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
-              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
-              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
-              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              // Handle long descriptions by wrapping the text
+              const description = item.description || '';
+              console.log(`Processing PO description (${description.length} chars): ${description.substring(0, 50)}...`);
               
-              yPos = doc.y + 15;
+              // Save the current Y position
+              const startYPos = yPos;
+              
+              // Create a text with proper width constraints for wrapping
+              doc.text(description, doc.x, yPos, { 
+                width: colWidths.description,
+                align: 'left'
+              });
+              
+              // Get new y position after potentially multiline description
+              const newYPos = doc.y;
+              
+              // Reset y position to render the rest of the line
+              doc.y = startYPos;
+              
+              // Render the remaining columns
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, startYPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, startYPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, startYPos);
+              
+              // Update yPos to the lowest point (end of description or other columns)
+              yPos = newYPos + 15; // Add some padding
               doc.y = yPos;
             });
           } else {
