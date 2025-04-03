@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { PurchaseOrder } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
   Card, 
   CardContent, 
@@ -10,6 +11,9 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -32,6 +36,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import { 
   PlusCircle, 
@@ -59,7 +64,12 @@ export default function PurchaseOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+  const [recipientEmail, setRecipientEmail] = useState("");
+  const [emailSubject, setEmailSubject] = useState("");
+  const [emailBody, setEmailBody] = useState("");
+  const [includePdf, setIncludePdf] = useState(true);
   
   // Get all purchase orders
   const { 
@@ -68,6 +78,11 @@ export default function PurchaseOrdersPage() {
     isError 
   } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
+  });
+  
+  // Get suppliers for email functionality
+  const { data: suppliers = [] } = useQuery({
+    queryKey: ["/api/suppliers"],
   });
 
   // Filter purchase orders based on search term and status
@@ -131,6 +146,48 @@ export default function PurchaseOrdersPage() {
       </div>
     );
   }
+
+  // Email purchase order mutation
+  const emailPurchaseOrder = useMutation({
+    mutationFn: async (data: { id: number; email: string; subject: string; body: string; includePdf: boolean }) => {
+      // Send email with provided parameters
+      await apiRequest("POST", `/api/purchase-orders/${data.id}/email`, {
+        recipientEmail: data.email,
+        subject: data.subject,
+        body: data.body,
+        includePdf: data.includePdf
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order emailed",
+        description: "Purchase order has been emailed successfully.",
+      });
+      setIsEmailDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Initialize email dialog fields when opening the dialog
+  const handleEmailDialogOpen = (po: PurchaseOrder) => {
+    setSelectedPO(po);
+    
+    // Try to find supplier email from suppliers data
+    const supplier = suppliers.find((s: any) => s.id === po.supplierId);
+    const supplierEmail = supplier?.email || "";
+    
+    setRecipientEmail(supplierEmail);
+    setEmailSubject(`Purchase Order #${po.poNumber || po.id}`);
+    setEmailBody("Please find attached the purchase order. Let us know if you have any questions.");
+    setIncludePdf(true);
+    setIsEmailDialogOpen(true);
+  };
 
   return (
     <div className="container py-10">
@@ -307,41 +364,8 @@ export default function PurchaseOrdersPage() {
                             size="icon"
                             className="text-purple-500"
                             title="Email to supplier"
-                            onClick={() => {
-                              toast({
-                                title: "Email functionality",
-                                description: "Emailing purchase order to supplier...",
-                              });
-                              
-                              fetch(`/api/purchase-orders/${po.id}/email`, {
-                                method: 'POST',
-                                headers: {
-                                  'Content-Type': 'application/json',
-                                },
-                                body: JSON.stringify({
-                                  // These values would normally come from a form
-                                  subject: `Purchase Order ${po.poNumber || po.id}`,
-                                  body: "Please find attached the purchase order. Let us know if you have any questions."
-                                }),
-                              })
-                              .then(response => {
-                                if (response.ok) {
-                                  toast({
-                                    title: "Email sent",
-                                    description: "The purchase order has been emailed to the supplier successfully",
-                                  });
-                                } else {
-                                  throw new Error(`Server responded with status: ${response.status}`);
-                                }
-                              })
-                              .catch(error => {
-                                toast({
-                                  title: "Email failed",
-                                  description: `Failed to email the purchase order: ${error.message}`,
-                                  variant: "destructive",
-                                });
-                              });
-                            }}
+                            onClick={() => handleEmailDialogOpen(po)}
+                            disabled={po.status === 'Draft'}
                           >
                             <Mail className="h-4 w-4" />
                           </Button>
@@ -370,6 +394,126 @@ export default function PurchaseOrdersPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Email Dialog */}
+      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Mail className="h-5 w-5 text-primary" />
+              Email Purchase Order
+            </DialogTitle>
+            <DialogDescription>
+              Send this purchase order to the supplier via email.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="recipient">Recipient Email *</Label>
+              <Input
+                id="recipient"
+                type="email"
+                placeholder="supplier@example.com"
+                value={recipientEmail}
+                onChange={(e) => setRecipientEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="subject">Subject *</Label>
+              <Input
+                id="subject"
+                value={emailSubject}
+                onChange={(e) => setEmailSubject(e.target.value)}
+                placeholder="Purchase Order #123"
+                required
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="message">Message *</Label>
+              <Textarea
+                id="message"
+                className="min-h-24"
+                value={emailBody}
+                onChange={(e) => setEmailBody(e.target.value)}
+                placeholder="Please find attached the purchase order."
+                required
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox 
+                id="includePdf" 
+                checked={includePdf}
+                onCheckedChange={(checked) => setIncludePdf(checked as boolean)}
+              />
+              <label
+                htmlFor="includePdf"
+                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+              >
+                Include PDF attachment
+              </label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setIsEmailDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                if (!selectedPO) return;
+                if (!recipientEmail.trim()) {
+                  toast({
+                    title: "Error",
+                    description: "Recipient email is required",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                if (!emailSubject.trim()) {
+                  toast({
+                    title: "Error",
+                    description: "Email subject is required",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                if (!emailBody.trim()) {
+                  toast({
+                    title: "Error",
+                    description: "Email message is required",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+                emailPurchaseOrder.mutate({
+                  id: selectedPO.id,
+                  email: recipientEmail,
+                  subject: emailSubject,
+                  body: emailBody,
+                  includePdf: includePdf
+                });
+              }}
+              disabled={emailPurchaseOrder.isPending}
+              className="bg-primary hover:bg-primary/90 text-white gap-1"
+            >
+              {emailPurchaseOrder.isPending ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <Mail className="h-4 w-4" />
+                  Send Email
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
