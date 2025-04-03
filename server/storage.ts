@@ -1460,10 +1460,111 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteProject(id: number): Promise<boolean> {
-    const result = await db.delete(schema.projects)
-      .where(eq(schema.projects.id, id))
-      .returning();
-    return result.length > 0;
+    try {
+      // First check if project exists
+      const project = await this.getProject(id);
+      if (!project) {
+        return false;
+      }
+      
+      // Delete related file attachments
+      const projectAttachments = await this.getFileAttachmentsByRelatedEntity('project', id);
+      for (const attachment of projectAttachments) {
+        await db.delete(schema.fileAttachments)
+          .where(eq(schema.fileAttachments.id, attachment.id));
+      }
+      
+      // Delete related surveys first
+      await db.delete(schema.surveys)
+        .where(eq(schema.surveys.projectId, id));
+      
+      // Delete related installations
+      await db.delete(schema.installations)
+        .where(eq(schema.installations.projectId, id));
+      
+      // Delete related quotes (and their items)
+      const quotes = await this.getQuotesByProject(id);
+      for (const quote of quotes) {
+        // Delete quote items first
+        await db.delete(schema.quoteItems)
+          .where(eq(schema.quoteItems.quoteId, quote.id));
+        
+        // Delete quote attachments
+        const quoteAttachments = await this.getFileAttachmentsByRelatedEntity('quote', quote.id);
+        for (const attachment of quoteAttachments) {
+          await db.delete(schema.fileAttachments)
+            .where(eq(schema.fileAttachments.id, attachment.id));
+        }
+        
+        // Then delete the quote itself
+        await db.delete(schema.quotes)
+          .where(eq(schema.quotes.id, quote.id));
+      }
+      
+      // Delete related invoices (and their items)
+      const invoices = await this.getInvoicesByProject(id);
+      for (const invoice of invoices) {
+        // Delete invoice items first
+        await db.delete(schema.invoiceItems)
+          .where(eq(schema.invoiceItems.invoiceId, invoice.id));
+        
+        // Delete invoice attachments
+        const invoiceAttachments = await this.getFileAttachmentsByRelatedEntity('invoice', invoice.id);
+        for (const attachment of invoiceAttachments) {
+          await db.delete(schema.fileAttachments)
+            .where(eq(schema.fileAttachments.id, attachment.id));
+        }
+        
+        // Then delete the invoice itself
+        await db.delete(schema.invoices)
+          .where(eq(schema.invoices.id, invoice.id));
+      }
+      
+      // Delete related timesheets
+      await db.delete(schema.timesheets)
+        .where(eq(schema.timesheets.projectId, id));
+      
+      // Delete related task lists
+      await db.delete(schema.taskLists)
+        .where(eq(schema.taskLists.projectId, id));
+      
+      // Delete related expenses
+      await db.delete(schema.expenses)
+        .where(eq(schema.expenses.projectId, id));
+      
+      // Delete related inventory transactions
+      await db.delete(schema.inventoryTransactions)
+        .where(eq(schema.inventoryTransactions.projectId, id));
+      
+      // Delete related purchase orders (and their items)
+      const purchaseOrders = await this.getPurchaseOrdersByProject(id);
+      for (const po of purchaseOrders) {
+        // Delete purchase order items first
+        await db.delete(schema.purchaseOrderItems)
+          .where(eq(schema.purchaseOrderItems.purchaseOrderId, po.id));
+        
+        // Delete purchase order attachments
+        const poAttachments = await this.getFileAttachmentsByRelatedEntity('purchaseOrder', po.id);
+        for (const attachment of poAttachments) {
+          await db.delete(schema.fileAttachments)
+            .where(eq(schema.fileAttachments.id, attachment.id));
+        }
+        
+        // Then delete the purchase order itself
+        await db.delete(schema.purchaseOrders)
+          .where(eq(schema.purchaseOrders.id, po.id));
+      }
+      
+      // Finally delete the project itself
+      const result = await db.delete(schema.projects)
+        .where(eq(schema.projects.id, id))
+        .returning();
+      
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting project:', error);
+      return false;
+    }
   }
 
   async getAllProjects(): Promise<Project[]> {
