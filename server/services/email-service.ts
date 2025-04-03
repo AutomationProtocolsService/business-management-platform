@@ -44,6 +44,10 @@ export default class EmailService {
       // Set a default from address if not provided
       const fromAddress = params.from || 'noreply@example.com';
       
+      console.log(`Attempting to send email to ${params.to} from ${fromAddress}`);
+      console.log(`Subject: ${params.subject}`);
+      console.log(`Has attachments: ${params.attachments ? 'Yes' : 'No'}`);
+      
       await mailService.send({
         to: params.to,
         from: fromAddress,
@@ -57,6 +61,10 @@ export default class EmailService {
       return true;
     } catch (error) {
       console.error('Error sending email:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       return false;
     }
   }
@@ -132,41 +140,59 @@ export default class EmailService {
   static async sendInvoice(
     invoice: Invoice & { items: any[] }, 
     recipientEmail: string, 
-    senderEmail: string
+    senderEmail: string,
+    options?: {
+      subject?: string;
+      message?: string;
+      includePdf?: boolean;
+    }
   ): Promise<boolean> {
     try {
-      // Generate PDF
-      const pdfBuffer = await PDFService.generateInvoicePDF(invoice);
-      
-      // Convert buffer to base64 for email attachment
-      const base64PDF = pdfBuffer.toString('base64');
+      console.log(`Preparing to send invoice #${invoice.invoiceNumber} to ${recipientEmail}`);
       
       // Prepare email content
       const emailParams: EmailParams = {
         to: recipientEmail,
         from: senderEmail,
-        subject: `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}`,
-        html: `
+        subject: options?.subject || `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}`,
+        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
           <p>Dear Customer,</p>
           <p>Please find attached the ${invoice.type === 'deposit' ? 'deposit invoice' : 'invoice'} #${invoice.invoiceNumber} for your payment.</p>
           <p>The invoice total is $${invoice.total.toFixed(2)} and is due on ${new Date(invoice.dueDate).toLocaleDateString()}.</p>
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Thank you for your business!</p>
-        `,
-        attachments: [
+        `
+      };
+      
+      // Add PDF attachment if requested (default is true)
+      if (options?.includePdf !== false) {
+        console.log(`Generating PDF for invoice #${invoice.invoiceNumber}`);
+        
+        // Generate PDF
+        const pdfBuffer = await PDFService.generateInvoicePDF(invoice);
+        
+        console.log(`PDF generated, size: ${pdfBuffer.length} bytes`);
+        
+        // Convert buffer to base64 for email attachment
+        const base64PDF = pdfBuffer.toString('base64');
+        
+        emailParams.attachments = [
           {
             content: base64PDF,
             filename: `Invoice_${invoice.invoiceNumber}.pdf`,
             type: 'application/pdf',
             disposition: 'attachment'
           }
-        ]
-      };
+        ];
+      }
       
       // Send email
       return await this.sendEmail(emailParams);
     } catch (error) {
       console.error('Error sending invoice email:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message);
+      }
       return false;
     }
   }

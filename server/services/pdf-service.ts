@@ -47,6 +47,7 @@ export default class PDFService {
    * @returns Buffer containing the PDF file
    */
   private static async generatePDFFromHTML(htmlContent: string, filename: string): Promise<Buffer> {
+    console.log(`Generating PDF for ${filename}`);
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
@@ -63,7 +64,11 @@ export default class PDFService {
         margin: { top: '1cm', right: '1cm', bottom: '1cm', left: '1cm' }
       });
       
-      return Buffer.from(pdfBuffer);
+      console.log(`PDF generated successfully for ${filename}, size: ${pdfBuffer.length} bytes`);
+      return pdfBuffer; // No need to convert, already a Buffer
+    } catch (error) {
+      console.error(`Error generating PDF for ${filename}:`, error);
+      throw error;
     } finally {
       await browser.close();
     }
