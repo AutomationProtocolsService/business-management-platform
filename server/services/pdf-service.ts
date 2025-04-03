@@ -27,7 +27,7 @@ export default class PDFService {
    */
   static async generateInvoicePDF(invoice: Invoice & { items: any[] }): Promise<Buffer> {
     const htmlContent = await this.renderInvoiceTemplate(invoice);
-    return this.generatePDFFromHTML(htmlContent, `Invoice_${invoice.invoiceNumber}`);
+    return this.generatePDFFromHTML(htmlContent, `Invoice_${invoice.invoiceNumber}`, invoice);
   }
 
   /**
@@ -37,7 +37,7 @@ export default class PDFService {
    */
   static async generatePurchaseOrderPDF(purchaseOrder: PurchaseOrder & { items: any[] }): Promise<Buffer> {
     const htmlContent = await this.renderPurchaseOrderTemplate(purchaseOrder);
-    return this.generatePDFFromHTML(htmlContent, `PO_${purchaseOrder.poNumber}`);
+    return this.generatePDFFromHTML(htmlContent, `PO_${purchaseOrder.poNumber}`, purchaseOrder);
   }
 
   /**

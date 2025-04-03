@@ -776,6 +776,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
       
+      console.log(`Generating PDF for Invoice_${invoice.invoiceNumber}`);
+      
       // Generate PDF using the PDFService
       const pdfBuffer = await PDFService.generateInvoicePDF({
         ...invoice,
@@ -2719,6 +2721,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      
+      console.log(`Generating PDF for PO_${purchaseOrder.poNumber}`);
       
       // Generate PDF using the PDFService
       const pdfBuffer = await PDFService.generatePurchaseOrderPDF({
