@@ -548,7 +548,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description: item.description,
           quantity: item.quantity,
           unitPrice: item.unitPrice,
-          total: item.total
+          total: item.total,
+          catalogItemId: item.catalogItemId
         });
       }
       
@@ -779,11 +780,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
+      // Get email subject, message, and attachment options from request
+      const { subject, message, includePdf = true } = req.body;
+      
       // Send email with PDF using EmailService
       const success = await EmailService.sendInvoice(
         { ...invoice, items: invoiceItems },
         recipientEmail,
-        senderEmail
+        senderEmail,
+        { subject, message, includePdf }
       );
       
       if (success) {
