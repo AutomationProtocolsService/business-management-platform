@@ -30,7 +30,8 @@ import {
   Quote, 
   Customer, 
   Project,
-  FileAttachment 
+  FileAttachment,
+  CatalogItem
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
@@ -55,7 +56,8 @@ import { FileList } from "@/components/ui/file-list";
 const quoteItemSchema = insertQuoteItemSchema.extend({
   description: z.string().min(3, "Description must be at least 3 characters."),
   quantity: z.number().min(0.01, "Quantity must be greater than 0."),
-  unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0.")
+  unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0."),
+  catalogItemId: z.number().optional()
 });
 
 // Extend the insert schema with client-side validation and calculations
@@ -126,13 +128,17 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
     enabled: !!quoteId
   });
 
-  // Fetch customers and projects for dropdowns
+  // Fetch customers, projects, and catalog items for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
 
   const { data: projects = [] } = useQuery<Project[]>({
     queryKey: ["/api/projects"],
+  });
+  
+  const { data: catalogItems = [] } = useQuery<CatalogItem[]>({
+    queryKey: ["/api/catalog-items"],
   });
 
   // Initialize form with default values
@@ -155,7 +161,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
           description: "",
           quantity: 1,
           unitPrice: 0,
-          total: 0
+          total: 0,
+          catalogItemId: undefined
         }
       ]
     },
@@ -875,7 +882,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                 <CardContent>
                   <div className="space-y-4">
                     <div className="grid grid-cols-12 gap-2 font-medium text-sm text-gray-500">
-                      <div className="col-span-5">Description</div>
+                      <div className="col-span-2">Catalog Item</div>
+                      <div className="col-span-3">Description</div>
                       <div className="col-span-2">Quantity</div>
                       <div className="col-span-2">Unit Price</div>
                       <div className="col-span-2">Total</div>
@@ -884,7 +892,49 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
 
                     {fields.map((field, index) => (
                       <div key={field.id} className="grid grid-cols-12 gap-2 items-start">
-                        <div className="col-span-5">
+                        <div className="col-span-2">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.catalogItemId`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Select
+                                    value={field.value?.toString()}
+                                    onValueChange={(value) => {
+                                      // Set the catalogItemId
+                                      field.onChange(value ? parseInt(value) : undefined);
+                                      
+                                      // Find the selected catalog item
+                                      const catalogItem = catalogItems.find(item => item.id === parseInt(value));
+                                      
+                                      // If we found a catalog item, update the description and unit price
+                                      if (catalogItem) {
+                                        form.setValue(`items.${index}.description`, catalogItem.description);
+                                        form.setValue(`items.${index}.unitPrice`, catalogItem.unitPrice);
+                                      }
+                                    }}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select item" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      <SelectItem value="">None</SelectItem>
+                                      {catalogItems.map((item) => (
+                                        <SelectItem key={item.id} value={item.id.toString()}>
+                                          {item.name}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        
+                        <div className="col-span-3">
                           <FormField
                             control={form.control}
                             name={`items.${index}.description`}
@@ -979,7 +1029,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                       type="button"
                       variant="outline"
                       className="mt-2"
-                      onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0 })}
+                      onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0, catalogItemId: undefined })}
                     >
                       <Plus className="mr-2 h-4 w-4" /> Add Item
                     </Button>
