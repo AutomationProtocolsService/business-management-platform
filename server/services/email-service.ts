@@ -207,21 +207,22 @@ export default class EmailService {
   static async sendPurchaseOrder(
     purchaseOrder: PurchaseOrder & { items: any[] }, 
     recipientEmail: string, 
-    senderEmail: string
+    senderEmail: string,
+    options?: {
+      subject?: string;
+      message?: string;
+      includePdf?: boolean;
+    }
   ): Promise<boolean> {
     try {
-      // Generate PDF
-      const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
-      
-      // Convert buffer to base64 for email attachment
-      const base64PDF = pdfBuffer.toString('base64');
+      console.log(`Preparing to send PO #${purchaseOrder.poNumber} to ${recipientEmail}`);
       
       // Prepare email content
       const emailParams: EmailParams = {
         to: recipientEmail,
         from: senderEmail,
-        subject: `Purchase Order #${purchaseOrder.poNumber}`,
-        html: `
+        subject: options?.subject || `Purchase Order #${purchaseOrder.poNumber}`,
+        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
           <p>Dear Supplier,</p>
           <p>Please find attached our purchase order #${purchaseOrder.poNumber}.</p>
           <p>The purchase order total is $${purchaseOrder.total.toFixed(2)}.</p>
@@ -232,16 +233,30 @@ export default class EmailService {
           }.</p>
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Thank you for your cooperation.</p>
-        `,
-        attachments: [
+        `
+      };
+      
+      // Add PDF attachment if requested (default is true)
+      if (options?.includePdf !== false) {
+        console.log(`Generating PDF for PO #${purchaseOrder.poNumber}`);
+        
+        // Generate PDF
+        const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
+        
+        console.log(`PDF generated, size: ${pdfBuffer.length} bytes`);
+        
+        // Convert buffer to base64 for email attachment
+        const base64PDF = pdfBuffer.toString('base64');
+        
+        emailParams.attachments = [
           {
             content: base64PDF,
             filename: `PO_${purchaseOrder.poNumber}.pdf`,
             type: 'application/pdf',
             disposition: 'attachment'
           }
-        ]
-      };
+        ];
+      }
       
       // Send email
       return await this.sendEmail(emailParams);
