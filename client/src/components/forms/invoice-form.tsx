@@ -28,7 +28,8 @@ import {
   Customer, 
   Project,
   Quote,
-  FileAttachment
+  FileAttachment,
+  CatalogItem
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { getInputDateString } from "@/lib/date-utils";
@@ -48,7 +49,8 @@ import { FileList } from "@/components/ui/file-list";
 const invoiceItemSchema = insertInvoiceItemSchema.extend({
   description: z.string().min(3, "Description must be at least 3 characters."),
   quantity: z.number().min(0.01, "Quantity must be greater than 0."),
-  unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0.")
+  unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0."),
+  catalogItemId: z.number().optional()
 });
 
 // Extend the insert schema with client-side validation and calculations
@@ -105,7 +107,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
     enabled: !!invoiceId
   });
 
-  // Fetch customers, projects, and quotes for dropdowns
+  // Fetch customers, projects, quotes, and catalog items for dropdowns
   const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
   });
@@ -116,6 +118,10 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
 
   const { data: quotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/quotes"],
+  });
+
+  const { data: catalogItems = [] } = useQuery<CatalogItem[]>({
+    queryKey: ["/api/catalog-items"],
   });
 
   // Initialize form with default values
@@ -135,7 +141,8 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
           description: "",
           quantity: 1,
           unitPrice: 0,
-          total: 0
+          total: 0,
+          catalogItemId: undefined
         }
       ]
     },
@@ -180,7 +187,8 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
             description: item.description,
             quantity: item.quantity,
             unitPrice: item.unitPrice,
-            total: item.total
+            total: item.total,
+            catalogItemId: item.catalogItemId
           })));
         }
       } catch (error) {
@@ -259,7 +267,11 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
       // Then add items to the invoice
       for (const item of values.items) {
         await apiRequest("POST", `/api/invoices/${invoice.id}/items`, {
-          ...item,
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+          catalogItemId: item.catalogItemId,
           invoiceId: invoice.id
         });
       }
@@ -308,8 +320,26 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
       // First update the invoice
       const invoiceRes = await apiRequest("PUT", `/api/invoices/${invoiceId}`, invoiceData);
       
-      // Note: For a real application, you would need endpoints to delete and update items
-      // For this demo, we'll assume items are handled separately
+      // Delete all existing items and create new ones
+      const existingItemsRes = await apiRequest("GET", `/api/invoices/${invoiceId}/items`);
+      const existingItems = await existingItemsRes.json();
+      
+      // Delete all existing items
+      for (const item of existingItems) {
+        await apiRequest("DELETE", `/api/invoices/${invoiceId}/items/${item.id}`);
+      }
+      
+      // Add the new items
+      for (const item of values.items) {
+        await apiRequest("POST", `/api/invoices/${invoiceId}/items`, {
+          description: item.description,
+          quantity: item.quantity,
+          unitPrice: item.unitPrice,
+          total: item.total,
+          catalogItemId: item.catalogItemId,
+          invoiceId: invoiceId
+        });
+      }
       
       return await invoiceRes.json();
     },
@@ -391,6 +421,19 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
   // Handle files upload success
   const handleFilesUploaded = (newFiles: FileAttachment[]) => {
     setAttachments(prev => [...prev, ...newFiles]);
+  };
+  
+  // Handle catalog item selection
+  const handleCatalogItemSelect = (catalogItemId: number, index: number) => {
+    // Find the selected catalog item
+    const selectedItem = catalogItems.find(item => item.id === catalogItemId);
+    
+    if (selectedItem) {
+      // Update the line item fields with catalog item data
+      form.setValue(`items.${index}.description`, selectedItem.description);
+      form.setValue(`items.${index}.unitPrice`, selectedItem.unitPrice);
+      form.setValue(`items.${index}.catalogItemId`, selectedItem.id);
+    }
   };
   
   // Handle loading state
@@ -727,6 +770,39 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
                   <div className="col-span-5">
                     <FormField
                       control={form.control}
+                      name={`items.${index}.catalogItemId`}
+                      render={({ field }) => (
+                        <FormItem className="mb-2">
+                          <Select
+                            onValueChange={(value) => {
+                              field.onChange(value === "0" ? undefined : Number(value));
+                              if (value !== "0") {
+                                handleCatalogItemSelect(Number(value), index);
+                              }
+                            }}
+                            value={field.value?.toString() || "0"}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select from catalog (optional)" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="0">Custom item</SelectItem>
+                              {catalogItems.map((item) => (
+                                <SelectItem key={item.id} value={item.id.toString()}>
+                                  {item.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
                       name={`items.${index}.description`}
                       render={({ field }) => (
                         <FormItem>
@@ -829,7 +905,8 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
                   description: "", 
                   quantity: 1, 
                   unitPrice: 0, 
-                  total: 0, 
+                  total: 0,
+                  catalogItemId: undefined,
                   invoiceId: form.getValues('id') || 0
                 })}
               >
