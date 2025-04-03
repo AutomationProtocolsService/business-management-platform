@@ -73,6 +73,19 @@ export default class PDFService {
     return new Promise((resolve, reject) => {
       try {
         console.log(`Creating PDF using PDFKit for ${filename}`);
+        console.log('PDF Data:', JSON.stringify({
+          title: data.title,
+          has_original_doc: !!data.originalDoc,
+          original_doc_type: data.originalDoc ? typeof data.originalDoc : 'none',
+          has_items: data.originalDoc && data.originalDoc.items ? true : false,
+          items_count: data.originalDoc && data.originalDoc.items ? data.originalDoc.items.length : 0
+        }));
+        
+        // Ensure the originalDoc is accessible
+        const originalDoc = data.originalDoc;
+        if (!originalDoc) {
+          console.warn(`Warning: No original document provided for ${filename}`);
+        }
         
         // Create a PDF document
         const doc = new PDFDocument({ margin: 50 });
@@ -107,9 +120,6 @@ export default class PDFService {
         
         // Add basic content details
         doc.fontSize(12);
-        
-        // Extract the original document from data
-        const originalDoc = data.originalDoc;
         
         // Format the content better by extracting key information
         if (filename.includes('Quote') && originalDoc) {
@@ -153,12 +163,17 @@ export default class PDFService {
           
           // Check if items exist
           if (quote.items && quote.items.length > 0) {
+            // Debug log the items
+            console.log(`Quote items for PDF (${quote.items.length}):`, JSON.stringify(quote.items));
+            
             // Render each item
             quote.items.forEach((item, index) => {
+              console.log(`Rendering item ${index}:`, JSON.stringify(item));
+              
               doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
-              doc.text(item.quantity?.toString() || '', doc.x + colWidths.description, yPos);
-              doc.text(formatCurrency(item.unitPrice || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
-              doc.text(formatCurrency(item.total || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
               
               yPos = doc.y + 15;
               doc.y = yPos;
@@ -196,6 +211,8 @@ export default class PDFService {
           // It's an invoice - similar structure to quote
           const invoice = originalDoc;
           
+          console.log(`Invoice PDF data:`, JSON.stringify(invoice));
+          
           doc.text('INVOICE DETAILS', { align: 'center', underline: true });
           doc.moveDown();
           
@@ -206,18 +223,157 @@ export default class PDFService {
           doc.text(`Status: ${invoice.status.toUpperCase()}`);
           doc.moveDown();
           
-          // Similar table structure as quote
-          // ...
+          // Line items table
+          doc.text('Invoice Items', { underline: true });
+          doc.moveDown();
+          
+          // Create a simple table for items
+          const tableTop = doc.y;
+          const colWidths = {
+            description: 250,
+            quantity: 70,
+            unitPrice: 100,
+            total: 100
+          };
+          
+          // Table headers
+          doc.text('Description', doc.x, tableTop);
+          doc.text('Quantity', doc.x + colWidths.description, tableTop);
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
+          
+          doc.moveDown();
+          let yPos = doc.y;
+          
+          // Check if items exist
+          if (invoice.items && invoice.items.length > 0) {
+            // Debug log the items
+            console.log(`Invoice items for PDF (${invoice.items.length}):`, JSON.stringify(invoice.items));
+            
+            // Render each item
+            invoice.items.forEach((item, index) => {
+              console.log(`Rendering invoice item ${index}:`, JSON.stringify(item));
+              
+              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              
+              yPos = doc.y + 15;
+              doc.y = yPos;
+            });
+          } else {
+            doc.text('No items in this invoice', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            yPos = doc.y + 15;
+            doc.y = yPos;
+          }
+          
+          // Add a divider
+          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
+          doc.moveDown();
+          
+          // Invoice totals
+          const totalsX = doc.x + 350;
+          doc.text(`Subtotal:`, totalsX);
+          doc.text(formatCurrency(invoice.subtotal || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          doc.text(`Tax:`, totalsX);
+          doc.text(formatCurrency(invoice.tax || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          if (invoice.discount) {
+            doc.text(`Discount:`, totalsX);
+            doc.text(formatCurrency(invoice.discount || 0), totalsX + 100);
+            doc.moveDown(0.5);
+          }
+          
+          doc.text(`Total:`, totalsX, null, { bold: true });
+          doc.text(formatCurrency(invoice.total || 0), totalsX + 100, null, { bold: true });
           
         } else if (filename.includes('PO') && originalDoc) {
           // It's a purchase order - similar structure to quote/invoice
           const po = originalDoc;
           
+          console.log(`Purchase Order PDF data:`, JSON.stringify(po));
+          
           doc.text('PURCHASE ORDER DETAILS', { align: 'center', underline: true });
           doc.moveDown();
           
-          // Similar structure for PO
-          // ...
+          // PO reference and dates
+          doc.text(`PO Number: ${po.poNumber || 'N/A'}`);
+          doc.text(`Issue Date: ${new Date(po.issueDate).toLocaleDateString()}`);
+          doc.text(`Expected Delivery: ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'N/A'}`);
+          doc.text(`Status: ${po.status.toUpperCase()}`);
+          doc.moveDown();
+          
+          // Line items table
+          doc.text('Purchase Order Items', { underline: true });
+          doc.moveDown();
+          
+          // Create a simple table for items
+          const tableTop = doc.y;
+          const colWidths = {
+            description: 250,
+            quantity: 70,
+            unitPrice: 100,
+            total: 100
+          };
+          
+          // Table headers
+          doc.text('Description', doc.x, tableTop);
+          doc.text('Quantity', doc.x + colWidths.description, tableTop);
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
+          
+          doc.moveDown();
+          let yPos = doc.y;
+          
+          // Check if items exist
+          if (po.items && po.items.length > 0) {
+            // Debug log the items
+            console.log(`PO items for PDF (${po.items.length}):`, JSON.stringify(po.items));
+            
+            // Render each item
+            po.items.forEach((item, index) => {
+              console.log(`Rendering PO item ${index}:`, JSON.stringify(item));
+              
+              doc.text(item.description || '', doc.x, yPos, { width: colWidths.description });
+              doc.text(String(item.quantity || '0'), doc.x + colWidths.description, yPos);
+              doc.text(formatCurrency(Number(item.unitPrice) || 0), doc.x + colWidths.description + colWidths.quantity, yPos);
+              doc.text(formatCurrency(Number(item.total) || 0), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, yPos);
+              
+              yPos = doc.y + 15;
+              doc.y = yPos;
+            });
+          } else {
+            doc.text('No items in this purchase order', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            yPos = doc.y + 15;
+            doc.y = yPos;
+          }
+          
+          // Add a divider
+          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
+          doc.moveDown();
+          
+          // PO totals
+          const totalsX = doc.x + 350;
+          doc.text(`Subtotal:`, totalsX);
+          doc.text(formatCurrency(po.subtotal || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          doc.text(`Tax:`, totalsX);
+          doc.text(formatCurrency(po.tax || 0), totalsX + 100);
+          doc.moveDown(0.5);
+          
+          if (po.shipping) {
+            doc.text(`Shipping:`, totalsX);
+            doc.text(formatCurrency(po.shipping || 0), totalsX + 100);
+            doc.moveDown(0.5);
+          }
+          
+          doc.text(`Total:`, totalsX, null, { bold: true });
+          doc.text(formatCurrency(po.total || 0), totalsX + 100, null, { bold: true });
           
         } else {
           // Fallback for generic documents or missing data
