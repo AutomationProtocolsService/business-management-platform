@@ -902,8 +902,11 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                                   <Select
                                     value={field.value?.toString()}
                                     onValueChange={(value) => {
-                                      // Set the catalogItemId
-                                      field.onChange(value ? parseInt(value) : undefined);
+                                      // Set the catalogItemId (handle "0" as none)
+                                      field.onChange(value === "0" ? undefined : parseInt(value));
+                                      
+                                      // If "0" was selected (None), don't update other fields
+                                      if (value === "0") return;
                                       
                                       // Find the selected catalog item
                                       const catalogItem = catalogItems.find(item => item.id === parseInt(value));
@@ -919,7 +922,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                                       <SelectValue placeholder="Select item" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                      <SelectItem value="">None</SelectItem>
+                                      <SelectItem value="0">None</SelectItem>
                                       {catalogItems.map((item) => (
                                         <SelectItem key={item.id} value={item.id.toString()}>
                                           {item.name}
