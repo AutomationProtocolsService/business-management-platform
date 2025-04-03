@@ -1,0 +1,70 @@
+If the "View", "Edit", and "Email" icons are not working on the invoice page, the issue could be related to JavaScript errors, missing event listeners, or backend issues. Here’s how to troubleshoot and fix it:
+
+🔍 Possible Causes & Fixes:
+1️⃣ Check for JavaScript Errors
+Open Developer Tools (Press F12 or Ctrl + Shift + I) and go to the Console tab.
+
+Look for any red error messages indicating JavaScript issues.
+
+If there are errors, they may point to missing functions or API issues.
+
+✅ Fix: If there’s an error, it may be due to missing JavaScript files or incorrect event listeners. Debug the script handling these buttons.
+
+2️⃣ Check if Click Events Are Being Triggered
+Open Developer Tools and go to the Elements tab.
+
+Find the icons (eye, pencil, email).
+
+Right-click > Inspect and check if they have an onClick event.
+
+✅ Fix: If there’s no event attached, the JavaScript might not be initializing properly. Make sure event listeners are being attached in the script.
+
+3️⃣ Check Network Requests
+Go to Network tab in Developer Tools and click on the "View", "Edit", or "Email" icons.
+
+Look for failed requests (red errors like 400, 403, or 500).
+
+✅ Fix: If the requests are failing:
+
+400 Bad Request → Data issue, check API request format.
+
+403 Forbidden → Permission issue, check authentication.
+
+500 Internal Server Error → Backend issue, check server logs.
+
+4️⃣ Check JavaScript Functionality
+If the app is built with React, Vue, or Angular, ensure the respective event handlers (onClick, @click, etc.) are properly set.
+
+If using jQuery or vanilla JS, confirm the script is loading with console.log() inside the click functions.
+
+✅ Fix: Try manually triggering the click event in the console:
+
+javascript
+Copy
+Edit
+document.querySelector('.view-icon').click();
+If nothing happens, the event listener is missing.
+
+5️⃣ Check for Page Reloads or Broken Routes
+If clicking an icon does nothing, but the page is supposed to change URL (e.g., invoices/1/view), check if the routing is properly set up.
+
+✅ Fix: Ensure correct href or router-link values in the HTML:
+
+html
+Copy
+Edit
+<a href="/invoices/1/view">View</a>
+For React/Next.js:
+
+jsx
+Copy
+Edit
+<Link href="/invoices/1/view">View</Link>
+🚀 Final Steps:
+Open Console (F12 > Console) → Check for errors.
+
+Open Network (F12 > Network) → Click the buttons and check for failed requests.
+
+Verify JavaScript initialization → Ensure event listeners are attached.
+
+Check API responses in the backend → Debug any errors found.

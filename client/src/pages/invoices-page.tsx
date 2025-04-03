@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -144,7 +145,23 @@ export default function InvoicesPage() {
   // Email invoice mutation
   const emailInvoice = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("POST", `/api/invoices/${id}/email`);
+      // Get the customer email for this invoice
+      const invoice = filteredInvoices.find(inv => inv.id === id);
+      if (!invoice || !invoice.customerId) {
+        throw new Error("Invoice or customer information not found");
+      }
+      
+      const customer = customers.find(c => c.id === invoice.customerId);
+      if (!customer || !customer.email) {
+        throw new Error("Customer email not found");
+      }
+      
+      // Send email with customer's email as recipient
+      await apiRequest("POST", `/api/invoices/${id}/email`, {
+        recipientEmail: customer.email,
+        subject: `Invoice #${invoice.invoiceNumber}`,
+        includePdf: true
+      });
     },
     onSuccess: () => {
       toast({
@@ -483,9 +500,31 @@ export default function InvoicesPage() {
           <DialogHeader>
             <DialogTitle>Email Invoice</DialogTitle>
             <DialogDescription>
-              Are you sure you want to email this invoice to the customer? This will send the invoice as a PDF attachment.
+              This will send the invoice as a PDF attachment to the customer.
             </DialogDescription>
           </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            {selectedInvoiceId && (
+              <div className="grid grid-cols-4 items-center gap-4">
+                <Label className="text-right">
+                  Recipient
+                </Label>
+                <div className="col-span-3">
+                  {(() => {
+                    const invoice = filteredInvoices.find(inv => inv.id === selectedInvoiceId);
+                    if (!invoice || !invoice.customerId) return "No customer found";
+                    
+                    const customer = customers.find(c => c.id === invoice.customerId);
+                    if (!customer) return "Customer not found";
+                    
+                    return customer.email || "No email available";
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+          
           <DialogFooter>
             <Button 
               variant="outline" 
@@ -495,7 +534,11 @@ export default function InvoicesPage() {
             </Button>
             <Button 
               onClick={() => selectedInvoiceId && emailInvoice.mutate(selectedInvoiceId)}
-              disabled={emailInvoice.isPending}
+              disabled={emailInvoice.isPending || 
+                !selectedInvoiceId || 
+                !filteredInvoices.find(inv => inv.id === selectedInvoiceId)?.customerId ||
+                !customers.find(c => c.id === filteredInvoices.find(inv => inv.id === selectedInvoiceId)?.customerId)?.email
+              }
             >
               {emailInvoice.isPending ? "Sending..." : "Send Email"}
             </Button>
