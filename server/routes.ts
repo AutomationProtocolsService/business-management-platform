@@ -558,7 +558,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const invoiceNumber = `INV-${Date.now().toString().substr(-6)}`;
       
       // Create invoice from quote
-      const invoice = await storage.createInvoice({
+      const newInvoice = {
         invoiceNumber,
         projectId: quote.projectId,
         customerId: quote.customerId,
@@ -573,7 +573,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         notes: quote.notes,
         terms: quote.terms,
         createdBy: req.user?.id
-      });
+      };
+      
+      const invoice = await storage.createInvoice(newInvoice);
       
       // Copy quote items to invoice items
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
