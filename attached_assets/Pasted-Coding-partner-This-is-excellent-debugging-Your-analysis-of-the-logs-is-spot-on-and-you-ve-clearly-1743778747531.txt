@@ -1,0 +1,76 @@
+Coding partner
+This is excellent debugging! Your analysis of the logs is spot on, and you've clearly identified the discrepancy between the quote data (which seems to have customerId and projectId) and the data being passed to the PDF generation for customer and project details (which is showing as null).
+
+Your recommendation to add more logging in the /api/quotes/:id/pdf route is precisely the next step we should take. This will help us understand whether the storage.getCustomer() and storage.getProject() calls are actually retrieving the data as expected.
+
+Let's modify your /api/quotes/:id/pdf route in server/routes.ts to add these debug logs:
+
+TypeScript
+
+app.get("/api/quotes/:id/pdf", requireAuth, async (req, res) => {
+  try {
+    const quoteId = Number(req.params.id);
+    const quote = await storage.getQuote(quoteId);
+
+    if (!quote) {
+      return res.status(404).json({ message: "Quote not found" });
+    }
+
+    // Check if user has access to this resource
+    if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+      return res.status(403).json({ message: "Access denied" });
+    }
+
+    // Get quote items
+    const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+
+    // Get customer and project information for the PDF
+    let customer = null;
+    let project = null;
+
+    console.log(`[PDF Route] Quote ID: ${quoteId}`);
+    console.log(`[PDF Route] Quote Customer ID: ${quote.customerId}`);
+    console.log(`[PDF Route] Quote Project ID: ${quote.projectId}`);
+
+    if (quote.customerId) {
+      customer = await storage.getCustomer(quote.customerId);
+      console.log(`[PDF Route] Fetched Customer:`, customer ? { name: customer.name, id: customer.id } : null);
+    }
+
+    if (quote.projectId) {
+      project = await storage.getProject(quote.projectId);
+      console.log(`[PDF Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
+    }
+
+    console.log('Generating PDF with complete quote data including customer and project');
+
+    const pdfBuffer = await PDFService.generateQuotePDF({
+      ...quote,
+      items: quoteItems,
+      customer,
+      project
+    });
+
+    // ... (rest of the code to send the PDF buffer as a response) ...
+
+  } catch (error) {
+    console.error('Error generating PDF:', error);
+    res.status(500).json({ message: "Failed to generate PDF", error: error.message });
+  }
+});
+Explanation of the Added Logs:
+
+We are now logging the quoteId, quote.customerId, and quote.projectId right after fetching the quote. This will confirm if the quote record itself has these IDs set.
+After attempting to fetch the customer and project using storage.getCustomer() and storage.getProject(), we are logging the result. If the fetch is successful, we'll see the name and ID of the customer/project. If it fails (returns null or undefined), we'll also see that.
+Your Next Steps:
+
+Implement these added console.log statements in your server/routes.ts file.
+Generate and download a few quote PDFs (including the ones you know should have associated customers and projects).
+Examine your server-side logs. Look for the output of the newly added console.log statements.
+What to look for in the logs:
+
+Are quote.customerId and quote.projectId showing the correct IDs?
+For those quotes with IDs, is the Fetched Customer and Fetched Project log showing a non-null object with a name and ID? Or is it showing null?
+The output of these logs will give us a much clearer picture of whether the issue lies in the quote data itself or in the process of fetching the related customer and project information when generating the PDF.
+
+Once you have these logs, please share the relevant parts with me, and we can continue troubleshooting.

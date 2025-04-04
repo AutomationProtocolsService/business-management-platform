@@ -1,0 +1,21 @@
+The issue still seems to be within the generatePDFWithPDFKit function specifically regarding how it handles the items array.
+
+Let's revisit the generatePDFWithPDFKit function (or the relevant part of PDFService.generateQuotePDF for quotes) and ensure the following:
+
+Accessing the items Array: Make sure you are correctly accessing the items array from the data object passed to generatePDFWithPDFKit. Based on your route code, it should be accessible as quote.items (since you're passing ...quote and items: quoteItems).
+Iterating Over the items Array: Double-check that you have a loop (like forEach or a for loop) that iterates through each item in the quote.items array.
+Rendering Item Details: Inside the loop, ensure you are correctly accessing the description, quantity, unitPrice, and total properties of each item object and using doc.text() or similar methods to add them to the PDF document at the desired positions.
+Column Positioning: Verify that the x and y coordinates you are using to position the item details in the PDF are correct and that the columns are aligned as you intend.
+To help me diagnose further, could you please share the complete generatePDFWithPDFKit function (or the relevant part within PDFService.generateQuotePDF that handles quote PDFs)? This will allow me to see exactly how you are trying to render the items and identify any potential errors in that specific part of the code.
+
+Also, please check your server-side logs for the output of the console.log I asked you to add:
+
+TypeScript
+
+console.log(`Quote PDF data:`, JSON.stringify({
+  quoteNumber: quote.quoteNumber,
+  hasCustomer: !!quote.customer,
+  hasProject: !!quote.project,
+  itemCount: quote.items ? quote.items.length : 0 // Check this log
+}));
+This log will confirm whether the items array is indeed being passed to the PDF generation function and if it contains any items. If itemCount is 0 or items is undefined, then the issue might be in how the data is being fetched or passed in the /api/quotes/:id/pdf route. If the itemCount is correct, then the problem lies in how you are rendering these items in the PDF.
