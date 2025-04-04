@@ -1,0 +1,109 @@
+To make sure we're on the same page, could you please provide the code for the following:
+
+The Express Route Handler: The code for the /api/invoices/:id/pdf route in your Express application.  This is where you call PdfService.generateInvoicePDF and send the PDF data as a response.  Please provide the exact code for this route handler.
+
+The Frontend Code: The code that makes the request to /api/invoices/:id/pdf from your frontend (e.g., your React, Angular, or plain JavaScript code).  Also, please provide the code that handles the response from that API call and attempts to display the PDF.  This is where the problem is most likely to be.
+
+With this information, I can analyze the complete flow of data and pinpoint where the rendering issue is occurring.
+
+In the meantime, let's try a few more debugging steps:
+
+1.  Force Download (Again, with Verification)
+
+I know we've tried forcing a download, but let's be absolutely explicit and add more logging to your Express route to confirm the headers and data.
+
+TypeScript
+
+// In your Express route
+app.get('/api/invoices/:id/pdf', async (req, res) => {
+  try {
+    const invoiceId = parseInt(req.params.id, 10);
+    // ... (fetch invoice data)
+    const pdfBuffer = await PdfService.generateInvoicePDF(invoiceData);
+
+    console.log(`PDF Buffer Length: ${pdfBuffer.length}`); // Add this
+    console.log(`Content-Type: ${res.getHeader('Content-Type')}`); // Add this (if possible)
+    console.log(`Content-Disposition: ${res.getHeader('Content-Disposition')}`); // Add this (if possible)
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoiceData.invoiceNumber}.pdf`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating/sending PDF:", error);
+    res.status(500).send({ message: 'Failed to generate PDF' });
+  }
+});
+Check the Logs: After making this change, generate the PDF again and check your server's console output.  Verify:
+
+The PDF Buffer Length is a positive number (it should be several thousand bytes).
+The Content-Type is definitely application/pdf.
+The Content-Disposition is correct.
+Download and View: Download the PDF and open it in Adobe Acrobat Reader.  If the downloaded PDF is correct, proceed to the next step.
+
+2.  Simplify Frontend (Most Basic)
+
+Let's try the absolute simplest way to handle the PDF in the frontend.  Modify your frontend code (temporarily) to just use a plain link that opens in a new tab.  This will eliminate any potential issues with JavaScript PDF viewers or libraries.
+
+If you're using React:
+
+JavaScript
+
+// In your React component
+const handleViewPdf = (invoiceId: number) => {
+  window.open(`/api/invoices/${invoiceId}/pdf`, '_blank'); // Open in new tab
+};
+
+// ...
+<button onClick={() => handleViewPdf(7)}>View Invoice PDF</button> // Example usage
+If you're using Angular:
+
+TypeScript
+
+// In your Angular component
+viewPdf(invoiceId: number) {
+  window.open(`/api/invoices/${invoiceId}/pdf`, '_blank');
+}
+
+// In your template
+<button (click)="viewPdf(7)">View Invoice PDF</button>
+If you're using plain JavaScript:
+
+HTML
+
+// In your HTML
+<button onclick="window.open('/api/invoices/7/pdf', '_blank')">View Invoice PDF</button>
+What This Does: This bypasses any complex PDF handling in your frontend and relies on the browser's built-in PDF viewer.
+
+3.  Check for File Corruption
+
+It's possible (though less likely) that the PDF data is getting corrupted somewhere between the server and the browser.
+
+If you're still having trouble, you can try saving the PDF data to a file on the server and then serving that file.  This will help you verify that the data is being written correctly.
+
+TypeScript
+
+const fs = require('fs'); // Import the file system module
+
+// In your Express route
+app.get('/api/invoices/:id/pdf', async (req, res) => {
+  try {
+    const invoiceId = parseInt(req.params.id, 10);
+    // ... (fetch invoice data)
+    const pdfBuffer = await PdfService.generateInvoicePDF(invoiceData);
+
+    // Save to a file (TEMPORARY DEBUGGING)
+    const tempFilePath = `/tmp/invoice_${invoiceId}.pdf`;
+    fs.writeFileSync(tempFilePath, pdfBuffer);
+    console.log(`PDF saved to: ${tempFilePath}`); // Log the file path
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoiceData.invoiceNumber}.pdf`);
+    res.send(pdfBuffer);
+  } catch (error) {
+    console.error("Error generating/sending PDF:", error);
+    res.status(500).send({ message: 'Failed to generate PDF' });
+  }
+});
+Check the File: After running this, check the /tmp/ directory on your server (or wherever you save the file).  Open the invoice_*.pdf file.  If this file is correct, then the problem is definitely in how the data is being sent or handled by the browser.
+
+By providing the Express route handler and frontend code, and by trying these additional debugging steps, we can pinpoint the source of the issue and get your PDF displaying correctly.
