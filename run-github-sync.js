@@ -5,4 +5,4 @@
  * Usage: node run-github-sync.js
  */
 
-require('./post-deploy.js');
+import './post-deploy.js';
