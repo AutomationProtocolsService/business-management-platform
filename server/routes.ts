@@ -473,12 +473,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customer = null;
       let project = null;
       
+      console.log(`[PDF Route] Quote ID: ${quoteId}`);
+      console.log(`[PDF Route] Quote Customer ID: ${quote.customerId}`);
+      console.log(`[PDF Route] Quote Project ID: ${quote.projectId}`);
+      
       if (quote.customerId) {
         customer = await storage.getCustomer(quote.customerId);
+        console.log(`[PDF Route] Fetched Customer:`, customer ? { name: customer.name, id: customer.id } : null);
       }
       
       if (quote.projectId) {
         project = await storage.getProject(quote.projectId);
+        console.log(`[PDF Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
       }
       
       console.log('Generating PDF with complete quote data including customer and project');
@@ -535,12 +541,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customer = null;
       let project = null;
       
+      console.log(`[Email Route] Quote ID: ${quoteId}`);
+      console.log(`[Email Route] Quote Customer ID: ${quote.customerId}`);
+      console.log(`[Email Route] Quote Project ID: ${quote.projectId}`);
+      
       if (quote.customerId) {
         customer = await storage.getCustomer(quote.customerId);
+        console.log(`[Email Route] Fetched Customer:`, customer ? { name: customer.name, id: customer.id } : null);
       }
       
       if (quote.projectId) {
         project = await storage.getProject(quote.projectId);
+        console.log(`[Email Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
       }
       
       // Get company settings for sender email
