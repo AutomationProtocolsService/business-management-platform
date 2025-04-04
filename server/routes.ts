@@ -777,34 +777,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get invoice items
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
       
+      console.log(`Found ${invoiceItems.length} invoice items for PDF generation`);
+      
       // Get customer data
       let customer = null;
       if (invoice.customerId) {
         customer = await storage.getCustomer(invoice.customerId);
+        console.log(`Retrieved customer data for invoice: ${customer ? 'found' : 'not found'}`);
       }
       
       // Get project data
       let project = null;
       if (invoice.projectId) {
         project = await storage.getProject(invoice.projectId);
+        console.log(`Retrieved project data for invoice: ${project ? 'found' : 'not found'}`);
       }
       
       console.log(`Generating PDF for Invoice_${invoice.invoiceNumber}`);
       
-      // Generate PDF using the PDFService with full context
-      const pdfBuffer = await PDFService.generateInvoicePDF({
+      // Create complete invoice data object with all necessary related data
+      const completeInvoiceData = {
         ...invoice,
         items: invoiceItems,
         customer,
         project
-      });
+      };
+      
+      // Log items count right before passing to PDF service
+      console.log(`Passing invoice to PDF service with ${completeInvoiceData.items.length} items`);
+      
+      // Generate PDF using the PDFService with full context
+      const pdfBuffer = await PDFService.generateInvoicePDF(completeInvoiceData);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`);
       res.send(pdfBuffer);
     } catch (error) {
       console.error('Error generating invoice PDF:', error);
-      res.status(500).json({ message: "Failed to generate PDF" });
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to generate PDF",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   });
 
