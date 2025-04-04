@@ -514,13 +514,69 @@ export default class PDFService {
     console.log(`Generating PDF for ${filename}`);
     
     try {
+      // Validate we actually have HTML content
+      if (!html || html.trim() === '') {
+        console.error('ERROR: Empty HTML content received for PDF generation');
+        throw new Error('Cannot generate PDF from empty HTML content');
+      }
+      
+      // Quick sanity check of HTML content
+      const htmlSnippet = html.substring(0, 150) + '...';
+      console.log(`HTML content snippet: ${htmlSnippet}`);
+      
+      const hasHtmlTags = html.includes('<html') && html.includes('</html>');
+      console.log(`HTML content validity check: ${hasHtmlTags ? 'Valid HTML structure' : 'Missing HTML structure'}`);
+      
+      // Log detailed information about originalDoc 
+      if (originalDoc) {
+        console.log(`Original document details in generatePDFFromHTML:`);
+        console.log(`Document Type: ${filename.includes('Quote') ? 'Quote' : (filename.includes('Invoice') ? 'Invoice' : 'Other')}`);
+        console.log(`Document ID: ${originalDoc.id}`);
+        console.log(`Customer ID: ${originalDoc.customerId}`);
+        console.log(`Project ID: ${originalDoc.projectId}`);
+        console.log(`Has Customer Object: ${!!originalDoc.customer}`);
+        console.log(`Has Project Object: ${!!originalDoc.project}`);
+        console.log(`Items Count: ${originalDoc.items ? originalDoc.items.length : 0}`);
+        
+        // Detailed customer and project object inspection
+        if (originalDoc.customer) {
+          console.log(`Customer details: ${JSON.stringify({
+            id: originalDoc.customer.id,
+            name: originalDoc.customer.name,
+            email: originalDoc.customer.email
+          })}`);
+        } else {
+          console.log(`Customer object is null or undefined`);
+        }
+        
+        if (originalDoc.project) {
+          console.log(`Project details: ${JSON.stringify({
+            id: originalDoc.project.id,
+            name: originalDoc.project.name,
+            description: originalDoc.project.description
+          })}`);
+        } else {
+          console.log(`Project object is null or undefined`);
+        }
+      } else {
+        console.log(`No original document provided to generatePDFFromHTML`);
+      }
+      
+      console.log('Passing document to PDFKit for rendering');
+      
       return this.generatePDFWithPDFKit({
         title: filename,
-        content: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), // Strip HTML for text-only PDF
+        content: html, // Pass the full HTML content 
+        htmlContent: html, // Keep a copy of the HTML content for debugging
         originalDoc: originalDoc // Pass the original document for proper rendering
       }, filename);
     } catch (error) {
       console.error(`Error generating PDF for ${filename}:`, error);
+      // Add more detailed error information
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
       throw error;
     }
   }
@@ -536,6 +592,34 @@ export default class PDFService {
           has_items: data.originalDoc && data.originalDoc.items ? true : false,
           items_count: data.originalDoc && data.originalDoc.items ? data.originalDoc.items.length : 0
         }));
+        
+        // Add much more detailed debugging information
+        if (data.originalDoc) {
+          console.log('Document Type:', filename.includes('Quote') ? 'Quote' : (filename.includes('Invoice') ? 'Invoice' : 'Other'));
+          console.log('Original Doc Customer ID:', data.originalDoc.customerId);
+          console.log('Original Doc Project ID:', data.originalDoc.projectId);
+          console.log('Has Customer object:', !!data.originalDoc.customer);
+          console.log('Has Project object:', !!data.originalDoc.project);
+          
+          if (data.originalDoc.customer) {
+            console.log('Customer object details:', JSON.stringify({
+              id: data.originalDoc.customer.id,
+              name: data.originalDoc.customer.name,
+              email: data.originalDoc.customer.email
+            }));
+          } else {
+            console.log('Customer object is null or undefined');
+          }
+          
+          if (data.originalDoc.project) {
+            console.log('Project object details:', JSON.stringify({
+              id: data.originalDoc.project.id,
+              name: data.originalDoc.project.name
+            }));
+          } else {
+            console.log('Project object is null or undefined');
+          }
+        }
 
         // Create a PDF document with better settings for text rendering
         const doc = new PDFDocument({
