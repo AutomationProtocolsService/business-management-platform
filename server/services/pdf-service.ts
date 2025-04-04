@@ -89,6 +89,19 @@ export default class PDFService {
   }
 
   private static async renderInvoiceTemplate(invoice: InvoiceWithRelations): Promise<string> {
+    // Enhanced logging for debugging
+    console.log("Invoice data in renderInvoiceTemplate:", JSON.stringify({
+      invoiceNumber: invoice.invoiceNumber,
+      customer: invoice.customer ? {
+        name: invoice.customer.name,
+        email: invoice.customer.email
+      } : null,
+      project: invoice.project ? {
+        name: invoice.project.name
+      } : null,
+      items: invoice.items ? invoice.items.length : 0
+    }));
+    
     // In a real application, this would involve using a templating engine
     // to generate HTML based on the invoice data.
     // For this example, we'll return a simple string.
@@ -183,6 +196,12 @@ export default class PDFService {
       </body>
       </html>
     `;
+    
+    // Log snippet of the generated HTML for debugging
+    console.log("Generated HTML template (first 150 chars):", html.substring(0, 150) + "...");
+    console.log("Template includes items table:", html.includes("items-table"));
+    console.log("Number of table rows:", (html.match(/<tr>/g) || []).length);
+    
     return html;
   }
 
@@ -263,6 +282,12 @@ export default class PDFService {
       </body>
       </html>
     `;
+    
+    // Log snippet of the generated HTML for debugging
+    console.log("Quote template HTML (first 150 chars):", html.substring(0, 150) + "...");
+    console.log("Template includes items table:", html.includes("items-table"));
+    console.log("Number of table rows:", (html.match(/<tr>/g) || []).length);
+    
     return html;
   }
 
@@ -342,6 +367,12 @@ export default class PDFService {
       </body>
       </html>
     `;
+    
+    // Log snippet of the generated HTML for debugging
+    console.log("Purchase Order template HTML (first 150 chars):", html.substring(0, 150) + "...");
+    console.log("Template includes items table:", html.includes("items-table"));
+    console.log("Number of table rows:", (html.match(/<tr>/g) || []).length);
+    
     return html;
   }
 
@@ -729,12 +760,37 @@ export default class PDFService {
 
         // Resolve the promise with the PDF buffer when the stream is finished
         writableStreamBuffer.on('finish', () => {
-          const pdfBuffer = writableStreamBuffer.getContents();
-          if (pdfBuffer) {
-            console.log(`PDF generated successfully with PDFKit for ${filename}, size: ${pdfBuffer.length} bytes`);
-            resolve(pdfBuffer as Buffer);
-          } else {
-            reject(new Error(`Failed to generate PDF: Empty buffer for ${filename}`));
+          try {
+            // Extract the PDF content as a Buffer
+            const pdfBuffer = writableStreamBuffer.getContents();
+            
+            if (pdfBuffer && pdfBuffer.length > 0) {
+              console.log(`PDF generated successfully with PDFKit for ${filename}, size: ${pdfBuffer.length} bytes`);
+              
+              // Calculate rough page count based on PDF size
+              const estimatedPageCount = Math.ceil(pdfBuffer.length / 40000); // Rough estimate
+              console.log(`Estimated PDF page count: ${estimatedPageCount}`);
+              
+              // Check PDF header to verify it's a valid PDF
+              const pdfHeader = pdfBuffer.slice(0, 8).toString('utf8');
+              const isPdfValid = pdfHeader.startsWith('%PDF-');
+              console.log(`PDF validity check: ${isPdfValid ? 'VALID' : 'INVALID'}`);
+              
+              if (isPdfValid) {
+                resolve(pdfBuffer as Buffer);
+              } else {
+                const error = new Error(`Generated PDF appears to be invalid for ${filename}: Header check failed.`);
+                console.error(error);
+                reject(error);
+              }
+            } else {
+              const error = new Error(`Failed to generate PDF for ${filename}: No content available or zero size.`);
+              console.error(error);
+              reject(error);
+            }
+          } catch (bufferError) {
+            console.error(`Error processing buffer content for ${filename}:`, bufferError);
+            reject(bufferError);
           }
         });
         
