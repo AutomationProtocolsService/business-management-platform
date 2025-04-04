@@ -466,12 +466,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Get quote items
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
       
-      // Generate PDF using the PDFService
+      // Get customer and project information for the PDF
+      let customer = null;
+      let project = null;
+      
+      if (quote.customerId) {
+        customer = await storage.getCustomer(quote.customerId);
+      }
+      
+      if (quote.projectId) {
+        project = await storage.getProject(quote.projectId);
+      }
+      
+      console.log('Generating PDF with complete quote data including customer and project');
+      
+      // Generate PDF using the PDFService with all related data
       const pdfBuffer = await PDFService.generateQuotePDF({
         ...quote,
-        items: quoteItems
+        items: quoteItems,
+        customer,
+        project
       });
       
       res.setHeader('Content-Type', 'application/pdf');
@@ -510,8 +527,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Get quote items
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
       console.log(`Retrieved ${quoteItems.length} items for quote ${quoteId}`);
+      
+      // Get customer and project information for the PDF
+      let customer = null;
+      let project = null;
+      
+      if (quote.customerId) {
+        customer = await storage.getCustomer(quote.customerId);
+      }
+      
+      if (quote.projectId) {
+        project = await storage.getProject(quote.projectId);
+      }
       
       // Get company settings for sender email
       const companySettings = await storage.getCompanySettings();
@@ -527,7 +557,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send email with PDF using EmailService
       const success = await EmailService.sendQuote(
-        { ...quote, items: quoteItems },
+        { 
+          ...quote, 
+          items: quoteItems,
+          customer,
+          project
+        },
         recipientEmail,
         senderEmail,
         { subject, message, includePdf }

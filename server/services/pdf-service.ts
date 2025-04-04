@@ -7,6 +7,8 @@ import { Invoice, Quote, PurchaseOrder, Customer, Project } from '@shared/schema
 // Define extended types with nested related data
 interface QuoteWithItems extends Quote {
   items: any[];
+  customer?: Customer | null;
+  project?: Project | null;
 }
 
 interface InvoiceWithRelations extends Invoice {
@@ -40,12 +42,25 @@ interface InvoicePDFData extends InvoiceWithRelations {
 }
 
 export default class PDFService {
-  static async generateQuotePDF(quote: Quote & { items: any[] }): Promise<Buffer> {
+  static async generateQuotePDF(quote: QuoteWithItems): Promise<Buffer> {
     // Ensure items is not undefined
     if (!quote.items) {
       console.warn(`Warning: Quote ${quote.quoteNumber} has no items array`);
       quote.items = [];
     }
+    
+    // Enhanced logging for debugging
+    console.log("Quote data in generateQuotePDF:", JSON.stringify({
+      quoteNumber: quote.quoteNumber,
+      customer: quote.customer ? {
+        name: quote.customer.name,
+        email: quote.customer.email
+      } : null,
+      project: quote.project ? {
+        name: quote.project.name
+      } : null,
+      items: quote.items ? quote.items.length : 0
+    }));
     
     // Log quote data including items
     console.log(`Preparing quote PDF for ${quote.quoteNumber} with ${quote.items.length} items`);
@@ -279,6 +294,19 @@ export default class PDFService {
   }
 
   private static async renderQuoteTemplate(quote: QuoteWithItems): Promise<string> {
+    // Enhanced logging for debugging
+    console.log("Quote data in renderQuoteTemplate:", JSON.stringify({
+      quoteNumber: quote.quoteNumber,
+      customer: quote.customer ? {
+        name: quote.customer.name,
+        email: quote.customer.email
+      } : null,
+      project: quote.project ? {
+        name: quote.project.name
+      } : null,
+      items: quote.items ? quote.items.length : 0
+    }));
+    
     // Similar to invoice template but for quotes
     let html = `
       <html>
@@ -287,6 +315,7 @@ export default class PDFService {
         <style>
           body { font-family: 'Helvetica'; font-size: 12px; }
           .header { text-align: center; margin-bottom: 20px; }
+          .customer-info, .project-info, .quote-details { margin-bottom: 15px; }
           .underline { text-decoration: underline; }
           .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
           .items-table th, .items-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
@@ -301,7 +330,23 @@ export default class PDFService {
           <p>Phone: (123) 456-7890 | Email: info@company.com</p>
         </div>
 
-        <div>
+        <div class="customer-info">
+          <h3 class="underline">CUSTOMER</h3>
+          <p>${quote.customer?.name || 'N/A'}</p>
+          <p>${quote.customer?.email || 'N/A'}</p>
+          <p>${quote.customer?.phone || 'N/A'}</p>
+          <p>${quote.customer?.address || 'N/A'}</p>
+          <p>${quote.customer?.city || 'N/A'}, ${quote.customer?.state || 'N/A'} ${quote.customer?.zipCode || 'N/A'}</p>
+          <p>${quote.customer?.country || 'N/A'}</p>
+        </div>
+
+        <div class="project-info">
+          <h3 class="underline">PROJECT</h3>
+          <p>Project: ${quote.project?.name || 'N/A'}</p>
+          <p>Description: ${quote.project?.description || 'N/A'}</p>
+        </div>
+
+        <div class="quote-details">
           <h2 class="underline">QUOTATION</h2>
           <p>Quote Number: ${quote.quoteNumber}</p>
           <p>Reference: ${quote.reference || 'N/A'}</p>
@@ -695,7 +740,42 @@ export default class PDFService {
           // It's a quote
           const quote = data.originalDoc;
           
+          console.log(`Quote PDF data:`, JSON.stringify({
+            quoteNumber: quote.quoteNumber,
+            hasCustomer: !!quote.customer,
+            hasProject: !!quote.project
+          }));
+          
+          // Add customer information if available
+          if (quote.customer) {
+            doc.text('CUSTOMER', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`${quote.customer.name || 'N/A'}`);
+            doc.text(`${quote.customer.email || 'N/A'}`);
+            if (quote.customer.phone) doc.text(`${quote.customer.phone}`);
+            if (quote.customer.address) doc.text(`${quote.customer.address}`);
+            if (quote.customer.city || quote.customer.state || quote.customer.zipCode) {
+              doc.text(`${quote.customer.city || ''}, ${quote.customer.state || ''} ${quote.customer.zipCode || ''}`);
+            }
+            if (quote.customer.country) doc.text(`${quote.customer.country}`);
+            doc.moveDown();
+          }
+          
+          // Add project information if available
+          if (quote.project) {
+            doc.text('PROJECT', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`Project: ${quote.project.name || 'N/A'}`);
+            if (quote.project.description) doc.text(`Description: ${quote.project.description}`);
+            doc.moveDown();
+          }
+          
+          // Quote details
+          doc.text('QUOTATION DETAILS', { align: 'center', underline: true });
+          doc.moveDown();
+          
           // Quote reference and dates
+          doc.text(`Quote Number: ${quote.quoteNumber}`);
           doc.text(`Reference: ${quote.reference || 'N/A'}`);
           doc.text(`Issue Date: ${new Date(quote.issueDate).toLocaleDateString()}`);
           if (quote.expiryDate) {
