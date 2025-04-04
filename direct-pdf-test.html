@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PDF Download Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .link-card {
+      margin: 10px 0;
+      padding: 15px;
+      border: 1px solid #e1e1e1;
+      border-radius: 4px;
+      background-color: #f9f9f9;
+    }
+    a {
+      display: inline-block;
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+    a:hover {
+      background-color: #45a049;
+    }
+    p {
+      margin: 10px 0;
+    }
+    code {
+      background-color: #f5f5f5;
+      padding: 2px 4px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>PDF Download Test</h1>
+    
+    <div class="link-card">
+      <h2>Test Invoice (Template Data)</h2>
+      <p>This link will download a test invoice PDF with hardcoded data:</p>
+      <a href="/api/test-invoice-pdf" target="_blank">Download Test Invoice PDF</a>
+    </div>
+
+    <div class="link-card">
+      <h2>Real Invoice (ID: 7)</h2>
+      <p>This link will download a real invoice PDF from the database:</p>
+      <a href="/api/test-invoice-pdf/7" target="_blank">Download Real Invoice PDF</a>
+    </div>
+
+    <div class="link-card">
+      <h2>Authenticated Invoice (ID: 7)</h2>
+      <p>This link will attempt to download using the authenticated endpoint (will work if you're logged in):</p>
+      <a href="/api/invoices/7/pdf" target="_blank">Download Authenticated Invoice PDF</a>
+    </div>
+
+    <div class="link-card">
+      <h2>Compare Results</h2>
+      <p>After downloading PDFs, check:</p>
+      <ol>
+        <li>Does the file download properly?</li>
+        <li>When opened in a PDF viewer, do all invoice items display correctly?</li>
+        <li>Does the description text wrap properly in each item row?</li>
+        <li>Are all spacing, fonts, and alignments consistent?</li>
+      </ol>
+    </div>
+
+    <div class="link-card">
+      <h2>Programmatic Download</h2>
+      <p>Test download using JavaScript (similar to what the application does):</p>
+      <button id="jsDownloadBtn">Download with JavaScript</button>
+      <div id="status"></div>
+      
+      <script>
+        document.getElementById('jsDownloadBtn').addEventListener('click', async () => {
+          const statusElement = document.getElementById('status');
+          statusElement.textContent = 'Starting download...';
+          
+          try {
+            const response = await fetch('/api/test-invoice-pdf/7');
+            if (!response.ok) {
+              throw new Error(`Download failed: ${response.status} ${response.statusText}`);
+            }
+            
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'Invoice_JS_Download.pdf';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            window.URL.revokeObjectURL(url);
+            
+            statusElement.textContent = 'Download complete!';
+          } catch (error) {
+            console.error('Download error:', error);
+            statusElement.textContent = `Error: ${error.message}`;
+          }
+        });
+      </script>
+    </div>
+  </div>
+</body>
+</html>

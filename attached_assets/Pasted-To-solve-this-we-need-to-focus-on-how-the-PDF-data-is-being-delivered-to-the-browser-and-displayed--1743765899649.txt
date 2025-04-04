@@ -1,0 +1,61 @@
+To solve this, we need to focus on how the PDF data is being delivered to the browser and displayed.
+
+Here's a refined strategy:
+
+1.  Verify the PDF Data in the Browser
+
+Download the PDF: Instead of trying to view the PDF directly in the browser, modify your server code to force a download.  This will eliminate any potential issues with the browser's built-in PDF viewer.
+
+TypeScript
+
+// In your Express route
+app.get('/api/invoices/:id/pdf', async (req, res) => {
+  const invoiceId = parseInt(req.params.id, 10);
+  // ... (fetch invoice data)
+  const pdfBuffer = await PdfService.generateInvoicePDF(invoiceData);
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoiceData.invoiceNumber}.pdf`); // Force download
+  res.send(pdfBuffer);
+});
+Check the Downloaded PDF: Once the PDF is downloaded, open it in a reliable PDF viewer (like Adobe Acrobat Reader) and carefully examine the table.  Does the description text wrap correctly?  Are the rows displayed as expected?
+
+If the downloaded PDF is correct: This confirms that the PDF generation is working perfectly. The problem is definitely in how your application is handling or displaying the PDF data before it gets to the user's PDF viewer.
+If the downloaded PDF is incorrect: This would be very surprising, given the logs. But, if this happens, please provide the following:
+The exact code you are using to call /api/invoices/:id/pdf from your frontend.
+The exact code you are using to handle the response from that API call and display the PDF (or attempt to display it) in the browser.
+2.  Inspect the HTTP Response Headers
+
+Use your browser's developer tools (usually by pressing F12) to inspect the HTTP response headers when you request the PDF.
+Go to the "Network" tab, find the request to /api/invoices/:id/pdf, and look at the "Headers" section.
+Verify these headers:
+Content-Type: It must be application/pdf. If it's anything else, the browser won't know how to handle the data correctly.
+Content-Disposition: It should be attachment; filename=Invoice_....pdf (or similar, with the correct filename). This header tells the browser to download the file.
+3.  Simplify Frontend PDF Handling
+
+If you're using a complex library or method to display the PDF in your frontend, temporarily simplify it to the most basic approach.  For example:
+
+Basic Link: If you're currently embedding the PDF, try just creating a simple link to the PDF URL:
+
+HTML
+
+<a href="/api/invoices/6/pdf" target="_blank">Download Invoice</a>
+New Tab: Ensure you are opening the PDF in a new tab or window (target="_blank").
+
+What This Does: This eliminates any potential interference from your frontend PDF display library or component.  If the basic link works, then the problem is in your more complex frontend code.
+
+4.  Check for Encoding Issues
+
+Although unlikely, there might be an encoding issue when the PDF data is being sent from the server to the browser.
+Ensure that your server is sending the PDF data as a binary stream, without any character encoding transformations. The Content-Type: application/pdf header should handle this, but it's worth double-checking.
+Debugging Workflow
+
+Implement Download: Modify your server code to force a download (as shown in Step 1).
+Check Download: Download the PDF and open it in Adobe Acrobat Reader.
+If Downloaded PDF is Correct: The problem is in your frontend. Go to Step 3 and simplify your frontend PDF handling.
+If Downloaded PDF is Incorrect: (Very unlikely) Provide the frontend code and we'll analyze it.
+Inspect Headers: Use your browser's developer tools to verify the Content-Type and Content-Disposition headers.
+Simplify Frontend: If necessary, use a basic link (<a href="...">) to display the PDF.
+By following these steps, you'll be able to isolate whether the problem is in the PDF generation (which we've mostly ruled out) or in how the PDF data is being handled and displayed in your application's frontend.
+
+Please provide the results of these steps, and we'll get this working!
