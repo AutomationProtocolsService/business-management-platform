@@ -1,0 +1,61 @@
+else if (filename.includes('Quote') && data.originalDoc) {
+  // It's a quote
+  const quote = data.originalDoc;
+
+  console.log(`Quote PDF data:`, JSON.stringify({
+    quoteNumber: quote.quoteNumber,
+    hasCustomer: !!quote.customer,
+    hasProject: !!quote.project,
+    itemCount: quote.items ? quote.items.length : 0 // Log item count
+  }));
+
+  // ... (Customer and Project information rendering - as before) ...
+
+  // Quote details
+  doc.text('QUOTATION DETAILS', { align: 'center', underline: true });
+  doc.moveDown();
+
+  // Quote reference and dates
+  doc.text(`Quote Number: ${quote.quoteNumber}`);
+  doc.text(`Reference: ${quote.reference || 'N/A'}`);
+  doc.text(`Issue Date: ${new Date(quote.issueDate).toLocaleDateString()}`);
+  if (quote.expiryDate) {
+    doc.text(`Expiry Date: ${new Date(quote.expiryDate).toLocaleDateString()}`);
+  }
+  doc.text(`Status: ${quote.status?.toUpperCase() || 'N/A'}`);
+  doc.moveDown();
+
+  // Quote Items Table
+  doc.text('Quote Items', { align: 'left', underline: true });
+  doc.moveDown(0.5);
+
+  // Table headers
+  const headers = ['Description', 'Quantity', 'Unit Price', 'Total'];
+  let yPosition = doc.y;
+  let xPosition = 50;
+  headers.forEach((header, index) => {
+    doc.text(header, xPosition, yPosition, { bold: true });
+    xPosition += index === 0 ? 200 : 70; // Adjust column widths
+  });
+  doc.moveDown(0.5);
+  doc.line(50, doc.y, doc.page.width - 50, doc.y).stroke();
+  doc.moveDown(0.5);
+
+  // Table rows
+  if (quote.items && quote.items.length > 0) {
+    quote.items.forEach(item => {
+      doc.text(item.description, 50, doc.y);
+      doc.text(item.quantity.toString(), 250, doc.y);
+      doc.text(item.unitPrice ? item.unitPrice.toFixed(2) : 'N/A', 320, doc.y, { align: 'right' });
+      doc.text(item.total ? item.total.toFixed(2) : 'N/A', 390, doc.y, { align: 'right' });
+      doc.moveDown(0.5);
+      doc.line(50, doc.y, doc.page.width - 50, doc.y).stroke();
+      doc.moveDown(0.5);
+    });
+  } else {
+    doc.text('No items in this quote.', 50, doc.y);
+    doc.moveDown();
+  }
+
+  // ... (Potentially add totals, notes, etc. here) ...
+}
