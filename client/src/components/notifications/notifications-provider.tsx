@@ -24,6 +24,7 @@ export type Notification = {
   read: boolean;
   category: NotificationCategory;
   entityId?: number;
+  duration?: number;
 };
 
 export type WebSocketPayload = {
@@ -33,6 +34,7 @@ export type WebSocketPayload = {
   message?: string;
   timestamp?: string;
   category?: string;
+  duration?: number;
 };
 
 export type NotificationsContextType = {
@@ -202,7 +204,8 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         timestamp: payload.timestamp || new Date().toISOString(),
         read: false,
         category,
-        entityId
+        entityId,
+        duration: payload.duration
       };
       
       setNotifications(prev => [newNotification, ...prev]);
@@ -212,6 +215,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         title: getNotificationTitle(notificationType),
         description: payload.message,
         variant: mapNotificationTypeToToastVariant(notificationType),
+        duration: payload.duration
       });
     }
   };
@@ -284,6 +288,7 @@ export const useNotifications = () => {
     showNotification: (notification: { 
       message: string;
       type: NotificationType;
+      duration?: number;
     }) => {
       // Create a new notification object
       const newNotification: Notification = {
@@ -293,7 +298,8 @@ export const useNotifications = () => {
         timestamp: new Date().toISOString(),
         read: false,
         category: 'system',
-        entityId: undefined
+        entityId: undefined,
+        duration: notification.duration
       };
       
       // Add the notification to the state
