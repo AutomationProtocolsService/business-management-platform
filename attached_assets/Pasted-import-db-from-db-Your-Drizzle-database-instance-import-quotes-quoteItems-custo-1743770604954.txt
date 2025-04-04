@@ -1,0 +1,83 @@
+import { db } from '../../db'; // Your Drizzle database instance
+import { quotes, quoteItems, customers, projects } from '../../db/schema'; // Your database schema
+import { quoteFormSchema } from '../../lib/validations/quote'; // Your Zod schema
+import { z } from 'zod';
+
+// Define a server-side schema that includes the items array validation
+const createQuoteSchema = quoteFormSchema.extend({
+  items: z.array(
+    z.object({
+      description: z.string().min(3),
+      quantity: z.number().gt(0),
+      unitPrice: z.number().optional(), // Assuming unitPrice is optional here
+    })
+  ),
+  customerId: z.string().uuid(), // Assuming customerId is a UUID
+  projectId: z.string().uuid(),   // Assuming projectId is a UUID
+  issueDate: z.date(),
+  expiryDate: z.date(),
+}).refine(data => data.expiryDate > data.issueDate, {
+  message: "Expiry date must be after issue date",
+  path: ["expiryDate"],
+});
+
+export async function createQuote(req, res) {
+  try {
+    const validatedData = createQuoteSchema.safeParse(req.body);
+
+    if (!validatedData.success) {
+      return res.status(400).json({ errors: validatedData.error.issues });
+    }
+
+    const { customerId, projectId, issueDate, expiryDate, items, ...quoteData } = validatedData.data;
+
+    // Check if Customer and Project exist
+    const customerExists = await db.query.customers.findFirst({
+      where: (customers, { eq }) => eq(customers.id, customerId),
+    });
+
+    if (!customerExists) {
+      return res.status(400).json({ errors: [{ message: "Customer not found", path: ["customerId"] }] });
+    }
+
+    const projectExists = await db.query.projects.findFirst({
+      where: (projects, { eq }) => eq(projects.id, projectId),
+    });
+
+    if (!projectExists) {
+      return res.status(400).json({ errors: [{ message: "Project not found", path: ["projectId"] }] });
+    }
+
+    // Start a transaction
+    await db.transaction(async (tx) => {
+      const newQuote = await tx.insert(quotes).values({
+        ...quoteData,
+        customerId,
+        projectId,
+        issueDate,
+        expiryDate,
+        quoteNumber: `QU-${Date.now()}`, // Example quote number generation
+      }).returning({ id: quotes.id });
+
+      if (!newQuote || newQuote.length === 0) {
+        throw new Error("Failed to create quote");
+      }
+
+      const quoteId = newQuote[0].id;
+
+      if (items && items.length > 0) {
+        const newItems = items.map(item => ({
+          ...item,
+          quoteId: quoteId,
+        }));
+        await tx.insert(quoteItems).values(newItems);
+      }
+    });
+
+    return res.status(201).json({ message: "Quote created successfully" });
+
+  } catch (error) {
+    console.error("Error creating quote:", error);
+    return res.status(500).json({ message: "Failed to create quote", error: error.message });
+  }
+}
