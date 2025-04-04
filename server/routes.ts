@@ -761,7 +761,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Invoice PDF generation and email
+  // Test invoice PDF generation with hardcoded data (no auth)
+  app.get("/api/test-invoice-pdf", async (req, res) => {
+    try {
+      console.log("Test PDF endpoint called - using hardcoded test data");
+      
+      // Generate PDF directly using the PDFService with test data flag
+      const pdfBuffer = await PDFService.generateInvoicePDF({
+        id: 1,
+        invoiceNumber: 'DIRECT-TEST',
+        items: []
+      } as any, true); // Pass true to use test data
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=TestInvoice.pdf');
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to generate PDF",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  // Regular invoice PDF generation route
   app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
@@ -778,7 +803,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get invoice items
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
-      
       console.log(`Found ${invoiceItems.length} invoice items for PDF generation`);
       
       // Get customer data
@@ -818,8 +842,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error('Error generating invoice PDF:', error);
       console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
       res.status(500).json({ 
-        message: "Failed to generate PDF",
-        details: error instanceof Error ? error.message : 'Unknown error'
+        message: "Failed to generate PDF", 
+        details: error instanceof Error ? error.message : 'Unknown error' 
       });
     }
   });

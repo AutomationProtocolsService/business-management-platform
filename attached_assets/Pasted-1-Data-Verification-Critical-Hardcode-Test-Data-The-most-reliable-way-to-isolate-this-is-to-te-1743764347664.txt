@@ -1,0 +1,130 @@
+1.  Data Verification (Critical)
+
+Hardcode Test Data: The most reliable way to isolate this is to temporarily hardcode a test invoice with multi-line descriptions directly within the generateInvoicePDF function.  This removes any external data source issues.
+
+TypeScript
+
+static async generateInvoicePDF(invoice: InvoiceWithRelations): Promise<Buffer> {
+  const testInvoice: InvoiceWithRelations = {
+    id: 1,
+    invoiceNumber: 'TEST-INV-001',
+    reference: 'Test Reference',
+    projectId: 1,
+    customerId: 1,
+    quoteId: null,
+    type: 'final',
+    issueDate: new Date(),
+    dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+    status: 'issued',
+    paymentDate: null,
+    paymentAmount: null,
+    paymentMethod: null,
+    paymentReference: null,
+    fabricationDrawingsIncluded: false,
+    installationRequested: false,
+    installationId: null,
+    subtotal: 1000,
+    tax: 100,
+    discount: 0,
+    total: 1100,
+    notes: 'Test Notes',
+    terms: 'Test Terms',
+    createdAt: new Date(),
+    createdBy: 1,
+    items: [
+      {
+        id: 1,
+        invoiceId: 1,
+        description: 'This is a very long description that should wrap onto multiple lines within the table cell.  It needs to be long enough to exceed the width of the description column, which is defined as 250 in INVOICE_TABLE_COL_WIDTHS.  Testing line breaks.  Testing more text.  Testing even more text to really make it wrap and see what happens with the table row height.',
+        quantity: 2,
+        unitPrice: 500,
+        total: 1000,
+        catalogItemId: 1,
+      },
+      {
+        id: 2,
+        invoiceId: 1,
+        description: 'Short description.',
+        quantity: 1,
+        unitPrice: 100,
+        total: 100,
+        catalogItemId: 2,
+      },
+    ],
+    customer: {  // Add minimal customer data
+        id: 1,
+        name: "Test Customer",
+    },
+    project: { //Add minimal project data
+        id: 1,
+        name: "Test Project",
+    }
+  };
+
+  // Call generatePDFFromHTML with the test data
+  return this.generatePDFFromHTML("", `Invoice_TEST`, testInvoice); // Pass testInvoice
+}
+What This Does: This replaces the invoice variable with a known, controlled dataset.  If the PDF generates correctly with this data, then the problem is in how your application is fetching or constructing the original invoice object.
+
+2.  Targeted Debugging in generatePDFFromHTML
+
+Add console logs within the item iteration loop in generatePDFFromHTML to pinpoint the values being used for each row:
+
+TypeScript
+
+if (invoice.items && invoice.items.length > 0) {
+  invoice.items.forEach((item) => {
+    currentY += 5;
+    const startY = currentY;
+
+    const description = String(item.description || 'No description provided');
+    const quantity = String(item.quantity || '0');
+    const unitPrice = Number(item.unitPrice) || 0;
+    const totalPrice = Number(item.total) || 0;
+
+    const descriptionOptions = {
+      width: colWidths.description - 10,
+      align: 'left' as const,
+    };
+
+    console.log(`Item Description: |${description}|`);  // *** Add this ***
+    console.log(`Item Quantity: ${quantity}, Unit Price: ${unitPrice}, Total: ${totalPrice}`); // *** Add this ***
+    console.log(`startY: ${startY}, currentY (before text): ${currentY}, doc.y (before text): ${doc.y}`); // *** Add this ***
+
+    doc.text(description, doc.x + 5, currentY, descriptionOptions);
+
+    const descriptionEndY = doc.y;
+    currentY = Math.max(startY, descriptionEndY);
+
+    console.log(`currentY (after text): ${currentY}, doc.y (after text): ${doc.y}, descriptionEndY: ${descriptionEndY}`); // *** Add this ***
+
+    doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
+    doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
+    doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
+
+    currentY += 10;
+    doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
+  });
+}
+What to Look For:
+
+Description Content: Is the description string actually multi-line? Are there unexpected characters?
+startY, currentY, doc.y: These logs will show you exactly how the vertical position is changing as PDFKit renders the text. This is crucial for understanding if the rows are being positioned correctly.
+3.  Small Code Adjustment (If Necessary)
+* If the logging shows that currentY isn't being updated as expected, we can add a more explicit height calculation.  However, based on the PDFKit documentation, this shouldn't be necessary.  Only do this if the logging shows a problem.
+
+```typescript
+    //  ONLY ADD THIS IF LOGGING SHOWS currentY ISN'T INCREMENTING CORRECTLY
+    const textHeight = doc.heightOfString(description, descriptionOptions);
+    currentY = Math.max(startY + textHeight, descriptionEndY);
+
+```
+Debugging Workflow
+
+Implement Hardcoded Data: Apply the testInvoiceData in generateInvoicePDF.
+Run and Check: Generate the PDF.
+If it works: The problem is in your data fetching. Go to Step 3.
+If it doesn't work: The problem is in generatePDFFromHTML. Go to Step 2 with the logging.
+Check Original Data Source: If the hardcoded data works, add logging to where you fetch the invoice data in your application. Print the invoice object before it's passed to generateInvoicePDF. Compare this to the testInvoiceData to find the discrepancy.
+Analyze Logs: Carefully examine the console output from the logging in generatePDFFromHTML (if you got to step 2). This will tell us exactly what PDFKit is doing with the text and how the positions are changing.
+By following this structured approach, we'll isolate the problem and get your PDF generation working correctly.  Please provide the console output from these steps, and we'll get this resolved.
