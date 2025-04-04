@@ -1,9 +1,9 @@
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useRoute, useLocation } from "wouter";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   ChevronLeft, 
-  Edit, 
+  Edit as Pencil, 
   Trash2, 
   Download, 
   Mail, 
@@ -11,7 +11,8 @@ import {
   Clock,
   FileText,
   CheckCircle,
-  XCircle
+  XCircle,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,6 +31,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
+  TableFooter
 } from "@/components/ui/table";
 import {
   Dialog,
@@ -38,17 +40,96 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { formatDate } from "@/lib/date-utils";
 import { useToast } from "@/hooks/use-toast";
+import { useNotifications } from "@/components/notifications/notifications-provider";
 import { useSettings } from "@/hooks/use-settings";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { formatCurrency } from "@/lib/utils";
+
+interface Quote {
+  id: number;
+  quoteNumber: string;
+  reference: string;
+  projectId: number;
+  customerId: number;
+  issueDate: string;
+  expiryDate: string;
+  status: string;
+  subtotal: number;
+  tax: number;
+  discount: number;
+  total: number;
+  notes: string;
+  terms: string;
+  createdAt: string;
+  createdBy: number;
+}
+
+interface QuoteItem {
+  id: number;
+  quoteId: number;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  total: number;
+  catalogItemId: number | null;
+}
+
+interface Customer {
+  id: number;
+  name: string;
+  email: string;
+  phone: string;
+  address: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  notes: string;
+}
+
+interface Project {
+  id: number;
+  name: string;
+  description: string;
+  status: string;
+  startDate: string | null;
+  endDate: string | null;
+  customerId: number;
+}
+
+interface EmailDialogState {
+  open: boolean;
+  to: string;
+  subject: string;
+  message: string;
+  includePdf: boolean;
+}
+
+const statusColors: Record<string, string> = {
+  draft: "bg-gray-200 text-gray-800",
+  sent: "bg-blue-200 text-blue-800",
+  accepted: "bg-green-200 text-green-800",
+  rejected: "bg-red-200 text-red-800",
+  converted: "bg-purple-200 text-purple-800",
+};
 
 export default function QuoteDetailsPage() {
   const [, params] = useRoute("/quotes/:id");
@@ -142,6 +223,76 @@ export default function QuoteDetailsPage() {
       });
     },
   });
+  
+  // Download PDF function
+  const downloadPdf = useCallback(async () => {
+    if (!quoteId) return;
+    
+    try {
+      // Make API request to get the PDF with proper headers
+      const response = await fetch(`/api/quotes/${quoteId}/pdf`, {
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+
+      if (!response.ok) {
+        // Handle HTTP errors more informatively
+        let errorMessage = `Failed to fetch PDF: ${response.status} ${response.statusText}`;
+        try {
+          // Attempt to get JSON error message if available
+          const errorJson = await response.json();
+          if (errorJson?.message) {
+            errorMessage += ` - ${errorJson.message}`;
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, just use the original message
+          console.warn("Failed to parse error JSON", parseError);
+        }
+        console.error(errorMessage);
+        toast({
+          title: "Error",
+          description: errorMessage,
+          variant: "destructive",
+          duration: 5000, // Show for a longer time
+        });
+        throw new Error(errorMessage); // Throw to stop further processing
+      }
+
+      // Get the PDF as a blob
+      const blob = await response.blob();
+      
+      // Verify that we got a PDF file
+      if (blob.type !== 'application/pdf' && blob.size < 100) {
+        throw new Error('Invalid PDF data received. Please try again.');
+      }
+      
+      // Create a download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Quote_${quote?.quoteNumber}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      window.URL.revokeObjectURL(url);
+      
+      // Show success notification
+      toast({
+        title: "Success",
+        description: "PDF downloaded successfully",
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Error downloading PDF:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to download PDF. Please try again.",
+        variant: "destructive",
+        duration: 5000,
+      });
+    }
+  }, [quoteId, quote, toast]);
 
   // Convert quote to invoice mutation
   const convertToInvoice = useMutation({
@@ -310,7 +461,7 @@ export default function QuoteDetailsPage() {
             size="sm"
             onClick={() => navigate(`/quotes/${quoteId}/edit`)}
           >
-            <Edit className="h-4 w-4 mr-2" />
+            <Pencil className="h-4 w-4 mr-2" />
             Edit
           </Button>
           
@@ -327,29 +478,10 @@ export default function QuoteDetailsPage() {
           <Button
             variant="outline"
             size="sm"
-            onClick={async () => {
-              try {
-                const response = await apiRequest("GET", `/api/quotes/${quoteId}/pdf`, null, { responseType: 'blob' });
-                const blob = await response.blob();
-                const url = window.URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `Quote_${quote.quoteNumber}.pdf`;
-                document.body.appendChild(a);
-                a.click();
-                window.URL.revokeObjectURL(url);
-                document.body.removeChild(a);
-              } catch (error) {
-                toast({
-                  title: "Error",
-                  description: "Failed to download PDF. Please try again.",
-                  variant: "destructive",
-                });
-              }
-            }}
+            onClick={downloadPdf}
           >
             <Download className="h-4 w-4 mr-2" />
-            Download PDF
+            PDF
           </Button>
           
           <Button 
@@ -516,7 +648,7 @@ export default function QuoteDetailsPage() {
                 className="w-full justify-start"
                 onClick={() => navigate(`/quotes/${quoteId}/edit`)}
               >
-                <Edit className="h-4 w-4 mr-2" />
+                <Pencil className="h-4 w-4 mr-2" />
                 Edit Quote
               </Button>
               
@@ -533,26 +665,7 @@ export default function QuoteDetailsPage() {
               <Button 
                 variant="outline"
                 className="w-full justify-start"
-                onClick={async () => {
-                  try {
-                    const response = await apiRequest("GET", `/api/quotes/${quoteId}/pdf`, null, { responseType: 'blob' });
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `Quote_${quote.quoteNumber}.pdf`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                  } catch (error) {
-                    toast({
-                      title: "Error",
-                      description: "Failed to download PDF. Please try again.",
-                      variant: "destructive",
-                    });
-                  }
-                }}
+                onClick={downloadPdf}
               >
                 <FileText className="h-4 w-4 mr-2" />
                 Download PDF
