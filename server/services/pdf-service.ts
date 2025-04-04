@@ -739,11 +739,12 @@ export default class PDFService {
         } else if (filename.includes('Quote') && data.originalDoc) {
           // It's a quote
           const quote = data.originalDoc;
-          
+
           console.log(`Quote PDF data:`, JSON.stringify({
             quoteNumber: quote.quoteNumber,
             hasCustomer: !!quote.customer,
-            hasProject: !!quote.project
+            hasProject: !!quote.project,
+            itemCount: quote.items ? quote.items.length : 0 // Log item count
           }));
           
           // Add customer information if available
