@@ -54,7 +54,80 @@ export default class PDFService {
     return this.generatePDFFromHTML(htmlContent, `Quote_${quote.quoteNumber}`, quote);
   }
 
-  static async generateInvoicePDF(invoice: InvoiceWithRelations): Promise<Buffer> {
+  static async generateInvoicePDF(invoice: InvoiceWithRelations, useTestData: boolean = false): Promise<Buffer> {
+    // For debugging: Use a hardcoded test invoice if needed or when explicitly requested
+    console.log(`PDF generation with useTestData: ${useTestData}`)
+    
+    if (useTestData) {
+      console.log("USING TEST INVOICE DATA FOR DEBUGGING");
+      const testInvoice: InvoiceWithRelations = {
+        id: 1,
+        invoiceNumber: 'TEST-INV-001',
+        reference: 'Test Reference',
+        projectId: 1,
+        customerId: 1,
+        quoteId: null,
+        type: 'final',
+        issueDate: new Date(),
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+        status: 'issued',
+        paymentDate: null,
+        paymentAmount: null,
+        paymentMethod: null,
+        paymentReference: null,
+        fabricationDrawingsIncluded: false,
+        installationRequested: false,
+        installationId: null,
+        subtotal: 1000,
+        tax: 100,
+        discount: 0,
+        total: 1100,
+        notes: 'Test Notes',
+        terms: 'Test Terms',
+        createdAt: new Date(),
+        createdBy: 1,
+        items: [
+          {
+            id: 1,
+            invoiceId: 1,
+            description: 'This is a very long description that should wrap onto multiple lines within the table cell. It needs to be long enough to exceed the width of the description column, which is defined as 250 in INVOICE_TABLE_COL_WIDTHS. Testing line breaks. Testing more text. Testing even more text to really make it wrap and see what happens with the table row height.',
+            quantity: 2,
+            unitPrice: 500,
+            total: 1000,
+            catalogItemId: 1,
+          },
+          {
+            id: 2,
+            invoiceId: 1,
+            description: 'Short description.',
+            quantity: 1,
+            unitPrice: 100,
+            total: 100,
+            catalogItemId: 2,
+          },
+        ],
+        customer: {  
+          id: 1,
+          name: "Test Customer",
+          email: "test@example.com",
+          phone: "555-1234",
+          address: "123 Test Street",
+          city: "Test City",
+          state: "TS",
+          zipCode: "12345",
+          country: "Testland"
+        },
+        project: {
+          id: 1,
+          name: "Test Project",
+          description: "Test Project Description"
+        }
+      };
+      
+      // Use the test invoice
+      invoice = testInvoice;
+    }
+    
     // Ensure items is not undefined
     if (!invoice.items) {
       console.warn(`Warning: Invoice ${invoice.invoiceNumber} has no items array`);
@@ -517,6 +590,11 @@ export default class PDFService {
               const unitPrice = Number(item.unitPrice) || 0;
               const totalPrice = Number(item.total) || 0;
 
+              // Enhanced debugging for item processing
+              console.log(`Item Description: |${description}|`);
+              console.log(`Item Quantity: ${quantity}, Unit Price: ${unitPrice}, Total: ${totalPrice}`);
+              console.log(`startY: ${startY}, currentY (before text): ${currentY}, doc.y (before text): ${doc.y}`);
+
               // Draw description text (multiline supported)
               const descriptionOptions = {
                 width: colWidths.description - 10,
@@ -529,6 +607,12 @@ export default class PDFService {
               // Calculate y after description to align other columns.
               const descriptionEndY = doc.y;
               currentY = Math.max(startY, descriptionEndY);
+              
+              console.log(`currentY (after text): ${currentY}, doc.y (after text): ${doc.y}, descriptionEndY: ${descriptionEndY}`);
+
+              // Calculate text height explicitly - use this if there are issues with text layout
+              const textHeight = doc.heightOfString(description, descriptionOptions);
+              console.log(`Explicitly calculated text height: ${textHeight}`);
 
               // Draw the other columns aligned with top of description
               doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
