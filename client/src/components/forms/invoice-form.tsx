@@ -320,28 +320,46 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
       // First update the invoice
       const invoiceRes = await apiRequest("PUT", `/api/invoices/${invoiceId}`, invoiceData);
       
-      // Delete all existing items and create new ones
-      const existingItemsRes = await apiRequest("GET", `/api/invoices/${invoiceId}/items`);
-      const existingItems = await existingItemsRes.json();
-      
-      // Delete all existing items
-      for (const item of existingItems) {
-        await apiRequest("DELETE", `/api/invoices/${invoiceId}/items/${item.id}`);
+      if (!invoiceRes.ok) {
+        const errorText = await invoiceRes.text();
+        console.error("Error updating invoice:", errorText);
+        throw new Error("Failed to update invoice. Please try again.");
       }
       
-      // Add the new items
-      for (const item of values.items) {
-        await apiRequest("POST", `/api/invoices/${invoiceId}/items`, {
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-          catalogItemId: item.catalogItemId,
-          invoiceId: invoiceId
-        });
+      const updatedInvoice = await invoiceRes.json();
+      
+      try {
+        // Delete all existing items and create new ones
+        const existingItemsRes = await apiRequest("GET", `/api/invoices/${invoiceId}/items`);
+        
+        if (!existingItemsRes.ok) {
+          throw new Error("Failed to fetch existing invoice items");
+        }
+        
+        const existingItems = await existingItemsRes.json();
+        
+        // Delete all existing items
+        for (const item of existingItems) {
+          await apiRequest("DELETE", `/api/invoices/${invoiceId}/items/${item.id}`);
+        }
+        
+        // Add the new items
+        for (const item of values.items) {
+          await apiRequest("POST", `/api/invoices/${invoiceId}/items`, {
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.total,
+            catalogItemId: item.catalogItemId,
+            invoiceId: invoiceId
+          });
+        }
+      } catch (error) {
+        console.error("Error updating invoice items:", error);
+        throw new Error("Invoice was updated but there was an error updating the items. Please refresh and try again.");
       }
       
-      return await invoiceRes.json();
+      return updatedInvoice;
     },
     onSuccess: (data) => {
       toast({
