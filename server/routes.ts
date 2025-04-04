@@ -786,6 +786,63 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
+  // Serve the PDF test HTML page for direct browser testing
+  app.get("/pdf-test", (req, res) => {
+    res.sendFile("direct-pdf-test.html", { root: "." });
+  });
+  
+  // Unprotected route for testing invoice PDF display - allows easy testing without auth
+  app.get("/api/test-invoice-pdf/:id", async (req, res) => {
+    try {
+      const invoiceId = Number(req.params.id);
+      console.log(`Test specific invoice PDF endpoint called for invoice ID ${invoiceId}`);
+      
+      const invoice = await storage.getInvoice(invoiceId);
+      
+      if (!invoice) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Get invoice items
+      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
+      console.log(`Found ${invoiceItems.length} invoice items for PDF generation`);
+      
+      // Get customer data
+      let customer = null;
+      if (invoice.customerId) {
+        customer = await storage.getCustomer(invoice.customerId);
+      }
+      
+      // Get project data
+      let project = null;
+      if (invoice.projectId) {
+        project = await storage.getProject(invoice.projectId);
+      }
+      
+      const completeInvoiceData = {
+        ...invoice,
+        items: invoiceItems,
+        customer,
+        project
+      };
+      
+      // Generate PDF using the PDFService with full context
+      const pdfBuffer = await PDFService.generateInvoicePDF(completeInvoiceData);
+      
+      // Force the download with proper headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating test invoice PDF:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to generate PDF", 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+  
   // Regular invoice PDF generation route
   app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
     try {
