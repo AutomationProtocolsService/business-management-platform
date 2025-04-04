@@ -1,10 +1,8 @@
-import puppeteer from 'puppeteer';
 import PDFDocument from 'pdfkit';
-import { Readable } from 'stream';
-import fs from 'fs';
-import path from 'path';
-import StreamBuffers from 'stream-buffers';
-import { Quote, Invoice, PurchaseOrder, Customer, Project, insertCustomerSchema } from '@shared/schema';
+// stream-buffers doesn't have a default export, let's create our own import pattern
+import * as sb from 'stream-buffers';
+const StreamBuffers = sb;
+import { Invoice, Quote, PurchaseOrder, Customer, Project } from '@shared/schema';
 
 // Define extended types with nested related data
 interface QuoteWithItems extends Quote {
@@ -21,64 +19,339 @@ interface PurchaseOrderWithItems extends PurchaseOrder {
   items: any[];
 }
 
-/**
- * Service for generating PDF documents from various entity types
- */
+// Configuration constants for PDF generation
+const PDF_MARGIN = 50;
+const PDF_FONT = 'Helvetica';
+const PDF_FONT_SIZE_HEADER = 20;
+const PDF_FONT_SIZE_BODY = 12;
+const PDF_PAPER_SIZE = 'letter';
+const DEFAULT_CURRENCY = 'USD';
+
+// Column widths for the invoice items table
+const INVOICE_TABLE_COL_WIDTHS = {
+  description: 250,
+  quantity: 70,
+  unitPrice: 100,
+  total: 100,
+};
+
+interface InvoicePDFData extends InvoiceWithRelations {
+  // You might add additional data specific to PDF generation here if needed
+}
+
 export default class PDFService {
-  /**
-   * Generate a PDF file for a quote
-   * @param quote The quote data including items
-   * @returns Buffer containing the PDF file
-   */
   static async generateQuotePDF(quote: Quote & { items: any[] }): Promise<Buffer> {
+    // Ensure items is not undefined
+    if (!quote.items) {
+      console.warn(`Warning: Quote ${quote.quoteNumber} has no items array`);
+      quote.items = [];
+    }
+    
+    // Log quote data including items
+    console.log(`Preparing quote PDF for ${quote.quoteNumber} with ${quote.items.length} items`);
+    
     const htmlContent = await this.renderQuoteTemplate(quote);
     return this.generatePDFFromHTML(htmlContent, `Quote_${quote.quoteNumber}`, quote);
   }
 
-  /**
-   * Generate a PDF file for an invoice
-   * @param invoice The invoice data including items, customer, and project
-   * @returns Buffer containing the PDF file
-   */
   static async generateInvoicePDF(invoice: InvoiceWithRelations): Promise<Buffer> {
     // Ensure items is not undefined
     if (!invoice.items) {
       console.warn(`Warning: Invoice ${invoice.invoiceNumber} has no items array`);
       invoice.items = [];
     }
-    
+
     // Log invoice data including items
     console.log(`Preparing invoice PDF for ${invoice.invoiceNumber} with ${invoice.items.length} items`);
-    
-    const htmlContent = await this.renderInvoiceTemplate(invoice);
+
+    let htmlContent: string;
+    try {
+      htmlContent = await this.renderInvoiceTemplate(invoice);
+    } catch (error) {
+      console.error('Error rendering invoice template:', error);
+      throw error; // Re-throw to be caught by the caller
+    }
     return this.generatePDFFromHTML(htmlContent, `Invoice_${invoice.invoiceNumber}`, invoice);
   }
 
-  /**
-   * Generate a PDF file for a purchase order
-   * @param purchaseOrder The PO data including items
-   * @returns Buffer containing the PDF file
-   */
   static async generatePurchaseOrderPDF(purchaseOrder: PurchaseOrder & { items: any[] }): Promise<Buffer> {
+    // Ensure items is not undefined
+    if (!purchaseOrder.items) {
+      console.warn(`Warning: PO ${purchaseOrder.poNumber} has no items array`);
+      purchaseOrder.items = [];
+    }
+    
+    // Log PO data including items
+    console.log(`Preparing PO PDF for ${purchaseOrder.poNumber} with ${purchaseOrder.items.length} items`);
+    
     const htmlContent = await this.renderPurchaseOrderTemplate(purchaseOrder);
     return this.generatePDFFromHTML(htmlContent, `PO_${purchaseOrder.poNumber}`, purchaseOrder);
   }
 
-  /**
-   * Generate a PDF from HTML content using Puppeteer
-   * @param htmlContent The HTML content to render as PDF
-   * @param filename The filename without extension
-   * @returns Buffer containing the PDF file
-   */
-  private static async generatePDFFromHTML(htmlContent: string, filename: string, originalDoc?: any): Promise<Buffer> {
+  private static async renderInvoiceTemplate(invoice: InvoiceWithRelations): Promise<string> {
+    // In a real application, this would involve using a templating engine
+    // to generate HTML based on the invoice data.
+    // For this example, we'll return a simple string.
+    let html = `
+      <html>
+      <head>
+        <title>Invoice ${invoice.invoiceNumber}</title>
+        <style>
+          body { font-family: 'Helvetica'; font-size: 12px; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .customer-info, .project-info, .invoice-details { margin-bottom: 15px; }
+          .underline { text-decoration: underline; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          .items-table th, .items-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          .items-table th { background-color: #f0f0f0; }
+          .text-right { text-align: right; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Company Name</h1>
+          <p>123 Business St, City, State, ZIP</p>
+          <p>Phone: (123) 456-7890 | Email: info@company.com</p>
+        </div>
+
+        <div class="customer-info">
+          <h3 class="underline">CUSTOMER</h3>
+          <p>${invoice.customer?.name || 'N/A'}</p>
+          <p>${invoice.customer?.email || 'N/A'}</p>
+          <p>${invoice.customer?.phone || 'N/A'}</p>
+          <p>${invoice.customer?.address || 'N/A'}</p>
+          <p>${invoice.customer?.city || 'N/A'}, ${invoice.customer?.state || 'N/A'} ${invoice.customer?.zipCode || 'N/A'}</p>
+          <p>${invoice.customer?.country || 'N/A'}</p>
+        </div>
+
+        <div class="project-info">
+          <h3 class="underline">PROJECT</h3>
+          <p>Project: ${invoice.project?.name || 'N/A'}</p>
+          <p>Description: ${invoice.project?.description || 'N/A'}</p>
+        </div>
+
+        <div class="invoice-details">
+          <h2 class="underline">INVOICE DETAILS</h2>
+          <p>Reference: ${invoice.reference || 'N/A'}</p>
+          <p>Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}</p>
+          <p>Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
+          <p>Status: ${invoice.status?.toUpperCase() || 'N/A'}</p>
+        </div>
+
+        <div>
+          <h3 class="underline">Invoice Items</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (invoice.items && invoice.items.length > 0) {
+      const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(value);
+      };
+
+      invoice.items.forEach((item) => {
+        html += `
+              <tr>
+                <td>${item.description || 'No description provided'}</td>
+                <td>${item.quantity || '0'}</td>
+                <td>${formatCurrency(Number(item.unitPrice) || 0)}</td>
+                <td class="text-right">${formatCurrency(Number(item.total) || 0)}</td>
+              </tr>
+        `;
+      });
+    } else {
+      html += `
+              <tr><td colspan="4">No items found.</td></tr>
+      `;
+    }
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+    return html;
+  }
+
+  private static async renderQuoteTemplate(quote: QuoteWithItems): Promise<string> {
+    // Similar to invoice template but for quotes
+    let html = `
+      <html>
+      <head>
+        <title>Quote ${quote.quoteNumber}</title>
+        <style>
+          body { font-family: 'Helvetica'; font-size: 12px; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .underline { text-decoration: underline; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          .items-table th, .items-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          .items-table th { background-color: #f0f0f0; }
+          .text-right { text-align: right; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Company Name</h1>
+          <p>123 Business St, City, State, ZIP</p>
+          <p>Phone: (123) 456-7890 | Email: info@company.com</p>
+        </div>
+
+        <div>
+          <h2 class="underline">QUOTATION</h2>
+          <p>Quote Number: ${quote.quoteNumber}</p>
+          <p>Reference: ${quote.reference || 'N/A'}</p>
+          <p>Issue Date: ${new Date(quote.issueDate).toLocaleDateString()}</p>
+          <p>Expiry Date: ${quote.expiryDate ? new Date(quote.expiryDate).toLocaleDateString() : 'N/A'}</p>
+          <p>Status: ${quote.status?.toUpperCase() || 'N/A'}</p>
+        </div>
+
+        <div>
+          <h3 class="underline">Quote Items</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (quote.items && quote.items.length > 0) {
+      const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(value);
+      };
+
+      quote.items.forEach((item) => {
+        html += `
+              <tr>
+                <td>${item.description || 'No description provided'}</td>
+                <td>${item.quantity || '0'}</td>
+                <td>${formatCurrency(Number(item.unitPrice) || 0)}</td>
+                <td class="text-right">${formatCurrency(Number(item.total) || 0)}</td>
+              </tr>
+        `;
+      });
+    } else {
+      html += `
+              <tr><td colspan="4">No items found.</td></tr>
+      `;
+    }
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+    return html;
+  }
+
+  private static async renderPurchaseOrderTemplate(po: PurchaseOrderWithItems): Promise<string> {
+    // Similar to invoice template but for purchase orders
+    let html = `
+      <html>
+      <head>
+        <title>Purchase Order ${po.poNumber}</title>
+        <style>
+          body { font-family: 'Helvetica'; font-size: 12px; }
+          .header { text-align: center; margin-bottom: 20px; }
+          .underline { text-decoration: underline; }
+          .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+          .items-table th, .items-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+          .items-table th { background-color: #f0f0f0; }
+          .text-right { text-align: right; }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>Company Name</h1>
+          <p>123 Business St, City, State, ZIP</p>
+          <p>Phone: (123) 456-7890 | Email: info@company.com</p>
+        </div>
+
+        <div>
+          <h2 class="underline">PURCHASE ORDER</h2>
+          <p>PO Number: ${po.poNumber}</p>
+          <p>Issue Date: ${new Date(po.issueDate).toLocaleDateString()}</p>
+          <p>Expected Delivery: ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'N/A'}</p>
+          <p>Status: ${po.status?.toUpperCase() || 'N/A'}</p>
+        </div>
+
+        <div>
+          <h3 class="underline">PO Items</h3>
+          <table class="items-table">
+            <thead>
+              <tr>
+                <th>Description</th>
+                <th>Quantity</th>
+                <th>Unit Price</th>
+                <th class="text-right">Total</th>
+              </tr>
+            </thead>
+            <tbody>
+    `;
+
+    if (po.items && po.items.length > 0) {
+      const formatCurrency = (value: number) => {
+        return new Intl.NumberFormat('en-US', {
+          style: 'currency',
+          currency: 'USD',
+        }).format(value);
+      };
+
+      po.items.forEach((item) => {
+        html += `
+              <tr>
+                <td>${item.description || 'No description provided'}</td>
+                <td>${item.quantity || '0'}</td>
+                <td>${formatCurrency(Number(item.unitPrice) || 0)}</td>
+                <td class="text-right">${formatCurrency(Number(item.total) || 0)}</td>
+              </tr>
+        `;
+      });
+    } else {
+      html += `
+              <tr><td colspan="4">No items found.</td></tr>
+      `;
+    }
+
+    html += `
+            </tbody>
+          </table>
+        </div>
+      </body>
+      </html>
+    `;
+    return html;
+  }
+
+  private static async generatePDFFromHTML(html: string, filename: string, originalDoc?: any): Promise<Buffer> {
     console.log(`Generating PDF for ${filename}`);
     
     try {
-      // Use the PDFKit method instead of Puppeteer since Chrome isn't available
-      console.log(`Switching to PDFKit for ${filename} generation`);
       return this.generatePDFWithPDFKit({
         title: filename,
-        content: htmlContent.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), // Strip HTML for text-only PDF
+        content: html.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim(), // Strip HTML for text-only PDF
         originalDoc: originalDoc // Pass the original document for proper rendering
       }, filename);
     } catch (error) {
@@ -87,12 +360,6 @@ export default class PDFService {
     }
   }
 
-  /**
-   * Alternative PDF generation using PDFKit
-   * @param data The data to include in the PDF
-   * @param filename The filename without extension
-   * @returns Buffer containing the PDF file
-   */
   private static generatePDFWithPDFKit(data: any, filename: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
@@ -104,65 +371,176 @@ export default class PDFService {
           has_items: data.originalDoc && data.originalDoc.items ? true : false,
           items_count: data.originalDoc && data.originalDoc.items ? data.originalDoc.items.length : 0
         }));
-        
-        // Ensure the originalDoc is accessible
-        const originalDoc = data.originalDoc;
-        if (!originalDoc) {
-          console.warn(`Warning: No original document provided for ${filename}`);
-        }
-        
+
         // Create a PDF document with better settings for text rendering
-        const doc = new PDFDocument({ 
-          margin: 50,
+        const doc = new PDFDocument({
+          margin: PDF_MARGIN,
           bufferPages: true,
-          font: 'Helvetica',
-          size: 'letter',
+          font: PDF_FONT,
+          size: PDF_PAPER_SIZE,
           info: {
             Title: filename,
             Author: 'System Generated',
-            Subject: 'Business Document' 
-          }
+            Subject: 'Business Document',
+          },
         });
-        
+
         // Create a writable stream buffer
         const writableStreamBuffer = new StreamBuffers.WritableStreamBuffer({
           initialSize: (100 * 1024),
-          incrementAmount: (10 * 1024)
+          incrementAmount: (10 * 1024),
         });
-        
+
         // Pipe the document to the buffer
         doc.pipe(writableStreamBuffer);
 
         // Format currency
         const formatCurrency = (value: number) => {
-          return new Intl.NumberFormat('en-US', { 
-            style: 'currency', 
-            currency: 'USD'
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: DEFAULT_CURRENCY,
           }).format(value);
         };
 
-        // Add company header (this would be fetched from company settings in a real app)
-        doc.fontSize(20).text('Company Name', { align: 'center' });
+        // Add company header
+        doc.fontSize(PDF_FONT_SIZE_HEADER).text('Company Name', { align: 'center' });
         doc.moveDown();
-        doc.fontSize(12).text('123 Business St, City, State, ZIP', { align: 'center' });
+        doc.fontSize(PDF_FONT_SIZE_BODY).text('123 Business St, City, State, ZIP', { align: 'center' });
         doc.text('Phone: (123) 456-7890 | Email: info@company.com', { align: 'center' });
         doc.moveDown();
-        
+
         // Add document title
         doc.fontSize(16).text(data.title || filename, { align: 'center' });
         doc.moveDown();
         
         // Add basic content details
         doc.fontSize(12);
-        
-        // Format the content better by extracting key information
-        if (filename.includes('Quote') && originalDoc) {
-          // It's a quote
-          doc.text('QUOTE DETAILS', { align: 'center', underline: true });
+
+        // Invoice-specific PDF content generation
+        if (filename.includes('Invoice') && data.originalDoc) {
+          // It's an invoice
+          const invoice = data.originalDoc;
+
+          console.log(`Invoice PDF data:`, JSON.stringify(invoice));
+
+          // Add customer information if available
+          if (invoice.customer) {
+            doc.text('CUSTOMER', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`${invoice.customer.name}`);
+            doc.text(`${invoice.customer.email}`);
+            doc.text(`${invoice.customer.phone}`);
+            doc.text(`${invoice.customer.address}`);
+            doc.text(`${invoice.customer.city}, ${invoice.customer.state} ${invoice.customer.zipCode}`);
+            doc.text(`${invoice.customer.country}`);
+            doc.moveDown();
+          }
+
+          // Add project information if available
+          if (invoice.project) {
+            doc.text('PROJECT', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`Project: ${invoice.project.name}`);
+            doc.text(`Description: ${invoice.project.description}`);
+            doc.moveDown();
+          }
+
+          doc.text('INVOICE DETAILS', { align: 'center', underline: true });
           doc.moveDown();
-          
-          // Extract quote info
-          const quote = originalDoc;
+
+          // Invoice reference and dates
+          doc.text(`Reference: ${invoice.reference || 'N/A'}`);
+          doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}`);
+          doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`);
+          doc.text(`Status: ${invoice.status?.toUpperCase() || 'N/A'}`);
+          doc.moveDown();
+
+          // Line items table
+          doc.text('Invoice Items', { underline: true });
+          doc.moveDown();
+
+          // Table headers for items
+          const tableTop = doc.y;
+          const colWidths = INVOICE_TABLE_COL_WIDTHS;
+          let currentY = doc.y;
+
+          // Draw table headers
+          doc.font('Helvetica-Bold');
+          doc.text('Description', doc.x + 5, currentY);
+          doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.font('Helvetica');
+          currentY += 15;
+          doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
+
+          // Process each item
+          if (invoice.items && invoice.items.length > 0) {
+            invoice.items.forEach((item: any) => {
+              currentY += 5; // Add some spacing between rows
+              const startY = currentY;
+
+              // Extract values with defaults to prevent errors
+              const description = String(item.description || 'No description provided');
+              const quantity = String(item.quantity || '0');
+              const unitPrice = Number(item.unitPrice) || 0;
+              const totalPrice = Number(item.total) || 0;
+
+              // Draw description text (multiline supported)
+              const descriptionOptions = {
+                width: colWidths.description - 10,
+                align: 'left' as const,
+              };
+
+              // Draw description starting at current position
+              doc.text(description, doc.x + 5, currentY, descriptionOptions);
+
+              // Calculate y after description to align other columns.
+              const descriptionEndY = doc.y;
+              currentY = Math.max(startY, descriptionEndY);
+
+              // Draw the other columns aligned with top of description
+              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
+
+              currentY += 10; // Add more spacing after each item
+              doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
+            });
+          } else {
+            doc.text('No items in this invoice', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            currentY = doc.y + 15;
+          }
+
+          // Add a divider
+          doc.moveTo(doc.x, currentY).lineTo(doc.x + 520, currentY).stroke();
+          doc.y = currentY;
+          doc.moveDown();
+
+          // Invoice totals
+          const totalsX = doc.x + 350;
+          doc.text(`Subtotal:`, totalsX);
+          doc.text(formatCurrency(invoice.subtotal || 0), totalsX + 100);
+          doc.moveDown(0.5);
+
+          doc.text(`Tax:`, totalsX);
+          doc.text(formatCurrency(invoice.tax || 0), totalsX + 100);
+          doc.moveDown(0.5);
+
+          if (invoice.discount) {
+            doc.text(`Discount:`, totalsX);
+            doc.text(formatCurrency(invoice.discount || 0), totalsX + 100);
+            doc.moveDown(0.5);
+          }
+
+          // Use font directly for bold text
+          doc.font('Helvetica-Bold');
+          doc.text(`Total:`, totalsX);
+          doc.text(formatCurrency(invoice.total || 0), totalsX + 100);
+          doc.font('Helvetica');
+        } else if (filename.includes('Quote') && data.originalDoc) {
+          // It's a quote
+          const quote = data.originalDoc;
           
           // Quote reference and dates
           doc.text(`Reference: ${quote.reference || 'N/A'}`);
@@ -170,7 +548,7 @@ export default class PDFService {
           if (quote.expiryDate) {
             doc.text(`Expiry Date: ${new Date(quote.expiryDate).toLocaleDateString()}`);
           }
-          doc.text(`Status: ${quote.status.toUpperCase()}`);
+          doc.text(`Status: ${quote.status?.toUpperCase() || 'N/A'}`);
           doc.moveDown();
           
           // Line items table
@@ -179,36 +557,24 @@ export default class PDFService {
           
           // Create a simple table for items
           const tableTop = doc.y;
-          const colWidths = {
-            description: 250,
-            quantity: 70,
-            unitPrice: 100,
-            total: 100
-          };
+          const colWidths = INVOICE_TABLE_COL_WIDTHS;
+          let currentY = doc.y;
           
-          // Table headers
-          doc.text('Description', doc.x, tableTop);
-          doc.text('Quantity', doc.x + colWidths.description, tableTop);
-          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
-          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
+          // Draw table headers
+          doc.font('Helvetica-Bold');
+          doc.text('Description', doc.x + 5, currentY);
+          doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.font('Helvetica');
+          currentY += 15;
+          doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
           
-          doc.moveDown();
-          let yPos = doc.y;
-          
-          // Check if items exist
+          // Process each item
           if (quote.items && quote.items.length > 0) {
-            // Debug log the items
-            console.log(`Quote items for PDF (${quote.items.length}):`, JSON.stringify(quote.items));
-            
-            // Try a completely different approach for rendering items
-            let currentY = yPos;
-            
-            // Draw table header borders
-            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
-            
-            // Process each item
-            quote.items.forEach((item, index) => {
-              console.log(`Rendering quote item ${index} at position ${currentY}:`, JSON.stringify(item));
+            quote.items.forEach((item: any) => {
+              currentY += 5; // Add some spacing between rows
+              const startY = currentY;
               
               // Extract values with defaults to prevent errors
               const description = String(item.description || 'No description provided');
@@ -216,44 +582,35 @@ export default class PDFService {
               const unitPrice = Number(item.unitPrice) || 0;
               const totalPrice = Number(item.total) || 0;
               
-              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
-              
               // Draw description text (multiline supported)
-              const descriptionOptions = { 
+              const descriptionOptions = {
                 width: colWidths.description - 10,
-                align: 'left' as const
+                align: 'left' as const,
               };
               
               // Draw description starting at current position
-              const descriptionStart = currentY;
               doc.text(description, doc.x + 5, currentY, descriptionOptions);
               
-              // Store where description ended
-              const descriptionEnd = doc.y;
-              
-              // Reset position to where this row started
-              doc.y = currentY;
+              // Calculate y after description to align other columns
+              const descriptionEndY = doc.y;
+              currentY = Math.max(startY, descriptionEndY);
               
               // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
               
-              // Move to position after description (which may be multiline)
-              currentY = descriptionEnd + 10;
-              doc.y = currentY;
-              
-              // Draw horizontal line separator
+              currentY += 10; // Add more spacing after each item
               doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
-            doc.text('No items in this quote', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
-            yPos = doc.y + 15;
-            doc.y = yPos;
+            doc.text('No items in this quote', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            currentY = doc.y + 15;
           }
           
           // Add a divider
-          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
+          doc.moveTo(doc.x, currentY).lineTo(doc.x + 520, currentY).stroke();
+          doc.y = currentY;
           doc.moveDown();
           
           // Quote totals
@@ -272,163 +629,20 @@ export default class PDFService {
             doc.moveDown(0.5);
           }
           
-          doc.text(`Total:`, totalsX, null, { bold: true });
-          doc.text(formatCurrency(quote.total || 0), totalsX + 100, null, { bold: true });
+          // Use font directly for bold text
+          doc.font('Helvetica-Bold');
+          doc.text(`Total:`, totalsX);
+          doc.text(formatCurrency(quote.total || 0), totalsX + 100);
+          doc.font('Helvetica');
+        } else if (filename.includes('PO') && data.originalDoc) {
+          // It's a purchase order
+          const po = data.originalDoc;
           
-        } else if (filename.includes('Invoice') && originalDoc) {
-          // It's an invoice - similar structure to quote
-          const invoice = originalDoc;
-          
-          console.log(`Invoice PDF data:`, JSON.stringify(invoice));
-          
-          // Add customer information if available
-          if (invoice.customer) {
-            doc.text('CUSTOMER', { align: 'left', underline: true });
-            doc.moveDown(0.5);
-            doc.text(`${invoice.customer.name}`);
-            doc.text(`${invoice.customer.email}`);
-            doc.text(`${invoice.customer.phone}`);
-            doc.text(`${invoice.customer.address}`);
-            doc.text(`${invoice.customer.city}, ${invoice.customer.state} ${invoice.customer.postalCode}`);
-            doc.text(`${invoice.customer.country}`);
-            doc.moveDown();
-          }
-          
-          // Add project information if available
-          if (invoice.project) {
-            doc.text('PROJECT', { align: 'left', underline: true });
-            doc.moveDown(0.5);
-            doc.text(`Project: ${invoice.project.name}`);
-            doc.text(`Description: ${invoice.project.description}`);
-            doc.moveDown();
-          }
-          
-          doc.text('INVOICE DETAILS', { align: 'center', underline: true });
-          doc.moveDown();
-          
-          // Invoice reference and dates
-          doc.text(`Reference: ${invoice.reference || 'N/A'}`);
-          doc.text(`Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}`);
-          doc.text(`Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}`);
-          doc.text(`Status: ${invoice.status.toUpperCase()}`);
-          doc.moveDown();
-          
-          // Line items table
-          doc.text('Invoice Items', { underline: true });
-          doc.moveDown();
-          
-          // Create a simple table for items
-          const tableTop = doc.y;
-          const colWidths = {
-            description: 250,
-            quantity: 70,
-            unitPrice: 100,
-            total: 100
-          };
-          
-          // Table headers
-          doc.text('Description', doc.x, tableTop);
-          doc.text('Quantity', doc.x + colWidths.description, tableTop);
-          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
-          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
-          
-          doc.moveDown();
-          let yPos = doc.y;
-          
-          // Check if items exist
-          if (invoice.items && invoice.items.length > 0) {
-            // Debug log the items
-            console.log(`Invoice items for PDF (${invoice.items.length}):`, JSON.stringify(invoice.items));
-            
-            // Try a completely different approach for rendering items
-            let currentY = yPos;
-            
-            // Draw table header borders
-            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
-            
-            // Process each item
-            invoice.items.forEach((item, index) => {
-              console.log(`Rendering invoice item ${index} at position ${currentY}:`, JSON.stringify(item));
-              
-              // Extract values with defaults to prevent errors
-              const description = String(item.description || 'No description provided');
-              const quantity = String(item.quantity || '0');
-              const unitPrice = Number(item.unitPrice) || 0;
-              const totalPrice = Number(item.total) || 0;
-              
-              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
-              
-              // Draw description text (multiline supported)
-              const descriptionOptions = { 
-                width: colWidths.description - 10,
-                align: 'left' as const
-              };
-              
-              // Draw description starting at current position
-              const descriptionStart = currentY;
-              doc.text(description, doc.x + 5, currentY, descriptionOptions);
-              
-              // Store where description ended
-              const descriptionEnd = doc.y;
-              
-              // Reset position to where this row started
-              doc.y = currentY;
-              
-              // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
-              
-              // Move to position after description (which may be multiline)
-              currentY = descriptionEnd + 10;
-              doc.y = currentY;
-              
-              // Draw horizontal line separator
-              doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
-            });
-          } else {
-            doc.text('No items in this invoice', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
-            yPos = doc.y + 15;
-            doc.y = yPos;
-          }
-          
-          // Add a divider
-          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
-          doc.moveDown();
-          
-          // Invoice totals
-          const totalsX = doc.x + 350;
-          doc.text(`Subtotal:`, totalsX);
-          doc.text(formatCurrency(invoice.subtotal || 0), totalsX + 100);
-          doc.moveDown(0.5);
-          
-          doc.text(`Tax:`, totalsX);
-          doc.text(formatCurrency(invoice.tax || 0), totalsX + 100);
-          doc.moveDown(0.5);
-          
-          if (invoice.discount) {
-            doc.text(`Discount:`, totalsX);
-            doc.text(formatCurrency(invoice.discount || 0), totalsX + 100);
-            doc.moveDown(0.5);
-          }
-          
-          doc.text(`Total:`, totalsX, null, { bold: true });
-          doc.text(formatCurrency(invoice.total || 0), totalsX + 100, null, { bold: true });
-          
-        } else if (filename.includes('PO') && originalDoc) {
-          // It's a purchase order - similar structure to quote/invoice
-          const po = originalDoc;
-          
-          console.log(`Purchase Order PDF data:`, JSON.stringify(po));
-          
-          doc.text('PURCHASE ORDER DETAILS', { align: 'center', underline: true });
-          doc.moveDown();
-          
-          // PO reference and dates
+          // Purchase order details
           doc.text(`PO Number: ${po.poNumber || 'N/A'}`);
           doc.text(`Issue Date: ${new Date(po.issueDate).toLocaleDateString()}`);
           doc.text(`Expected Delivery: ${po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString() : 'N/A'}`);
-          doc.text(`Status: ${po.status.toUpperCase()}`);
+          doc.text(`Status: ${po.status?.toUpperCase() || 'N/A'}`);
           doc.moveDown();
           
           // Line items table
@@ -437,36 +651,24 @@ export default class PDFService {
           
           // Create a simple table for items
           const tableTop = doc.y;
-          const colWidths = {
-            description: 250,
-            quantity: 70,
-            unitPrice: 100,
-            total: 100
-          };
+          const colWidths = INVOICE_TABLE_COL_WIDTHS;
+          let currentY = doc.y;
           
-          // Table headers
-          doc.text('Description', doc.x, tableTop);
-          doc.text('Quantity', doc.x + colWidths.description, tableTop);
-          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity, tableTop);
-          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice, tableTop);
+          // Draw table headers
+          doc.font('Helvetica-Bold');
+          doc.text('Description', doc.x + 5, currentY);
+          doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
+          doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
+          doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.font('Helvetica');
+          currentY += 15;
+          doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
           
-          doc.moveDown();
-          let yPos = doc.y;
-          
-          // Check if items exist
+          // Process each item
           if (po.items && po.items.length > 0) {
-            // Debug log the items
-            console.log(`PO items for PDF (${po.items.length}):`, JSON.stringify(po.items));
-            
-            // Try a completely different approach for rendering items
-            let currentY = yPos;
-            
-            // Draw table header borders
-            doc.moveTo(doc.x, currentY - 15).lineTo(doc.x + 520, currentY - 15).stroke();
-            
-            // Process each item
-            po.items.forEach((item, index) => {
-              console.log(`Rendering PO item ${index} at position ${currentY}:`, JSON.stringify(item));
+            po.items.forEach((item: any) => {
+              currentY += 5; // Add some spacing between rows
+              const startY = currentY;
               
               // Extract values with defaults to prevent errors
               const description = String(item.description || 'No description provided');
@@ -474,44 +676,35 @@ export default class PDFService {
               const unitPrice = Number(item.unitPrice) || 0;
               const totalPrice = Number(item.total) || 0;
               
-              console.log(`Processing item description: "${description.substring(0, 50)}..." [${description.length} chars]`);
-              
               // Draw description text (multiline supported)
-              const descriptionOptions = { 
+              const descriptionOptions = {
                 width: colWidths.description - 10,
-                align: 'left' as const
+                align: 'left' as const,
               };
               
               // Draw description starting at current position
-              const descriptionStart = currentY;
               doc.text(description, doc.x + 5, currentY, descriptionOptions);
               
-              // Store where description ended
-              const descriptionEnd = doc.y;
-              
-              // Reset position to where this row started
-              doc.y = currentY;
+              // Calculate y after description to align other columns
+              const descriptionEndY = doc.y;
+              currentY = Math.max(startY, descriptionEndY);
               
               // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, currentY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, currentY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
+              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
+              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
               
-              // Move to position after description (which may be multiline)
-              currentY = descriptionEnd + 10;
-              doc.y = currentY;
-              
-              // Draw horizontal line separator
+              currentY += 10; // Add more spacing after each item
               doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
-            doc.text('No items in this purchase order', doc.x, yPos, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
-            yPos = doc.y + 15;
-            doc.y = yPos;
+            doc.text('No items in this purchase order', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            currentY = doc.y + 15;
           }
           
           // Add a divider
-          doc.moveTo(doc.x, doc.y).lineTo(doc.x + 520, doc.y).stroke();
+          doc.moveTo(doc.x, currentY).lineTo(doc.x + 520, currentY).stroke();
+          doc.y = currentY;
           doc.moveDown();
           
           // PO totals
@@ -524,534 +717,36 @@ export default class PDFService {
           doc.text(formatCurrency(po.tax || 0), totalsX + 100);
           doc.moveDown(0.5);
           
-          if (po.shipping) {
-            doc.text(`Shipping:`, totalsX);
-            doc.text(formatCurrency(po.shipping || 0), totalsX + 100);
-            doc.moveDown(0.5);
-          }
-          
-          doc.text(`Total:`, totalsX, null, { bold: true });
-          doc.text(formatCurrency(po.total || 0), totalsX + 100, null, { bold: true });
-          
-        } else {
-          // Fallback for generic documents or missing data
-          doc.text('This is a system-generated document.');
-          doc.moveDown();
-          doc.text('For complete details, please contact our office.');
+          // Use font directly for bold text
+          doc.font('Helvetica-Bold');
+          doc.text(`Total:`, totalsX);
+          doc.text(formatCurrency(po.total || 0), totalsX + 100);
+          doc.font('Helvetica');
         }
-        
-        // Add standard footer
-        doc.moveDown();
-        doc.moveDown();
-        doc.fontSize(10);
-        doc.text('NOTICE: This is a computer-generated document. If you have questions, please contact support.', { align: 'center' });
-        
-        // Finalize PDF
+
+        // Finalize the PDF
         doc.end();
-        
-        // Get the buffer when the stream is finished
+
+        // Resolve the promise with the PDF buffer when the stream is finished
         writableStreamBuffer.on('finish', () => {
           const pdfBuffer = writableStreamBuffer.getContents();
           if (pdfBuffer) {
             console.log(`PDF generated successfully with PDFKit for ${filename}, size: ${pdfBuffer.length} bytes`);
-            resolve(pdfBuffer);
+            resolve(pdfBuffer as Buffer);
           } else {
-            console.error(`Failed to generate PDF for ${filename}: Empty buffer`);
-            reject(new Error('Failed to generate PDF: Empty buffer'));
+            reject(new Error(`Failed to generate PDF: Empty buffer for ${filename}`));
           }
         });
         
-        writableStreamBuffer.on('error', (err) => {
-          console.error(`Error in stream for ${filename}:`, err);
+        // Handle errors
+        writableStreamBuffer.on('error', (err: Error) => {
+          console.error(`Error in PDF stream for ${filename}:`, err);
           reject(err);
         });
-        
       } catch (error) {
         console.error(`Error generating PDF with PDFKit for ${filename}:`, error);
         reject(error);
       }
     });
-  }
-
-  /**
-   * Render HTML template for quote
-   */
-  private static async renderQuoteTemplate(quote: Quote & { items: any[] }): Promise<string> {
-    // Format currency
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD'
-      }).format(value);
-    };
-
-    // Format date
-    const formatDate = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    };
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Quote #${quote.quoteNumber}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              font-size: 12px;
-              line-height: 1.5;
-              color: #333;
-              margin: 0;
-              padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            .header h1 {
-              font-size: 24px;
-              margin: 0;
-            }
-            .quote-info {
-              margin-bottom: 20px;
-            }
-            .quote-info p {
-              margin: 5px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              padding: 10px;
-              border-bottom: 1px solid #ddd;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-            .amount-summary {
-              margin-left: auto;
-              width: 300px;
-            }
-            .amount-summary table {
-              width: 100%;
-            }
-            .amount-summary td {
-              padding: 5px 10px;
-            }
-            .amount-summary td:last-child {
-              text-align: right;
-            }
-            .footer {
-              margin-top: 30px;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>QUOTE</h1>
-            <p>Quote #: ${quote.quoteNumber}</p>
-          </div>
-          
-          <div class="quote-info">
-            <p><strong>Issue Date:</strong> ${formatDate(quote.issueDate)}</p>
-            <p><strong>Valid Until:</strong> ${quote.expiryDate ? formatDate(quote.expiryDate) : 'N/A'}</p>
-            <p><strong>Reference:</strong> ${quote.reference || 'N/A'}</p>
-            <p><strong>Status:</strong> ${quote.status.toUpperCase()}</p>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${quote.items.map(item => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.total)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="amount-summary">
-            <table>
-              <tr>
-                <td><strong>Subtotal:</strong></td>
-                <td>${formatCurrency(quote.subtotal)}</td>
-              </tr>
-              ${quote.tax ? `
-              <tr>
-                <td><strong>Tax:</strong></td>
-                <td>${formatCurrency(quote.tax)}</td>
-              </tr>
-              ` : ''}
-              ${quote.discount ? `
-              <tr>
-                <td><strong>Discount:</strong></td>
-                <td>${formatCurrency(quote.discount)}</td>
-              </tr>
-              ` : ''}
-              <tr>
-                <td><strong>Total:</strong></td>
-                <td>${formatCurrency(quote.total)}</td>
-              </tr>
-            </table>
-          </div>
-          
-          <div class="footer">
-            ${quote.notes ? `<p><strong>Notes:</strong> ${quote.notes}</p>` : ''}
-            ${quote.terms ? `<p><strong>Terms & Conditions:</strong> ${quote.terms}</p>` : ''}
-          </div>
-        </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Render HTML template for invoice
-   */
-  private static async renderInvoiceTemplate(invoice: InvoiceWithRelations): Promise<string> {
-    // Format currency
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD'
-      }).format(value);
-    };
-
-    // Format date
-    const formatDate = (dateString: string) => {
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    };
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Invoice #${invoice.invoiceNumber}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              font-size: 12px;
-              line-height: 1.5;
-              color: #333;
-              margin: 0;
-              padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            .header h1 {
-              font-size: 24px;
-              margin: 0;
-            }
-            .customer-info, .project-info, .invoice-info {
-              margin-bottom: 20px;
-            }
-            .customer-info h3, .project-info h3 {
-              border-bottom: 1px solid #ddd;
-              padding-bottom: 5px;
-            }
-            .invoice-info p, .customer-info p, .project-info p {
-              margin: 5px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              padding: 10px;
-              border-bottom: 1px solid #ddd;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-            .amount-summary {
-              margin-left: auto;
-              width: 300px;
-            }
-            .amount-summary table {
-              width: 100%;
-            }
-            .amount-summary td {
-              padding: 5px 10px;
-            }
-            .amount-summary td:last-child {
-              text-align: right;
-            }
-            .footer {
-              margin-top: 30px;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>${invoice.type === 'deposit' ? 'DEPOSIT INVOICE' : 'INVOICE'}</h1>
-            <p>Invoice #: ${invoice.invoiceNumber}</p>
-          </div>
-          
-          ${invoice.customer ? `
-          <div class="customer-info">
-            <h3>Customer</h3>
-            <p>${invoice.customer.name}</p>
-            <p>${invoice.customer.email}</p>
-            <p>${invoice.customer.phone}</p>
-            <p>${invoice.customer.address || ''}</p>
-            <p>${invoice.customer.city || ''}, ${invoice.customer.state || ''} ${invoice.customer.zipCode || ''}</p>
-            <p>${invoice.customer.country || ''}</p>
-          </div>
-          ` : ''}
-
-          ${invoice.project ? `
-          <div class="project-info">
-            <h3>Project</h3>
-            <p><strong>Project Name:</strong> ${invoice.project.name}</p>
-            <p><strong>Description:</strong> ${invoice.project.description || 'N/A'}</p>
-          </div>
-          ` : ''}
-          
-          <div class="invoice-info">
-            <p><strong>Issue Date:</strong> ${formatDate(invoice.issueDate)}</p>
-            <p><strong>Due Date:</strong> ${formatDate(invoice.dueDate)}</p>
-            <p><strong>Reference:</strong> ${invoice.reference || 'N/A'}</p>
-            <p><strong>Status:</strong> ${invoice.status.toUpperCase()}</p>
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${invoice.items.map(item => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.total)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="amount-summary">
-            <table>
-              <tr>
-                <td><strong>Subtotal:</strong></td>
-                <td>${formatCurrency(invoice.subtotal)}</td>
-              </tr>
-              ${invoice.tax ? `
-              <tr>
-                <td><strong>Tax:</strong></td>
-                <td>${formatCurrency(invoice.tax)}</td>
-              </tr>
-              ` : ''}
-              ${invoice.discount ? `
-              <tr>
-                <td><strong>Discount:</strong></td>
-                <td>${formatCurrency(invoice.discount)}</td>
-              </tr>
-              ` : ''}
-              <tr>
-                <td><strong>Total:</strong></td>
-                <td>${formatCurrency(invoice.total)}</td>
-              </tr>
-            </table>
-          </div>
-          
-          <div class="footer">
-            ${invoice.notes ? `<p><strong>Notes:</strong> ${invoice.notes}</p>` : ''}
-            ${invoice.terms ? `<p><strong>Terms & Conditions:</strong> ${invoice.terms}</p>` : ''}
-            <p><strong>Payment Information:</strong> Please include the invoice number with your payment.</p>
-          </div>
-        </body>
-      </html>
-    `;
-  }
-
-  /**
-   * Render HTML template for purchase order
-   */
-  private static async renderPurchaseOrderTemplate(po: PurchaseOrder & { items: any[] }): Promise<string> {
-    // Format currency
-    const formatCurrency = (value: number) => {
-      return new Intl.NumberFormat('en-US', { 
-        style: 'currency', 
-        currency: 'USD'
-      }).format(value);
-    };
-
-    // Format date
-    const formatDate = (dateString: string | null) => {
-      if (!dateString) return 'N/A';
-      const date = new Date(dateString);
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    };
-
-    return `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8">
-          <title>Purchase Order #${po.poNumber}</title>
-          <style>
-            body {
-              font-family: Arial, sans-serif;
-              font-size: 12px;
-              line-height: 1.5;
-              color: #333;
-              margin: 0;
-              padding: 20px;
-            }
-            .header {
-              text-align: center;
-              margin-bottom: 30px;
-            }
-            .header h1 {
-              font-size: 24px;
-              margin: 0;
-            }
-            .po-info {
-              margin-bottom: 20px;
-            }
-            .po-info p {
-              margin: 5px 0;
-            }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-bottom: 20px;
-            }
-            th, td {
-              padding: 10px;
-              border-bottom: 1px solid #ddd;
-              text-align: left;
-            }
-            th {
-              background-color: #f2f2f2;
-            }
-            .amount-summary {
-              margin-left: auto;
-              width: 300px;
-            }
-            .amount-summary table {
-              width: 100%;
-            }
-            .amount-summary td {
-              padding: 5px 10px;
-            }
-            .amount-summary td:last-child {
-              text-align: right;
-            }
-            .footer {
-              margin-top: 30px;
-              border-top: 1px solid #ddd;
-              padding-top: 20px;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header">
-            <h1>PURCHASE ORDER</h1>
-            <p>PO #: ${po.poNumber}</p>
-          </div>
-          
-          <div class="po-info">
-            <p><strong>Issue Date:</strong> ${formatDate(po.issueDate)}</p>
-            <p><strong>Expected Delivery Date:</strong> ${formatDate(po.expectedDeliveryDate)}</p>
-            <p><strong>Status:</strong> ${po.status.toUpperCase()}</p>
-            ${po.deliveryAddress ? `<p><strong>Delivery Address:</strong> ${po.deliveryAddress}</p>` : ''}
-          </div>
-          
-          <table>
-            <thead>
-              <tr>
-                <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th>Total</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${po.items.map(item => `
-                <tr>
-                  <td>${item.description}</td>
-                  <td>${item.quantity}</td>
-                  <td>${formatCurrency(item.unitPrice)}</td>
-                  <td>${formatCurrency(item.total || (item.quantity * item.unitPrice))}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="amount-summary">
-            <table>
-              <tr>
-                <td><strong>Subtotal:</strong></td>
-                <td>${formatCurrency(po.subtotal)}</td>
-              </tr>
-              ${po.tax ? `
-              <tr>
-                <td><strong>Tax:</strong></td>
-                <td>${formatCurrency(po.tax)}</td>
-              </tr>
-              ` : ''}
-              ${po.shipping ? `
-              <tr>
-                <td><strong>Shipping:</strong></td>
-                <td>${formatCurrency(po.shipping)}</td>
-              </tr>
-              ` : ''}
-              <tr>
-                <td><strong>Total:</strong></td>
-                <td>${formatCurrency(po.total)}</td>
-              </tr>
-            </table>
-          </div>
-          
-          <div class="footer">
-            ${po.notes ? `<p><strong>Notes:</strong> ${po.notes}</p>` : ''}
-            ${po.terms ? `<p><strong>Terms & Conditions:</strong> ${po.terms}</p>` : ''}
-          </div>
-        </body>
-      </html>
-    `;
   }
 }
