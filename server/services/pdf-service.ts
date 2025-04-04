@@ -4,7 +4,22 @@ import { Readable } from 'stream';
 import fs from 'fs';
 import path from 'path';
 import StreamBuffers from 'stream-buffers';
-import { Quote, Invoice, PurchaseOrder } from '@shared/schema';
+import { Quote, Invoice, PurchaseOrder, Customer, Project, insertCustomerSchema } from '@shared/schema';
+
+// Define extended types with nested related data
+interface QuoteWithItems extends Quote {
+  items: any[];
+}
+
+interface InvoiceWithRelations extends Invoice {
+  items: any[];
+  customer?: Customer | null;
+  project?: Project | null;
+}
+
+interface PurchaseOrderWithItems extends PurchaseOrder {
+  items: any[];
+}
 
 /**
  * Service for generating PDF documents from various entity types
@@ -22,10 +37,10 @@ export default class PDFService {
 
   /**
    * Generate a PDF file for an invoice
-   * @param invoice The invoice data including items
+   * @param invoice The invoice data including items, customer, and project
    * @returns Buffer containing the PDF file
    */
-  static async generateInvoicePDF(invoice: Invoice & { items: any[] }): Promise<Buffer> {
+  static async generateInvoicePDF(invoice: InvoiceWithRelations): Promise<Buffer> {
     const htmlContent = await this.renderInvoiceTemplate(invoice);
     return this.generatePDFFromHTML(htmlContent, `Invoice_${invoice.invoiceNumber}`, invoice);
   }
@@ -256,6 +271,28 @@ export default class PDFService {
           const invoice = originalDoc;
           
           console.log(`Invoice PDF data:`, JSON.stringify(invoice));
+          
+          // Add customer information if available
+          if (invoice.customer) {
+            doc.text('CUSTOMER', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`${invoice.customer.name}`);
+            doc.text(`${invoice.customer.email}`);
+            doc.text(`${invoice.customer.phone}`);
+            doc.text(`${invoice.customer.address}`);
+            doc.text(`${invoice.customer.city}, ${invoice.customer.state} ${invoice.customer.postalCode}`);
+            doc.text(`${invoice.customer.country}`);
+            doc.moveDown();
+          }
+          
+          // Add project information if available
+          if (invoice.project) {
+            doc.text('PROJECT', { align: 'left', underline: true });
+            doc.moveDown(0.5);
+            doc.text(`Project: ${invoice.project.name}`);
+            doc.text(`Description: ${invoice.project.description}`);
+            doc.moveDown();
+          }
           
           doc.text('INVOICE DETAILS', { align: 'center', underline: true });
           doc.moveDown();
@@ -682,7 +719,7 @@ export default class PDFService {
   /**
    * Render HTML template for invoice
    */
-  private static async renderInvoiceTemplate(invoice: Invoice & { items: any[] }): Promise<string> {
+  private static async renderInvoiceTemplate(invoice: InvoiceWithRelations): Promise<string> {
     // Format currency
     const formatCurrency = (value: number) => {
       return new Intl.NumberFormat('en-US', { 
@@ -724,10 +761,14 @@ export default class PDFService {
               font-size: 24px;
               margin: 0;
             }
-            .invoice-info {
+            .customer-info, .project-info, .invoice-info {
               margin-bottom: 20px;
             }
-            .invoice-info p {
+            .customer-info h3, .project-info h3 {
+              border-bottom: 1px solid #ddd;
+              padding-bottom: 5px;
+            }
+            .invoice-info p, .customer-info p, .project-info p {
               margin: 5px 0;
             }
             table {
@@ -768,6 +809,26 @@ export default class PDFService {
             <h1>${invoice.type === 'deposit' ? 'DEPOSIT INVOICE' : 'INVOICE'}</h1>
             <p>Invoice #: ${invoice.invoiceNumber}</p>
           </div>
+          
+          ${invoice.customer ? `
+          <div class="customer-info">
+            <h3>Customer</h3>
+            <p>${invoice.customer.name}</p>
+            <p>${invoice.customer.email}</p>
+            <p>${invoice.customer.phone}</p>
+            <p>${invoice.customer.address || ''}</p>
+            <p>${invoice.customer.city || ''}, ${invoice.customer.state || ''} ${invoice.customer.zipCode || ''}</p>
+            <p>${invoice.customer.country || ''}</p>
+          </div>
+          ` : ''}
+
+          ${invoice.project ? `
+          <div class="project-info">
+            <h3>Project</h3>
+            <p><strong>Project Name:</strong> ${invoice.project.name}</p>
+            <p><strong>Description:</strong> ${invoice.project.description || 'N/A'}</p>
+          </div>
+          ` : ''}
           
           <div class="invoice-info">
             <p><strong>Issue Date:</strong> ${formatDate(invoice.issueDate)}</p>
