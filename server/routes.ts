@@ -455,53 +455,105 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotes/:id/pdf", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
+      
+      // Add cache-busting headers to prevent browser caching
+      res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+      res.setHeader('Surrogate-Control', 'no-store');
+      
+      console.log(`[PDF Route] Starting PDF generation for quote ID: ${quoteId}`);
+      
+      // Fetch the quote
       const quote = await storage.getQuote(quoteId);
       
       if (!quote) {
+        console.log(`[PDF Route] Quote not found with ID: ${quoteId}`);
         return res.status(404).json({ message: "Quote not found" });
       }
       
       // Check if user has access to this resource
       if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+        console.log(`[PDF Route] Access denied for user to Quote ID: ${quoteId}`);
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Log basic quote info
+      console.log(`[PDF Route] Quote found:`);
+      console.log(`  - ID: ${quote.id}`);
+      console.log(`  - Number: ${quote.quoteNumber}`);
+      console.log(`  - Customer ID: ${quote.customerId}`);
+      console.log(`  - Project ID: ${quote.projectId}`);
+      
       // Get quote items
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log(`[PDF Route] Found ${quoteItems.length} quote items`);
       
-      // Get customer and project information for the PDF
+      // Get customer and project information for the PDF - using explicit approach
       let customer = null;
       let project = null;
       
-      console.log(`[PDF Route] Quote ID: ${quoteId}`);
-      console.log(`[PDF Route] Quote Customer ID: ${quote.customerId}`);
-      console.log(`[PDF Route] Quote Project ID: ${quote.projectId}`);
-      
+      // Fetch customer if we have a customer ID
       if (quote.customerId) {
-        customer = await storage.getCustomer(quote.customerId);
-        console.log(`[PDF Route] Fetched Customer:`, customer ? { name: customer.name, id: customer.id } : null);
+        try {
+          console.log(`[PDF Route] Fetching customer with ID: ${quote.customerId}`);
+          customer = await storage.getCustomer(quote.customerId);
+          if (customer) {
+            console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
+          } else {
+            console.log(`[PDF Route] No customer found with ID: ${quote.customerId}`);
+          }
+        } catch (err) {
+          console.error(`[PDF Route] Error fetching customer:`, err);
+        }
+      } else {
+        console.log(`[PDF Route] No customer ID on quote`);
       }
       
+      // Fetch project if we have a project ID
       if (quote.projectId) {
-        project = await storage.getProject(quote.projectId);
-        console.log(`[PDF Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
+        try {
+          console.log(`[PDF Route] Fetching project with ID: ${quote.projectId}`);
+          project = await storage.getProject(quote.projectId);
+          if (project) {
+            console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
+          } else {
+            console.log(`[PDF Route] No project found with ID: ${quote.projectId}`);
+          }
+        } catch (err) {
+          console.error(`[PDF Route] Error fetching project:`, err);
+        }
+      } else {
+        console.log(`[PDF Route] No project ID on quote`);
       }
       
-      console.log('Generating PDF with complete quote data including customer and project');
-      
-      // Generate PDF using the PDFService with all related data
-      const pdfBuffer = await PDFService.generateQuotePDF({
+      // Create a properly structured combined object 
+      const completeQuoteData = {
         ...quote,
         items: quoteItems,
-        customer,
-        project
-      });
+        customer: customer, // Explicitly assign customer
+        project: project    // Explicitly assign project
+      };
       
+      // Log the final data structure we're passing to the PDF generator
+      console.log('[PDF Route] Final data for PDF generation:');
+      console.log(`  - Quote number: ${completeQuoteData.quoteNumber}`);
+      console.log(`  - Items count: ${completeQuoteData.items.length}`);
+      console.log(`  - Has customer: ${completeQuoteData.customer !== null}`);
+      console.log(`  - Has project: ${completeQuoteData.project !== null}`);
+      
+      // Generate PDF using the PDFService with all related data
+      const pdfBuffer = await PDFService.generateQuotePDF(completeQuoteData);
+      
+      // Set appropriate headers for PDF download
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=Quote_${quote.quoteNumber}.pdf`);
+      
+      // Send the PDF buffer to the client
+      console.log(`[PDF Route] PDF generated successfully, sending to client`);
       res.send(pdfBuffer);
     } catch (error) {
-      console.error('Error generating quote PDF:', error);
+      console.error('[PDF Route] Error generating quote PDF:', error);
       res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
@@ -3529,6 +3581,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       res.status(500).json({ message: "Failed to update company settings" });
     }
+  });
+
+  // TEST ROUTE FOR DEBUGGING - To confirm server restart is working
+  app.get("/api/test-debug", async (req, res) => {
+    console.log("TEST DEBUG ROUTE ACCESSED - SERVER RESTART CONFIRMED");
+    res.json({ success: true, message: "Test route works, server has restarted" });
   });
   
   return httpServer;
