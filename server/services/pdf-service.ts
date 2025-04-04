@@ -578,52 +578,90 @@ export default class PDFService {
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
 
-          // Process each item
+          // Process each item - REDESIGNED ITEM RENDERING
           if (invoice.items && invoice.items.length > 0) {
-            invoice.items.forEach((item: any) => {
-              currentY += 5; // Add some spacing between rows
-              const startY = currentY;
-
-              // Extract values with defaults to prevent errors
-              const description = String(item.description || 'No description provided');
-              const quantity = String(item.quantity || '0');
-              const unitPrice = Number(item.unitPrice) || 0;
-              const totalPrice = Number(item.total) || 0;
-
-              // Enhanced debugging for item processing
-              console.log(`Item Description: |${description}|`);
-              console.log(`Item Quantity: ${quantity}, Unit Price: ${unitPrice}, Total: ${totalPrice}`);
-              console.log(`startY: ${startY}, currentY (before text): ${currentY}, doc.y (before text): ${doc.y}`);
-
-              // Draw description text (multiline supported)
-              const descriptionOptions = {
-                width: colWidths.description - 10,
-                align: 'left' as const,
-              };
-
-              // Draw description starting at current position
-              doc.text(description, doc.x + 5, currentY, descriptionOptions);
-
-              // Calculate y after description to align other columns.
-              const descriptionEndY = doc.y;
-              currentY = Math.max(startY, descriptionEndY);
+            // Reset to a clean position and use a consistent approach
+            doc.fontSize(PDF_FONT_SIZE_BODY);
+            
+            // Draw a table with consistent layout
+            invoice.items.forEach((item: any, index: number) => {
+              // This spacing provides separation between rows
+              currentY += 5;
+              const rowStartY = currentY;
               
-              console.log(`currentY (after text): ${currentY}, doc.y (after text): ${doc.y}, descriptionEndY: ${descriptionEndY}`);
-
-              // Calculate text height explicitly - use this if there are issues with text layout
-              const textHeight = doc.heightOfString(description, descriptionOptions);
-              console.log(`Explicitly calculated text height: ${textHeight}`);
-
-              // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
-
-              currentY += 10; // Add more spacing after each item
+              // Extract values with strict defaults to prevent errors
+              const description = String(item.description || 'No description provided');
+              const quantity = Number(item.quantity || 0);
+              const unitPrice = Number(item.unitPrice || 0);
+              const totalPrice = Number(item.total || 0);
+              
+              // Log each item's data for debugging
+              console.log(`[Item ${index+1}] Desc: '${description.substring(0, 30)}...' | Qty: ${quantity} | Price: ${unitPrice} | Total: ${totalPrice}`);
+              
+              // Calculate item total to ensure consistency
+              const calculatedTotal = quantity * unitPrice;
+              if (Math.abs(calculatedTotal - totalPrice) > 0.01) {
+                console.warn(`Warning: Item total mismatch: calculated ${calculatedTotal} vs stored ${totalPrice}`);
+              }
+              
+              // Description column - the most complex due to potential wrapping
+              const descriptionMaxWidth = colWidths.description - 10;
+              
+              // Measure how much space the text will take (crucial for proper layout)
+              const descriptionHeight = doc.heightOfString(description, {
+                width: descriptionMaxWidth,
+                align: 'left'
+              });
+              
+              // Draw the description text
+              doc.text(
+                description,
+                doc.x + 5,  // Indent slightly 
+                rowStartY,  // Start at the row's top
+                {
+                  width: descriptionMaxWidth,
+                  align: 'left'
+                }
+              );
+              
+              // Calculate where we are after the description - crucial for proper row spacing
+              const afterDescriptionY = rowStartY + descriptionHeight;
+              
+              // Draw the remaining columns with simpler content that won't wrap
+              // These are aligned with the top of the row
+              doc.text(
+                quantity.toString(),
+                doc.x + colWidths.description + 35, // Center position in the quantity column
+                rowStartY,
+                { align: 'center' }
+              );
+              
+              doc.text(
+                formatCurrency(unitPrice),
+                doc.x + colWidths.description + colWidths.quantity + 5,
+                rowStartY
+              );
+              
+              doc.text(
+                formatCurrency(totalPrice),
+                doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5,
+                rowStartY
+              );
+              
+              // Move to the next row position, adding padding
+              currentY = afterDescriptionY + 10; 
+              
+              // Draw a separator line after each item
               doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
-            doc.text('No items in this invoice', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            // No items case
+            doc.text(
+              'No items in this invoice', 
+              doc.x + colWidths.description / 2, 
+              currentY, 
+              { align: 'center' }
+            );
             currentY = doc.y + 15;
           }
 
@@ -685,41 +723,90 @@ export default class PDFService {
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
           
-          // Process each item
+          // Process each item - REDESIGNED ITEM RENDERING
           if (quote.items && quote.items.length > 0) {
-            quote.items.forEach((item: any) => {
-              currentY += 5; // Add some spacing between rows
-              const startY = currentY;
+            // Reset to a clean position and use a consistent approach
+            doc.fontSize(PDF_FONT_SIZE_BODY);
+            
+            // Draw a table with consistent layout
+            quote.items.forEach((item: any, index: number) => {
+              // This spacing provides separation between rows
+              currentY += 5;
+              const rowStartY = currentY;
               
-              // Extract values with defaults to prevent errors
+              // Extract values with strict defaults to prevent errors
               const description = String(item.description || 'No description provided');
-              const quantity = String(item.quantity || '0');
-              const unitPrice = Number(item.unitPrice) || 0;
-              const totalPrice = Number(item.total) || 0;
+              const quantity = Number(item.quantity || 0);
+              const unitPrice = Number(item.unitPrice || 0);
+              const totalPrice = Number(item.total || 0);
               
-              // Draw description text (multiline supported)
-              const descriptionOptions = {
-                width: colWidths.description - 10,
-                align: 'left' as const,
-              };
+              // Log each item's data for debugging
+              console.log(`[Quote Item ${index+1}] Desc: '${description.substring(0, 30)}...' | Qty: ${quantity} | Price: ${unitPrice} | Total: ${totalPrice}`);
               
-              // Draw description starting at current position
-              doc.text(description, doc.x + 5, currentY, descriptionOptions);
+              // Calculate item total to ensure consistency
+              const calculatedTotal = quantity * unitPrice;
+              if (Math.abs(calculatedTotal - totalPrice) > 0.01) {
+                console.warn(`Warning: Quote item total mismatch: calculated ${calculatedTotal} vs stored ${totalPrice}`);
+              }
               
-              // Calculate y after description to align other columns
-              const descriptionEndY = doc.y;
-              currentY = Math.max(startY, descriptionEndY);
+              // Description column - the most complex due to potential wrapping
+              const descriptionMaxWidth = colWidths.description - 10;
               
-              // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
+              // Measure how much space the text will take (crucial for proper layout)
+              const descriptionHeight = doc.heightOfString(description, {
+                width: descriptionMaxWidth,
+                align: 'left'
+              });
               
-              currentY += 10; // Add more spacing after each item
+              // Draw the description text
+              doc.text(
+                description,
+                doc.x + 5,  // Indent slightly 
+                rowStartY,  // Start at the row's top
+                {
+                  width: descriptionMaxWidth,
+                  align: 'left'
+                }
+              );
+              
+              // Calculate where we are after the description - crucial for proper row spacing
+              const afterDescriptionY = rowStartY + descriptionHeight;
+              
+              // Draw the remaining columns with simpler content that won't wrap
+              // These are aligned with the top of the row
+              doc.text(
+                quantity.toString(),
+                doc.x + colWidths.description + 35, // Center position in the quantity column
+                rowStartY,
+                { align: 'center' }
+              );
+              
+              doc.text(
+                formatCurrency(unitPrice),
+                doc.x + colWidths.description + colWidths.quantity + 5,
+                rowStartY
+              );
+              
+              doc.text(
+                formatCurrency(totalPrice),
+                doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5,
+                rowStartY
+              );
+              
+              // Move to the next row position, adding padding
+              currentY = afterDescriptionY + 10; 
+              
+              // Draw a separator line after each item
               doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
-            doc.text('No items in this quote', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            // No items case
+            doc.text(
+              'No items in this quote', 
+              doc.x + colWidths.description / 2, 
+              currentY, 
+              { align: 'center' }
+            );
             currentY = doc.y + 15;
           }
           
@@ -779,41 +866,90 @@ export default class PDFService {
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
           
-          // Process each item
+          // Process each item - REDESIGNED ITEM RENDERING
           if (po.items && po.items.length > 0) {
-            po.items.forEach((item: any) => {
-              currentY += 5; // Add some spacing between rows
-              const startY = currentY;
+            // Reset to a clean position and use a consistent approach
+            doc.fontSize(PDF_FONT_SIZE_BODY);
+            
+            // Draw a table with consistent layout
+            po.items.forEach((item: any, index: number) => {
+              // This spacing provides separation between rows
+              currentY += 5;
+              const rowStartY = currentY;
               
-              // Extract values with defaults to prevent errors
+              // Extract values with strict defaults to prevent errors
               const description = String(item.description || 'No description provided');
-              const quantity = String(item.quantity || '0');
-              const unitPrice = Number(item.unitPrice) || 0;
-              const totalPrice = Number(item.total) || 0;
+              const quantity = Number(item.quantity || 0);
+              const unitPrice = Number(item.unitPrice || 0);
+              const totalPrice = Number(item.total || 0);
               
-              // Draw description text (multiline supported)
-              const descriptionOptions = {
-                width: colWidths.description - 10,
-                align: 'left' as const,
-              };
+              // Log each item's data for debugging
+              console.log(`[PO Item ${index+1}] Desc: '${description.substring(0, 30)}...' | Qty: ${quantity} | Price: ${unitPrice} | Total: ${totalPrice}`);
               
-              // Draw description starting at current position
-              doc.text(description, doc.x + 5, currentY, descriptionOptions);
+              // Calculate item total to ensure consistency
+              const calculatedTotal = quantity * unitPrice;
+              if (Math.abs(calculatedTotal - totalPrice) > 0.01) {
+                console.warn(`Warning: PO item total mismatch: calculated ${calculatedTotal} vs stored ${totalPrice}`);
+              }
               
-              // Calculate y after description to align other columns
-              const descriptionEndY = doc.y;
-              currentY = Math.max(startY, descriptionEndY);
+              // Description column - the most complex due to potential wrapping
+              const descriptionMaxWidth = colWidths.description - 10;
               
-              // Draw the other columns aligned with top of description
-              doc.text(quantity, doc.x + colWidths.description + 5, startY, { align: 'center' });
-              doc.text(formatCurrency(unitPrice), doc.x + colWidths.description + colWidths.quantity + 5, startY);
-              doc.text(formatCurrency(totalPrice), doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, startY);
+              // Measure how much space the text will take (crucial for proper layout)
+              const descriptionHeight = doc.heightOfString(description, {
+                width: descriptionMaxWidth,
+                align: 'left'
+              });
               
-              currentY += 10; // Add more spacing after each item
+              // Draw the description text
+              doc.text(
+                description,
+                doc.x + 5,  // Indent slightly 
+                rowStartY,  // Start at the row's top
+                {
+                  width: descriptionMaxWidth,
+                  align: 'left'
+                }
+              );
+              
+              // Calculate where we are after the description - crucial for proper row spacing
+              const afterDescriptionY = rowStartY + descriptionHeight;
+              
+              // Draw the remaining columns with simpler content that won't wrap
+              // These are aligned with the top of the row
+              doc.text(
+                quantity.toString(),
+                doc.x + colWidths.description + 35, // Center position in the quantity column
+                rowStartY,
+                { align: 'center' }
+              );
+              
+              doc.text(
+                formatCurrency(unitPrice),
+                doc.x + colWidths.description + colWidths.quantity + 5,
+                rowStartY
+              );
+              
+              doc.text(
+                formatCurrency(totalPrice),
+                doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5,
+                rowStartY
+              );
+              
+              // Move to the next row position, adding padding
+              currentY = afterDescriptionY + 10; 
+              
+              // Draw a separator line after each item
               doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
             });
           } else {
-            doc.text('No items in this purchase order', doc.x, currentY, { width: colWidths.description + colWidths.quantity + colWidths.unitPrice + colWidths.total });
+            // No items case
+            doc.text(
+              'No items in this purchase order', 
+              doc.x + colWidths.description / 2, 
+              currentY, 
+              { align: 'center' }
+            );
             currentY = doc.y + 15;
           }
           
