@@ -774,14 +774,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Get invoice items
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
+      
+      // Get customer data
+      let customer = null;
+      if (invoice.customerId) {
+        customer = await storage.getCustomer(invoice.customerId);
+      }
+      
+      // Get project data
+      let project = null;
+      if (invoice.projectId) {
+        project = await storage.getProject(invoice.projectId);
+      }
       
       console.log(`Generating PDF for Invoice_${invoice.invoiceNumber}`);
       
-      // Generate PDF using the PDFService
+      // Generate PDF using the PDFService with full context
       const pdfBuffer = await PDFService.generateInvoicePDF({
         ...invoice,
-        items: invoiceItems
+        items: invoiceItems,
+        customer,
+        project
       });
       
       res.setHeader('Content-Type', 'application/pdf');
@@ -820,8 +835,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Get invoice items
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
       console.log(`Retrieved ${invoiceItems.length} items for invoice ${invoiceId}`);
+      
+      // Get customer data
+      let customer = null;
+      if (invoice.customerId) {
+        customer = await storage.getCustomer(invoice.customerId);
+        console.log(`Retrieved customer data for invoice ${invoiceId}: ${customer?.name}`);
+      }
+      
+      // Get project data
+      let project = null;
+      if (invoice.projectId) {
+        project = await storage.getProject(invoice.projectId);
+        console.log(`Retrieved project data for invoice ${invoiceId}: ${project?.name}`);
+      }
       
       // Get company settings for sender email
       const companySettings = await storage.getCompanySettings();
@@ -835,9 +865,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(500).json({ message: "Email service not properly configured" });
       }
       
-      // Send email with PDF using EmailService
+      // Send email with PDF using EmailService with full context
       const success = await EmailService.sendInvoice(
-        { ...invoice, items: invoiceItems },
+        { 
+          ...invoice, 
+          items: invoiceItems,
+          customer,
+          project 
+        },
         recipientEmail,
         senderEmail,
         { subject, message, includePdf }

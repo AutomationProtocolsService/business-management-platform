@@ -138,7 +138,7 @@ export default class EmailService {
    * @returns Success status
    */
   static async sendInvoice(
-    invoice: Invoice & { items: any[] }, 
+    invoice: Invoice & { items: any[]; customer?: any; project?: any }, 
     recipientEmail: string, 
     senderEmail: string,
     options?: {
@@ -150,14 +150,18 @@ export default class EmailService {
     try {
       console.log(`Preparing to send invoice #${invoice.invoiceNumber} to ${recipientEmail}`);
       
+      // Get customer name if available
+      const customerName = invoice.customer ? invoice.customer.name : 'Customer';
+      const projectName = invoice.project ? invoice.project.name : '';
+      
       // Prepare email content
       const emailParams: EmailParams = {
         to: recipientEmail,
         from: senderEmail,
-        subject: options?.subject || `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}`,
+        subject: options?.subject || `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}${projectName ? ' for ' + projectName : ''}`,
         html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
-          <p>Dear Customer,</p>
-          <p>Please find attached the ${invoice.type === 'deposit' ? 'deposit invoice' : 'invoice'} #${invoice.invoiceNumber} for your payment.</p>
+          <p>Dear ${customerName},</p>
+          <p>Please find attached the ${invoice.type === 'deposit' ? 'deposit invoice' : 'invoice'} #${invoice.invoiceNumber}${projectName ? ' for ' + projectName : ''} for your payment.</p>
           <p>The invoice total is $${invoice.total.toFixed(2)} and is due on ${new Date(invoice.dueDate).toLocaleDateString()}.</p>
           <p>If you have any questions, please don't hesitate to contact us.</p>
           <p>Thank you for your business!</p>
