@@ -43,6 +43,22 @@ interface InvoicePDFData extends InvoiceWithRelations {
 
 export default class PDFService {
   static async generateQuotePDF(quote: QuoteWithItems): Promise<Buffer> {
+    // Detailed input data logging to identify the issue
+    console.log(`=== QUOTE PDF INPUT DATA ===`);
+    console.log(`Quote ID: ${quote.id}, Number: ${quote.quoteNumber}`);
+    console.log(`Customer ID from quote object: ${quote.customerId}`);
+    console.log(`Project ID from quote object: ${quote.projectId}`);
+    console.log(`Customer object received:`, quote.customer ? JSON.stringify({
+      id: quote.customer.id,
+      name: quote.customer.name,
+      email: quote.customer.email
+    }) : 'NULL');
+    console.log(`Project object received:`, quote.project ? JSON.stringify({
+      id: quote.project.id,
+      name: quote.project.name
+    }) : 'NULL');
+    console.log(`=== END QUOTE PDF INPUT DATA ===`);
+    
     // Ensure items is not undefined
     if (!quote.items) {
       console.warn(`Warning: Quote ${quote.quoteNumber} has no items array`);
