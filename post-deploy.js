@@ -5,8 +5,12 @@
  * It runs the deployment sync script to push changes to GitHub.
  */
 
-const { execSync } = require('child_process');
-const path = require('path');
+import { execSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // Colors for console output
 const colors = {
