@@ -88,12 +88,12 @@ export default function QuotesPage() {
   });
 
   // Fetch customers for the quote details
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<any[]>({
     queryKey: ["/api/customers"],
   });
 
   // Fetch projects for the quote details
-  const { data: projects = [] } = useQuery({
+  const { data: projects = [] } = useQuery<any[]>({
     queryKey: ["/api/projects"],
   });
 
@@ -147,7 +147,31 @@ export default function QuotesPage() {
   // Email quote mutation
   const emailQuote = useMutation({
     mutationFn: async (id: number) => {
-      await apiRequest("POST", `/api/quotes/${id}/email`);
+      try {
+        // Find the quote to get customer info
+        const quoteToEmail = quotes.find((q: any) => q.id === id);
+        if (!quoteToEmail) {
+          throw new Error("Quote not found");
+        }
+        
+        // Find the customer for this quote
+        const customerList = Array.isArray(customers) ? customers : [];
+        const customer = customerList.find((c: any) => c.id === quoteToEmail.customerId);
+        
+        if (!customer || !customer.email) {
+          throw new Error("Customer email not found. Please make sure the customer has an email address.");
+        }
+        
+        // Send email with required parameters
+        await apiRequest("POST", `/api/quotes/${id}/email`, {
+          recipientEmail: customer.email,
+          subject: `Quote #${quoteToEmail.quoteNumber}`,
+          message: `Please find attached your quote #${quoteToEmail.quoteNumber}.`
+        });
+      } catch (error) {
+        console.error("Error in emailQuote:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       toast({
@@ -156,10 +180,10 @@ export default function QuotesPage() {
       });
       setIsEmailDialogOpen(false);
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       toast({
         title: "Error",
-        description: error.message,
+        description: error.message || "Failed to send email",
         variant: "destructive",
       });
     },
@@ -263,21 +287,24 @@ export default function QuotesPage() {
               <QuoteForm 
                 onSuccess={handleQuoteCreated}
                 onCancel={() => setIsCreateDialogOpen(false)}
-                defaultValues={{
-                  issueDate: new Date().toISOString().split('T')[0],
-                  expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                  status: 'draft',
-                  items: [{
-                    description: '',
-                    quantity: 1,
-                    unitPrice: 0,
-                    total: 0
-                  }],
-                  tax: 0,
-                  discount: 0,
-                  subtotal: 0,
-                  total: 0
-                }}
+                defaultValues={
+                  // Provide default values that match the expected Zod schema types
+                  {
+                    issueDate: new Date().toISOString().split('T')[0] as any,
+                    expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] as any,
+                    status: 'draft' as any,
+                    items: [{
+                      description: '',
+                      quantity: 1,
+                      unitPrice: 0,
+                      total: 0
+                    }] as any,
+                    tax: 0 as any,
+                    discount: 0 as any,
+                    subtotal: 0 as any,
+                    total: 0 as any
+                  }
+                }
               />
             </DialogContent>
           </Dialog>
@@ -344,7 +371,7 @@ export default function QuotesPage() {
                               title="View Details"
                               asChild
                             >
-                              <Link href={`/quotes/${quote.id}`}>
+                              <Link to={`/quotes/${quote.id}`}>
                                 <Eye className="h-4 w-4" />
                               </Link>
                             </Button>
@@ -354,7 +381,7 @@ export default function QuotesPage() {
                               title="Edit"
                               asChild
                             >
-                              <Link href={`/quotes/${quote.id}/edit`}>
+                              <Link to={`/quotes/${quote.id}/edit`}>
                                 <Pencil className="h-4 w-4" />
                               </Link>
                             </Button>
