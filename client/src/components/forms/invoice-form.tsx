@@ -33,7 +33,7 @@ import {
 } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { getInputDateString } from "@/lib/date-utils";
-import { XCircle, Plus } from "lucide-react";
+import { XCircle, Plus, Clock, Edit, Mail, FileText, Receipt, Trash2 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
@@ -765,6 +765,108 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Actions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {invoiceId && (
+                  <>
+                    <Button 
+                      variant="outline" 
+                      className="flex flex-col items-center justify-center h-24 w-full"
+                      onClick={() => {
+                        window.open(`/api/invoices/${invoiceId}/pdf`, '_blank');
+                      }}
+                    >
+                      <FileText className="h-8 w-8 mb-2" />
+                      <span>Download PDF</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex flex-col items-center justify-center h-24 w-full"
+                      onClick={() => {
+                        window.location.href = `/invoices/${invoiceId}/email`;
+                      }}
+                    >
+                      <Mail className="h-8 w-8 mb-2" />
+                      <span>Send Email</span>
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="flex flex-col items-center justify-center h-24 w-full"
+                      onClick={() => {
+                        const mark = form.getValues('status') === 'paid' ? 'unpaid' : 'paid';
+                        form.setValue('status', mark);
+                      }}
+                    >
+                      <Receipt className="h-8 w-8 mb-2" />
+                      <span>Mark as {form.watch('status') === 'paid' ? 'Unpaid' : 'Paid'}</span>
+                    </Button>
+                  </>
+                )}
+                {!invoiceId && (
+                  <Button 
+                    variant="outline" 
+                    className="flex flex-col items-center justify-center h-24 w-full"
+                    disabled
+                  >
+                    <Clock className="h-8 w-8 mb-2" />
+                    <span>Actions Available After Saving</span>
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-lg">Status</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Invoice Status</FormLabel>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="draft">Draft</SelectItem>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="paid">Paid</SelectItem>
+                        <SelectItem value="overdue">Overdue</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <div className="mt-4">
+                <p className="text-sm text-muted-foreground mb-2">Current Status:</p>
+                <Badge className={`${
+                  form.watch('status') === 'paid' ? 'bg-green-500' : 
+                  form.watch('status') === 'pending' ? 'bg-yellow-500' : 
+                  form.watch('status') === 'draft' ? 'bg-blue-500' :
+                  form.watch('status') === 'overdue' ? 'bg-red-500' : 'bg-gray-500'
+                }`}>
+                  {form.watch('status') ? form.watch('status').charAt(0).toUpperCase() + form.watch('status').slice(1) : 'Draft'}
+                </Badge>
+              </div>
             </CardContent>
           </Card>
         </div>
