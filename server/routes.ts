@@ -845,62 +845,95 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Regular invoice PDF generation route
   app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
+    const invoiceId = Number(req.params.id);
+
+    // Input validation: Check if invoiceId is a valid number
+    if (isNaN(invoiceId)) {
+      console.error(`[ERROR] Invalid invoice ID: ${req.params.id}`);
+      return res.status(400).json({ message: "Invalid invoice ID. Must be a number." });
+    }
+
     try {
-      const invoiceId = Number(req.params.id);
+      // Fetch invoice data
       const invoice = await storage.getInvoice(invoiceId);
-      
+
       if (!invoice) {
+        console.warn(`[WARN] Invoice not found: ${invoiceId}`);
         return res.status(404).json({ message: "Invoice not found" });
       }
-      
+
       // Check if user has access to this resource
       if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        console.warn(`[WARN] Access denied for user ${req.user?.id} to invoice ${invoiceId}`);
         return res.status(403).json({ message: "Access denied" });
       }
-      
+
       // Get invoice items
       const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
-      console.log(`Found ${invoiceItems.length} invoice items for PDF generation`);
-      
+      console.log(`[INFO] Found ${invoiceItems.length} invoice items for PDF generation`);
+
       // Get customer data
       let customer = null;
       if (invoice.customerId) {
-        customer = await storage.getCustomer(invoice.customerId);
-        console.log(`Retrieved customer data for invoice: ${customer ? 'found' : 'not found'}`);
+        try {
+          customer = await storage.getCustomer(invoice.customerId);
+          console.log(`[INFO] Retrieved customer data for invoice: ${customer ? 'found' : 'not found'}`);
+        } catch (error) {
+          console.error(`[ERROR] Failed to fetch customer data:`, error);
+          // Don't block PDF generation, but log the error. Customer data is optional.
+          customer = null;
+        }
       }
-      
+
       // Get project data
       let project = null;
       if (invoice.projectId) {
-        project = await storage.getProject(invoice.projectId);
-        console.log(`Retrieved project data for invoice: ${project ? 'found' : 'not found'}`);
+        try {
+          project = await storage.getProject(invoice.projectId);
+          console.log(`[INFO] Retrieved project data for invoice: ${project ? 'found' : 'not found'}`);
+        } catch (error) {
+          console.error(`[ERROR] Failed to fetch project data:`, error);
+          // Don't block PDF generation, but log the error. Project data is optional.
+          project = null;
+        }
       }
-      
-      console.log(`Generating PDF for Invoice_${invoice.invoiceNumber}`);
-      
+
+      console.log(`[INFO] Generating PDF for Invoice_${invoice.invoiceNumber}`);
+
       // Create complete invoice data object with all necessary related data
       const completeInvoiceData = {
         ...invoice,
         items: invoiceItems,
         customer,
-        project
+        project,
       };
-      
+
       // Log items count right before passing to PDF service
-      console.log(`Passing invoice to PDF service with ${completeInvoiceData.items.length} items`);
-      
+      console.log(`[INFO] Passing invoice to PDF service with ${completeInvoiceData.items.length} items`);
+
       // Generate PDF using the PDFService with full context
       const pdfBuffer = await PDFService.generateInvoicePDF(completeInvoiceData);
-      
+
+      // Check for empty PDF buffer
+      if (!pdfBuffer || pdfBuffer.length === 0) {
+        const message = "[ERROR] Generated PDF buffer is empty";
+        console.error(message);
+        return res.status(500).json({ message });
+      }
+
+      // Set response headers
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`);
+      res.setHeader('Content-Length', pdfBuffer.length); // Set Content-Length header
+      
       res.send(pdfBuffer);
     } catch (error) {
-      console.error('Error generating invoice PDF:', error);
-      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
-      res.status(500).json({ 
-        message: "Failed to generate PDF", 
-        details: error instanceof Error ? error.message : 'Unknown error' 
+      // Handle errors during the PDF generation process
+      console.error('[ERROR] Error generating invoice PDF:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      res.status(500).json({
+        message: "Failed to generate PDF",
+        details: errorMessage,
       });
     }
   });

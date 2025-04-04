@@ -388,12 +388,44 @@ export default function InvoiceDetailsPage() {
     if (!invoiceId) return;
     
     try {
-      const response = await fetch(`/api/invoices/${invoiceId}/pdf`);
+      // Make API request to get the PDF with proper headers
+      const response = await fetch(`/api/invoices/${invoiceId}/pdf`, {
+        headers: {
+          'Accept': 'application/pdf',
+        },
+      });
+
       if (!response.ok) {
-        throw new Error("Failed to download PDF");
+        // Handle HTTP errors more informatively
+        let errorMessage = `Failed to fetch PDF: ${response.status} ${response.statusText}`;
+        try {
+          // Attempt to get JSON error message if available
+          const errorJson = await response.json();
+          if (errorJson?.message) {
+            errorMessage += ` - ${errorJson.message}`;
+          }
+        } catch (parseError) {
+          // If JSON parsing fails, just use the original message
+          console.warn("Failed to parse error JSON", parseError);
+        }
+        console.error(errorMessage);
+        showNotification({
+          message: errorMessage,
+          type: "error",
+          duration: 5000, // Show for a longer time
+        });
+        throw new Error(errorMessage); // Throw to stop further processing
+      }
+
+      // Get the PDF as a blob
+      const blob = await response.blob();
+      
+      // Verify that we got a PDF file
+      if (blob.type !== 'application/pdf' && blob.size < 100) {
+        throw new Error('Invalid PDF data received. Please try again.');
       }
       
-      const blob = await response.blob();
+      // Create a download link
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -403,14 +435,17 @@ export default function InvoiceDetailsPage() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
       
+      // Show success notification
       showNotification({
         message: "PDF downloaded successfully",
         type: "success",
       });
     } catch (error) {
+      console.error("Error downloading PDF:", error);
       showNotification({
-        message: error instanceof Error ? error.message : "Failed to download PDF",
-        type: "error"
+        message: error instanceof Error ? error.message : "Failed to download PDF. Please try again.",
+        type: "error",
+        duration: 5000,
       });
     }
   }, [invoiceId, invoice, showNotification]);
