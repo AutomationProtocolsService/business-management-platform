@@ -41,6 +41,15 @@ export default class PDFService {
    * @returns Buffer containing the PDF file
    */
   static async generateInvoicePDF(invoice: InvoiceWithRelations): Promise<Buffer> {
+    // Ensure items is not undefined
+    if (!invoice.items) {
+      console.warn(`Warning: Invoice ${invoice.invoiceNumber} has no items array`);
+      invoice.items = [];
+    }
+    
+    // Log invoice data including items
+    console.log(`Preparing invoice PDF for ${invoice.invoiceNumber} with ${invoice.items.length} items`);
+    
     const htmlContent = await this.renderInvoiceTemplate(invoice);
     return this.generatePDFFromHTML(htmlContent, `Invoice_${invoice.invoiceNumber}`, invoice);
   }
