@@ -49,7 +49,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import InvoiceForm from "@/components/forms/invoice-form";
-import { Loader2, FileText, Mail, Pencil, Download, Trash2, Copy, Check, X } from "lucide-react";
+import { Loader2, FileText, Mail, Pencil, Download, Trash2, Copy, Check, X, ChevronsUpDown } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 import FileList from "@/components/file-list";
 
@@ -174,21 +180,44 @@ export default function InvoiceDetailsPage() {
   });
 
   const { 
-    data: invoice, 
+    data: invoiceData, 
     isLoading: isLoadingInvoice,
     error: invoiceError
-  } = useQuery<Invoice>({
+  } = useQuery<{
+    items: InvoiceItem[];
+    [key: string]: any;
+  }>({
     queryKey: [`/api/invoices/${invoiceId}`],
     enabled: !!invoiceId,
   });
 
-  const { 
-    data: invoiceItems,
-    isLoading: isLoadingItems,
-    error: itemsError
-  } = useQuery<InvoiceItem[]>({
-    queryKey: [`/api/invoices/${invoiceId}/items`],
-    enabled: !!invoiceId,
+  // Extract invoice and items from the response
+  const invoice = invoiceData ? { ...invoiceData } : undefined;
+  const invoiceItems = invoiceData?.items || [];
+  
+  // Status change mutation
+  const updateStatusMutation = useMutation({
+    mutationFn: async (status: string) => {
+      if (!invoiceId) throw new Error("Invoice ID is required");
+      const response = await apiRequest("PATCH", `/api/invoices/${invoiceId}`, { status });
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoiceId}`] });
+      queryClient.invalidateQueries({ queryKey: ["/api/invoices"] });
+      
+      toast({
+        title: "Invoice updated",
+        description: "The invoice status has been updated.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   const { 
@@ -415,13 +444,56 @@ export default function InvoiceDetailsPage() {
     if (!invoice) return null;
     
     return (
-      <Badge className={statusColors[invoice.status]}>
-        {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
-      </Badge>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <div className="cursor-pointer flex items-center gap-1">
+            <Badge className={statusColors[invoice.status]}>
+              {invoice.status.charAt(0).toUpperCase() + invoice.status.slice(1)}
+            </Badge>
+            <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
+          </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem 
+            className={invoice.status === 'draft' ? "bg-gray-100" : ""}
+            onClick={() => updateStatusMutation.mutate('draft')}
+            disabled={updateStatusMutation.isPending}
+          >
+            <Badge className={statusColors['draft']} variant="outline">Draft</Badge>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className={invoice.status === 'sent' ? "bg-gray-100" : ""}
+            onClick={() => updateStatusMutation.mutate('sent')}
+            disabled={updateStatusMutation.isPending}
+          >
+            <Badge className={statusColors['sent']} variant="outline">Sent</Badge>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className={invoice.status === 'paid' ? "bg-gray-100" : ""}
+            onClick={() => invoice.status !== 'paid' && setMarkAsPaidDialog(prev => ({ ...prev, open: true }))}
+          >
+            <Badge className={statusColors['paid']} variant="outline">Paid</Badge>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className={invoice.status === 'overdue' ? "bg-gray-100" : ""}
+            onClick={() => updateStatusMutation.mutate('overdue')}
+            disabled={updateStatusMutation.isPending}
+          >
+            <Badge className={statusColors['overdue']} variant="outline">Overdue</Badge>
+          </DropdownMenuItem>
+          <DropdownMenuItem 
+            className={invoice.status === 'cancelled' ? "bg-gray-100" : ""}
+            onClick={() => updateStatusMutation.mutate('cancelled')}
+            disabled={updateStatusMutation.isPending}
+          >
+            <Badge className={statusColors['cancelled']} variant="outline">Cancelled</Badge>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
     );
   };
 
-  if (isLoadingInvoice || isLoadingItems) {
+  if (isLoadingInvoice) {
     return (
       <div className="flex justify-center items-center h-64">
         <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
@@ -461,11 +533,11 @@ export default function InvoiceDetailsPage() {
         </div>
         
         <InvoiceForm
-          invoice={invoice}
+          invoiceId={invoiceId}
+          defaultValues={invoice}
           onSuccess={() => {
             setEditMode(false);
             queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoiceId}`] });
-            queryClient.invalidateQueries({ queryKey: [`/api/invoices/${invoiceId}/items`] });
           }}
         />
       </div>
