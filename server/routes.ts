@@ -2493,106 +2493,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Dashboard summary route
+  // Main dashboard route - returns all widgets data
   app.get("/api/dashboard", requireAuth, async (req, res) => {
     try {
-      // Get counts and summaries for dashboard widgets, filtering by tenant if available
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
-      const projects = await storage.getAllProjects(tenantFilter);
-      const quotes = await storage.getAllQuotes(tenantFilter);
-      const invoices = await storage.getAllInvoices(tenantFilter);
+      // Get dashboard data using the dedicated service
+      const dashboardService = (await import("./services/dashboard-service")).default;
+      
+      // Create tenant filter based on the authenticated user
+      const tenantFilter = req.tenant ? { tenantId: req.tenant.id } : undefined;
+      
+      // Get comprehensive dashboard data from the service
+      const dashboardData = await dashboardService.getDashboardData(tenantFilter);
+      
+      // Return the dashboard data
+      res.json(dashboardData);
+    } catch (error) {
+      console.error("Error fetching dashboard data:", error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+  
+  // Specific dashboard widget routes for more granular data fetching
+  
+  // Recent activity widget
+  app.get("/api/dashboard/recent-activity", requireAuth, async (req, res) => {
+    try {
+      const dashboardService = (await import("./services/dashboard-service")).default;
+      const tenantFilter = req.tenant ? { tenantId: req.tenant.id } : undefined;
+      
+      const recentActivity = await dashboardService.getRecentActivity(tenantFilter);
+      res.json(recentActivity);
+    } catch (error) {
+      console.error("Error fetching recent activity:", error);
+      res.status(500).json({ message: "Failed to fetch recent activity data" });
+    }
+  });
+  
+  // Upcoming events widget
+  app.get("/api/dashboard/upcoming-events", requireAuth, async (req, res) => {
+    try {
+      const dashboardService = (await import("./services/dashboard-service")).default;
+      const tenantFilter = req.tenant ? { tenantId: req.tenant.id } : undefined;
+      
       const surveys = await storage.getAllSurveys(tenantFilter);
-      
-      // Project stats
-      const totalProjects = projects.length;
-      const projectsByStatus = {
-        pending: projects.filter(p => p.status === 'pending').length,
-        inProgress: projects.filter(p => p.status === 'in-progress').length,
-        completed: projects.filter(p => p.status === 'completed').length,
-        delayed: projects.filter(p => p.status === 'delayed').length
-      };
-      
-      // Quote stats
-      const pendingQuotesCount = quotes.filter(q => q.status === 'pending').length;
-      
-      // Invoice stats
-      const totalInvoiceAmount = invoices.reduce((sum, inv) => sum + inv.total, 0);
-      
-      // Survey stats
-      const upcomingSurveys = surveys.filter(s => {
-        const surveyDate = new Date(s.scheduledDate);
-        const today = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(nextWeek.getDate() + 7);
-        
-        return s.status === 'scheduled' && surveyDate >= today && surveyDate <= nextWeek;
-      }).length;
-      
-      // Get recent activities (placeholder for a real activity log)
-      // In a real app, you'd have an activities table to track this
-      const recentProjects = projects.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      ).slice(0, 5);
-      
-      // Get upcoming schedule (combine surveys and installations)
       const installations = await storage.getAllInstallations(tenantFilter);
       
-      const upcomingEvents = [
-        ...surveys.map(s => ({
-          type: 'survey',
-          id: s.id,
-          projectId: s.projectId,
-          date: s.scheduledDate,
-          status: s.status
-        })),
-        ...installations.map(i => ({
-          type: 'installation',
-          id: i.id,
-          projectId: i.projectId,
-          date: i.scheduledDate,
-          status: i.status
-        }))
-      ]
-      .filter(event => {
-        const eventDate = new Date(event.date);
-        const today = new Date();
-        const threeWeeksLater = new Date();
-        threeWeeksLater.setDate(threeWeeksLater.getDate() + 21);
-        
-        return event.status === 'scheduled' && eventDate >= today && eventDate <= threeWeeksLater;
-      })
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 5);
+      // For tasks, we need to get them from all task lists
+      const taskLists = await storage.getAllTaskLists(tenantFilter);
+      const tasksPromises = taskLists.map(taskList => 
+        storage.getTasksByTaskList(taskList.id, tenantFilter)
+      );
+      const taskArrays = await Promise.all(tasksPromises);
+      const tasks = taskArrays.flat(); // Flatten array of arrays
       
-      // Enhance upcoming events with project details
-      const upcomingEventsWithDetails = await Promise.all(upcomingEvents.map(async event => {
-        const project = await storage.getProject(event.projectId);
-        return {
-          ...event,
-          projectName: project?.name || 'Unknown Project'
-        };
-      }));
+      const projects = await storage.getAllProjects(tenantFilter);
+      
+      const upcomingEvents = await dashboardService.getUpcomingEvents(
+        surveys, 
+        installations, 
+        tasks, 
+        projects,
+        tenantFilter
+      );
+      
+      res.json(upcomingEvents);
+    } catch (error) {
+      console.error("Error fetching upcoming events:", error);
+      res.status(500).json({ message: "Failed to fetch upcoming events data" });
+    }
+  });
+  
+  // Project statistics widget
+  app.get("/api/dashboard/projects", requireAuth, async (req, res) => {
+    try {
+      const dashboardService = (await import("./services/dashboard-service")).default;
+      const tenantFilter = req.tenant ? { tenantId: req.tenant.id } : undefined;
+      
+      const projects = await storage.getAllProjects(tenantFilter);
+      const projectStats = {
+        total: projects.length,
+        byStatus: dashboardService.getProjectStatusBreakdown(projects),
+        recentCount: dashboardService.getRecentProjects(projects, 30).length,
+        timeSeriesData: dashboardService.getProjectsTimeSeriesData(projects, 6)
+      };
+      
+      res.json(projectStats);
+    } catch (error) {
+      console.error("Error fetching project statistics:", error);
+      res.status(500).json({ message: "Failed to fetch project statistics" });
+    }
+  });
+  
+  // Financial metrics widget
+  app.get("/api/dashboard/financials", requireAuth, async (req, res) => {
+    try {
+      const dashboardService = (await import("./services/dashboard-service")).default;
+      const tenantFilter = req.tenant ? { tenantId: req.tenant.id } : undefined;
+      
+      const quotes = await storage.getAllQuotes(tenantFilter);
+      const invoices = await storage.getAllInvoices(tenantFilter);
+      
+      const financialMetrics = dashboardService.getFinancialMetrics(quotes, invoices);
+      const salesPipeline = dashboardService.getSalesPipelineData(quotes, invoices);
+      const revenueChart = dashboardService.getRevenueTimeSeriesData(invoices, 6);
       
       res.json({
-        stats: {
-          projects: {
-            total: totalProjects,
-            byStatus: projectsByStatus
-          },
-          quotes: {
-            pendingCount: pendingQuotesCount
-          },
-          invoices: {
-            totalAmount: totalInvoiceAmount
-          },
-          surveys: {
-            upcomingCount: upcomingSurveys
-          }
-        },
-        recentProjects,
-        upcomingEvents: upcomingEventsWithDetails
+        metrics: financialMetrics,
+        salesPipeline,
+        revenueChart
       });
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch dashboard data" });
+      console.error("Error fetching financial metrics:", error);
+      res.status(500).json({ message: "Failed to fetch financial metrics" });
     }
   });
 
