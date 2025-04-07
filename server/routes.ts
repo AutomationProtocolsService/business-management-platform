@@ -2167,7 +2167,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
-      const catalogItem = await storage.getCatalogItem(Number(req.params.id));
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const catalogItem = await storage.getCatalogItem(Number(req.params.id), tenantFilter);
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
       }
@@ -2179,8 +2180,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/catalog-items", requireAuth, validateBody(insertCatalogItemSchema), async (req, res) => {
     try {
+      // Add tenant ID if available
+      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      
       const catalogItem = await storage.createCatalogItem({
         ...req.body,
+        ...tenantData,
         createdBy: req.user?.id
       });
       
@@ -2204,7 +2209,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const catalogItem = await storage.getCatalogItem(itemId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      // Get item with tenant check
+      const catalogItem = await storage.getCatalogItem(itemId, tenantFilter);
       
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
@@ -2232,7 +2240,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const catalogItem = await storage.getCatalogItem(itemId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      // Get item with tenant check
+      const catalogItem = await storage.getCatalogItem(itemId, tenantFilter);
       
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
@@ -2549,10 +2560,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category } = req.query;
       
       let suppliers;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (category) {
-        suppliers = await storage.getSuppliersByCategory(category as string);
+        suppliers = await storage.getSuppliersByCategory(category as string, tenantFilter);
       } else {
-        suppliers = await storage.getAllSuppliers();
+        suppliers = await storage.getAllSuppliers(tenantFilter);
       }
       
       res.json(suppliers);
@@ -2563,7 +2576,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
-      const supplier = await storage.getSupplier(Number(req.params.id));
+      const supplierId = Number(req.params.id);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const supplier = await storage.getSupplier(supplierId, tenantFilter);
       if (!supplier) {
         return res.status(404).json({ message: "Supplier not found" });
       }
@@ -2600,7 +2616,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
       const supplierId = Number(req.params.id);
-      const supplier = await storage.getSupplier(supplierId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const supplier = await storage.getSupplier(supplierId, tenantFilter);
       
       if (!supplier) {
         return res.status(404).json({ message: "Supplier not found" });
@@ -2628,7 +2646,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
       const supplierId = Number(req.params.id);
-      const supplier = await storage.getSupplier(supplierId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const supplier = await storage.getSupplier(supplierId, tenantFilter);
       
       if (!supplier) {
         return res.status(404).json({ message: "Supplier not found" });
@@ -2663,16 +2683,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, projectId, supplierId, startDate, endDate } = req.query;
       
       let expenses;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (category) {
-        expenses = await storage.getExpensesByCategory(category as string);
+        expenses = await storage.getExpensesByCategory(category as string, tenantFilter);
       } else if (projectId) {
-        expenses = await storage.getExpensesByProject(Number(projectId));
+        expenses = await storage.getExpensesByProject(Number(projectId), tenantFilter);
       } else if (supplierId) {
-        expenses = await storage.getExpensesBySupplier(Number(supplierId));
+        expenses = await storage.getExpensesBySupplier(Number(supplierId), tenantFilter);
       } else if (startDate && endDate) {
-        expenses = await storage.getExpensesByDateRange(new Date(startDate as string), new Date(endDate as string));
+        expenses = await storage.getExpensesByDateRange(
+          new Date(startDate as string), 
+          new Date(endDate as string),
+          tenantFilter
+        );
       } else {
-        expenses = await storage.getAllExpenses();
+        expenses = await storage.getAllExpenses(tenantFilter);
       }
       
       res.json(expenses);
@@ -2683,7 +2709,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
-      const expense = await storage.getExpense(Number(req.params.id));
+      const expenseId = Number(req.params.id);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const expense = await storage.getExpense(expenseId, tenantFilter);
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
       }
@@ -2721,7 +2750,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
       const expenseId = Number(req.params.id);
-      const expense = await storage.getExpense(expenseId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const expense = await storage.getExpense(expenseId, tenantFilter);
       
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
@@ -2749,7 +2780,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
       const expenseId = Number(req.params.id);
-      const expense = await storage.getExpense(expenseId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const expense = await storage.getExpense(expenseId, tenantFilter);
       
       if (!expense) {
         return res.status(404).json({ message: "Expense not found" });
@@ -2784,14 +2817,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, projectId, supplierId } = req.query;
       
       let purchaseOrders;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (status) {
-        purchaseOrders = await storage.getPurchaseOrdersByStatus(status as string);
+        purchaseOrders = await storage.getPurchaseOrdersByStatus(status as string, tenantFilter);
       } else if (projectId) {
-        purchaseOrders = await storage.getPurchaseOrdersByProject(Number(projectId));
+        purchaseOrders = await storage.getPurchaseOrdersByProject(Number(projectId), tenantFilter);
       } else if (supplierId) {
-        purchaseOrders = await storage.getPurchaseOrdersBySupplier(Number(supplierId));
+        purchaseOrders = await storage.getPurchaseOrdersBySupplier(Number(supplierId), tenantFilter);
       } else {
-        purchaseOrders = await storage.getAllPurchaseOrders();
+        purchaseOrders = await storage.getAllPurchaseOrders(tenantFilter);
       }
       
       res.json(purchaseOrders);
@@ -2802,13 +2837,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
-      const purchaseOrder = await storage.getPurchaseOrder(Number(req.params.id));
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const purchaseOrder = await storage.getPurchaseOrder(Number(req.params.id), tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
       }
       
-      // Get purchase order items
-      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrder.id);
+      // Get purchase order items with tenant filtering
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrder.id, tenantFilter);
       
       res.json({ ...purchaseOrder, items });
     } catch (error) {
@@ -2876,7 +2912,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-orders/:id/items", requireAuth, validateBody(insertPurchaseOrderItemSchema), async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -2887,8 +2925,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         purchaseOrderId
       });
       
-      // Update purchase order totals
-      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      // Update purchase order totals with tenant filtering
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId, tenantFilter);
       const subtotal = items.reduce((sum, item) => sum + item.total, 0);
       const total = subtotal; // Add tax calculation here if needed
       
@@ -2903,7 +2941,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -2937,14 +2977,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
       }
       
-      // Delete associated purchase order items first
-      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      // Delete associated purchase order items first with tenant filtering
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId, tenantFilter);
       for (const item of items) {
         await storage.deletePurchaseOrderItem(item.id);
       }
@@ -2976,7 +3018,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-orders/:id/pdf", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -2987,7 +3030,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId, tenantFilter);
       
       console.log(`Generating PDF for PO_${purchaseOrder.poNumber}`);
       
@@ -3023,7 +3066,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email format" });
       }
       
-      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
       }
@@ -3033,7 +3077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
-      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId);
+      const items = await storage.getPurchaseOrderItemsByPO(purchaseOrderId, tenantFilter);
       console.log(`Retrieved ${items.length} items for purchase order ${purchaseOrderId}`);
       
       // Get company settings for sender email
@@ -3073,14 +3117,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, supplierId, lowStock } = req.query;
       
       let inventoryItems;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (category) {
-        inventoryItems = await storage.getInventoryItemsByCategory(category as string);
+        inventoryItems = await storage.getInventoryItemsByCategory(category as string, tenantFilter);
       } else if (supplierId) {
-        inventoryItems = await storage.getInventoryItemsBySupplier(Number(supplierId));
+        inventoryItems = await storage.getInventoryItemsBySupplier(Number(supplierId), tenantFilter);
       } else if (lowStock === 'true') {
-        inventoryItems = await storage.getLowStockItems();
+        inventoryItems = await storage.getLowStockItems(tenantFilter);
       } else {
-        inventoryItems = await storage.getAllInventoryItems();
+        inventoryItems = await storage.getAllInventoryItems(tenantFilter);
       }
       
       res.json(inventoryItems);
@@ -3091,13 +3137,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
-      const inventoryItem = await storage.getInventoryItem(Number(req.params.id));
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const inventoryItem = await storage.getInventoryItem(Number(req.params.id), tenantFilter);
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
       
       // Get inventory transactions for this item
-      const transactions = await storage.getInventoryTransactionsByItem(inventoryItem.id);
+      const transactions = await storage.getInventoryTransactionsByItem(inventoryItem.id, tenantFilter);
       
       res.json({ ...inventoryItem, transactions });
     } catch (error) {
@@ -3107,8 +3154,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/inventory", requireAuth, validateBody(insertInventoryItemSchema), async (req, res) => {
     try {
+      // Add tenant ID if available
+      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      
       const inventoryItem = await storage.createInventoryItem({
         ...req.body,
+        ...tenantData,
         createdBy: req.user?.id
       });
       
@@ -3132,7 +3183,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
       const inventoryItemId = Number(req.params.id);
-      const inventoryItem = await storage.getInventoryItem(inventoryItemId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const inventoryItem = await storage.getInventoryItem(inventoryItemId, tenantFilter);
       
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
@@ -3160,14 +3212,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
       const inventoryItemId = Number(req.params.id);
-      const inventoryItem = await storage.getInventoryItem(inventoryItemId);
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const inventoryItem = await storage.getInventoryItem(inventoryItemId, tenantFilter);
       
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
       }
       
       // Check if there are transactions for this item
-      const transactions = await storage.getInventoryTransactionsByItem(inventoryItemId);
+      const transactions = await storage.getInventoryTransactionsByItem(inventoryItemId, tenantFilter);
       if (transactions.length > 0) {
         return res.status(400).json({ 
           message: "Cannot delete inventory item with existing transactions" 
@@ -3200,15 +3253,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Inventory Transaction routes
   app.post("/api/inventory-transactions", requireAuth, validateBody(insertInventoryTransactionSchema), async (req, res) => {
     try {
+      // Add tenant ID if available
+      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      
       const transaction = await storage.createInventoryTransaction({
         ...req.body,
+        ...tenantData,
         createdBy: req.user?.id
       });
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
       if (wsManager) {
-        const inventoryItem = await storage.getInventoryItem(transaction.inventoryItemId);
+        const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+        const inventoryItem = await storage.getInventoryItem(transaction.inventoryItemId, tenantFilter);
         const itemName = inventoryItem ? inventoryItem.name : 'Unknown item';
         
         wsManager.broadcast("inventory-transaction:created", {
@@ -3237,26 +3295,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.query;
       
       let transactions;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (inventoryItemId) {
-        transactions = await storage.getInventoryTransactionsByItem(Number(inventoryItemId));
+        transactions = await storage.getInventoryTransactionsByItem(Number(inventoryItemId), tenantFilter);
       } else if (projectId) {
-        transactions = await storage.getInventoryTransactionsByProject(Number(projectId));
+        transactions = await storage.getInventoryTransactionsByProject(Number(projectId), tenantFilter);
       } else if (purchaseOrderId) {
-        transactions = await storage.getInventoryTransactionsByPO(Number(purchaseOrderId));
+        transactions = await storage.getInventoryTransactionsByPO(Number(purchaseOrderId), tenantFilter);
       } else if (type) {
-        transactions = await storage.getInventoryTransactionsByType(type as string);
+        transactions = await storage.getInventoryTransactionsByType(type as string, tenantFilter);
       } else if (startDate && endDate) {
         transactions = await storage.getInventoryTransactionsByDateRange(
           new Date(startDate as string), 
-          new Date(endDate as string)
+          new Date(endDate as string),
+          tenantFilter
         );
       } else {
         // This might return a lot of data, consider pagination
-        const inventoryItems = await storage.getAllInventoryItems();
+        const inventoryItems = await storage.getAllInventoryItems(tenantFilter);
         transactions = [];
         
         for (const item of inventoryItems) {
-          const itemTransactions = await storage.getInventoryTransactionsByItem(item.id);
+          const itemTransactions = await storage.getInventoryTransactionsByItem(item.id, tenantFilter);
           transactions.push(...itemTransactions);
         }
       }
