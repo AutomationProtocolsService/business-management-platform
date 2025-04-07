@@ -4,21 +4,32 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabaseAndMigrations } from "./utils/run-migrations";
 import { setupAuth } from "./auth";
 import tenantMiddleware from "./middleware/tenant-filter";
+import { errorHandler, setupUnhandledRejectionHandler } from "./middleware/error-handler";
+import { logger } from "./logger";
+
+// Set up global handler for uncaught promise rejections
+setupUnhandledRejectionHandler();
 
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
+// Request logging middleware
 app.use((req, res, next) => {
   const start = Date.now();
   const path = req.path;
   let capturedJsonResponse: Record<string, any> | undefined = undefined;
 
+  // Capture the response for logging
   const originalResJson = res.json;
   res.json = function (bodyJson, ...args) {
     capturedJsonResponse = bodyJson;
     return originalResJson.apply(res, [bodyJson, ...args]);
   };
+
+  // Add a unique identifier to each request for tracing
+  const requestId = req.headers['x-request-id'] || `req-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  req.headers['x-request-id'] = requestId as string;
 
   res.on("finish", () => {
     const duration = Date.now() - start;
@@ -33,6 +44,19 @@ app.use((req, res, next) => {
       }
 
       log(logLine);
+
+      // Log more detailed information for non-2xx responses
+      if (res.statusCode >= 400) {
+        logger.warn({
+          message: `${req.method} ${path} failed with status ${res.statusCode}`,
+          requestId,
+          duration,
+          statusCode: res.statusCode,
+          response: capturedJsonResponse,
+          userId: req.user?.id || 'anonymous',
+          tenantId: (req as any).tenant?.id || 'none'
+        });
+      }
     }
   });
 
@@ -66,13 +90,16 @@ app.use((req, res, next) => {
   // This prevents the middleware from interfering with frontend resources
   app.use('/api', tenantMiddleware);
 
-  app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
-    const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+  // 404 handler for API routes
+  app.use('/api/*', (req, res) => {
+    return res.status(404).json({
+      message: `API endpoint not found: ${req.originalUrl}`,
+      code: 'NOT_FOUND'
+    });
   });
+
+  // Global error handler middleware
+  app.use(errorHandler);
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
