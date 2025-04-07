@@ -2,7 +2,8 @@ import PDFDocument from 'pdfkit';
 // stream-buffers doesn't have a default export, let's create our own import pattern
 import * as sb from 'stream-buffers';
 const StreamBuffers = sb;
-import { Invoice, Quote, PurchaseOrder, Customer, Project } from '@shared/schema';
+import { Invoice, Quote, PurchaseOrder, Customer, Project, CompanySettings } from '@shared/schema';
+import { storage } from '../storage';
 
 // Define extended types with nested related data
 interface QuoteWithItems extends Quote {
@@ -785,7 +786,19 @@ export default class PDFService {
     }
   }
 
-  private static generatePDFWithPDFKit(data: any, filename: string): Promise<Buffer> {
+  private static async generatePDFWithPDFKit(data: any, filename: string): Promise<Buffer> {
+    // Get company settings for branding
+    let companySettings: CompanySettings | undefined;
+    try {
+      // Get tenant ID from the document if available
+      const tenantId = data.originalDoc?.tenantId;
+      companySettings = await storage.getCompanySettings(tenantId ? { tenantId } : undefined);
+      console.log(`Retrieved company settings for PDF: ${companySettings ? 'Success' : 'Not found'}`);
+    } catch (error) {
+      console.error('Error retrieving company settings:', error);
+      // Continue without company settings - will use defaults
+    }
+    
     return new Promise((resolve, reject) => {
       try {
         console.log(`Creating PDF using PDFKit for ${filename}`);
@@ -825,6 +838,10 @@ export default class PDFService {
           }
         }
 
+        // Define document colors using tenant branding or fall back to defaults
+        const primaryColor = companySettings?.primaryColor || '#3b82f6'; // Default blue if no color set
+        const accentColor = companySettings?.accentColor || '#1e40af'; // Darker blue
+        
         // Create a PDF document with better settings for text rendering
         const doc = new PDFDocument({
           margin: PDF_MARGIN,
@@ -833,8 +850,10 @@ export default class PDFService {
           size: PDF_PAPER_SIZE,
           info: {
             Title: filename,
-            Author: 'System Generated',
+            Author: companySettings?.companyName || 'System Generated',
             Subject: 'Business Document',
+            // Include tenant information in document metadata
+            Keywords: `${companySettings?.companyName || 'Business'}, ${filename.includes('Invoice') ? 'Invoice' : (filename.includes('Quote') ? 'Quote' : 'Document')}`,
           },
         });
 
@@ -855,11 +874,47 @@ export default class PDFService {
           }).format(value);
         };
 
-        // Add company header
-        doc.fontSize(PDF_FONT_SIZE_HEADER).text('Company Name', { align: 'center' });
+        // Add company header with tenant-specific branding
+        const companyName = companySettings?.companyName || 'Company Name';
+        const address = companySettings?.address || '';
+        const city = companySettings?.city || '';
+        const state = companySettings?.state || '';
+        const zipCode = companySettings?.zipCode || '';
+        const phoneNumber = companySettings?.phone || '(123) 456-7890';
+        const email = companySettings?.email || 'info@company.com';
+        const website = companySettings?.website || '';
+        
+        // Use the company name from settings
+        doc.fontSize(PDF_FONT_SIZE_HEADER).text(companyName, { align: 'center' });
         doc.moveDown();
-        doc.fontSize(PDF_FONT_SIZE_BODY).text('123 Business St, City, State, ZIP', { align: 'center' });
-        doc.text('Phone: (123) 456-7890 | Email: info@company.com', { align: 'center' });
+        
+        // Address line
+        const addressLine = [
+          address,
+          city ? (state || zipCode ? `${city},` : city) : '',
+          state,
+          zipCode
+        ].filter(Boolean).join(' ');
+        
+        if (addressLine) {
+          doc.fontSize(PDF_FONT_SIZE_BODY).text(addressLine, { align: 'center' });
+        }
+        
+        // Contact info line
+        const contactLine = [
+          phoneNumber ? `Phone: ${phoneNumber}` : '',
+          email ? `Email: ${email}` : ''
+        ].filter(Boolean).join(' | ');
+        
+        if (contactLine) {
+          doc.text(contactLine, { align: 'center' });
+        }
+        
+        // Website if available
+        if (website) {
+          doc.text(`Website: ${website}`, { align: 'center' });
+        }
+        
         doc.moveDown();
 
         // Add document title
@@ -878,7 +933,9 @@ export default class PDFService {
 
           // Add customer information if available
           if (invoice.customer) {
-            doc.text('CUSTOMER', { align: 'left', underline: true });
+            // Use the tenant's branding color for the section header
+            doc.fillColor(primaryColor).text('CUSTOMER', { align: 'left', underline: true });
+            doc.fillColor('black'); // Reset to black for content
             doc.moveDown(0.5);
             doc.text(`${invoice.customer.name}`);
             doc.text(`${invoice.customer.email}`);
@@ -891,14 +948,16 @@ export default class PDFService {
 
           // Add project information if available
           if (invoice.project) {
-            doc.text('PROJECT', { align: 'left', underline: true });
+            doc.fillColor(primaryColor).text('PROJECT', { align: 'left', underline: true });
+            doc.fillColor('black'); // Reset to black for content
             doc.moveDown(0.5);
             doc.text(`Project: ${invoice.project.name}`);
             doc.text(`Description: ${invoice.project.description}`);
             doc.moveDown();
           }
 
-          doc.text('INVOICE DETAILS', { align: 'center', underline: true });
+          doc.fillColor(primaryColor).text('INVOICE DETAILS', { align: 'center', underline: true });
+          doc.fillColor('black'); // Reset to black for content
           doc.moveDown();
 
           // Invoice reference and dates
@@ -917,12 +976,14 @@ export default class PDFService {
           const colWidths = INVOICE_TABLE_COL_WIDTHS;
           let currentY = doc.y;
 
-          // Draw table headers
+          // Draw table headers with the tenant's primary color
           doc.font('Helvetica-Bold');
+          doc.fillColor(primaryColor);
           doc.text('Description', doc.x + 5, currentY);
           doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
           doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
           doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.fillColor('black'); // Reset color for content
           doc.font('Helvetica');
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
@@ -1053,7 +1114,8 @@ export default class PDFService {
           
           // Add customer information if available
           if (quote.customer) {
-            doc.text('CUSTOMER', { align: 'left', underline: true });
+            doc.fillColor(primaryColor).text('CUSTOMER', { align: 'left', underline: true });
+            doc.fillColor('black'); // Reset to black for content
             doc.moveDown(0.5);
             doc.text(`${quote.customer.name || 'N/A'}`);
             doc.text(`${quote.customer.email || 'N/A'}`);
@@ -1068,7 +1130,8 @@ export default class PDFService {
           
           // Add project information if available
           if (quote.project) {
-            doc.text('PROJECT', { align: 'left', underline: true });
+            doc.fillColor(primaryColor).text('PROJECT', { align: 'left', underline: true });
+            doc.fillColor('black'); // Reset to black for content
             doc.moveDown(0.5);
             doc.text(`Project: ${quote.project.name || 'N/A'}`);
             if (quote.project.description) doc.text(`Description: ${quote.project.description}`);
@@ -1076,7 +1139,8 @@ export default class PDFService {
           }
           
           // Quote details
-          doc.text('QUOTATION DETAILS', { align: 'center', underline: true });
+          doc.fillColor(primaryColor).text('QUOTATION DETAILS', { align: 'center', underline: true });
+          doc.fillColor('black'); // Reset to black for content
           doc.moveDown();
           
           // Quote reference and dates
@@ -1090,7 +1154,8 @@ export default class PDFService {
           doc.moveDown();
           
           // Line items table
-          doc.text('Quote Items', { underline: true });
+          doc.fillColor(primaryColor).text('Quote Items', { underline: true });
+          doc.fillColor('black'); // Reset to black for content
           doc.moveDown();
           
           // Create a simple table for items
@@ -1098,12 +1163,14 @@ export default class PDFService {
           const colWidths = INVOICE_TABLE_COL_WIDTHS;
           let currentY = doc.y;
           
-          // Draw table headers
+          // Draw table headers with the tenant's primary color
           doc.font('Helvetica-Bold');
+          doc.fillColor(primaryColor);
           doc.text('Description', doc.x + 5, currentY);
           doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
           doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
           doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.fillColor('black'); // Reset color for content
           doc.font('Helvetica');
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
@@ -1233,7 +1300,8 @@ export default class PDFService {
           doc.moveDown();
           
           // Line items table
-          doc.text('Purchase Order Items', { underline: true });
+          doc.fillColor(primaryColor).text('Purchase Order Items', { underline: true });
+          doc.fillColor('black'); // Reset to black for content
           doc.moveDown();
           
           // Create a simple table for items
@@ -1241,12 +1309,14 @@ export default class PDFService {
           const colWidths = INVOICE_TABLE_COL_WIDTHS;
           let currentY = doc.y;
           
-          // Draw table headers
+          // Draw table headers with the tenant's primary color
           doc.font('Helvetica-Bold');
+          doc.fillColor(primaryColor);
           doc.text('Description', doc.x + 5, currentY);
           doc.text('Quantity', doc.x + colWidths.description + 5, currentY, { align: 'center' });
           doc.text('Unit Price', doc.x + colWidths.description + colWidths.quantity + 5, currentY);
           doc.text('Total', doc.x + colWidths.description + colWidths.quantity + colWidths.unitPrice + 5, currentY);
+          doc.fillColor('black'); // Reset color for content
           doc.font('Helvetica');
           currentY += 15;
           doc.moveTo(doc.x, currentY - 5).lineTo(doc.x + 520, currentY - 5).stroke();
