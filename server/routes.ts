@@ -2815,6 +2815,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       const { folder = 'general', description = '', relatedId = null, relatedType = null } = req.body;
       
+      // If a related entity is specified, verify it belongs to the user's tenant
+      if (relatedType && relatedId && req.tenant?.id) {
+        const belongsToTenant = await storage.verifyRelatedEntityBelongsToTenant(
+          relatedType,
+          Number(relatedId),
+          req.tenant.id
+        );
+        
+        if (!belongsToTenant) {
+          // Delete the uploaded file since we're not going to use it
+          if (req.file.path) {
+            try {
+              fs.unlinkSync(req.file.path);
+            } catch (unlinkError) {
+              console.error("Could not delete uploaded file:", unlinkError);
+            }
+          }
+          
+          return res.status(403).json({ 
+            error: "Not authorized to attach files to this entity" 
+          });
+        }
+      }
+      
       // Upload file to Google Cloud Storage
       const fileUrl = await cloudStorage.uploadFile(req.file.path, {
         folder,
@@ -2825,7 +2849,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Clean up local file
       fs.unlinkSync(req.file.path);
       
-      // Create file record in database
+      // Create file record in database with tenant context
       const fileRecord = await storage.createFileAttachment({
         fileName: req.file.originalname,
         fileSize: req.file.size,
@@ -2834,8 +2858,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description,
         uploadedBy: req.user?.id || null,
         relatedId: relatedId ? Number(relatedId) : null,
-        relatedType: relatedType || null
-      });
+        relatedType: relatedType || null,
+        tenantId: req.tenant?.id // Explicitly set the tenant ID
+      }, { tenantId: req.tenant?.id }); // Also pass tenant filter for additional security
       
       res.status(201).json(fileRecord);
     } catch (error) {
@@ -2854,6 +2879,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { folder = 'general', description = '', relatedId = null, relatedType = null } = req.body;
       const fileRecords = [];
       
+      // If a related entity is specified, verify it belongs to the user's tenant
+      if (relatedType && relatedId && req.tenant?.id) {
+        const belongsToTenant = await storage.verifyRelatedEntityBelongsToTenant(
+          relatedType,
+          Number(relatedId),
+          req.tenant.id
+        );
+        
+        if (!belongsToTenant) {
+          // Delete all uploaded files since we're not going to use them
+          if (req.files && Array.isArray(req.files)) {
+            for (const file of req.files) {
+              if (file.path) {
+                try {
+                  fs.unlinkSync(file.path);
+                } catch (unlinkError) {
+                  console.error("Could not delete uploaded file:", unlinkError);
+                }
+              }
+            }
+          }
+          
+          return res.status(403).json({
+            error: "Not authorized to attach files to this entity"
+          });
+        }
+      }
+      
       // Process each uploaded file
       for (const file of req.files) {
         // Upload to Google Cloud Storage
@@ -2866,7 +2919,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Clean up local file
         fs.unlinkSync(file.path);
         
-        // Create file record in database
+        // Create file record in database with tenant context
         const fileRecord = await storage.createFileAttachment({
           fileName: file.originalname,
           fileSize: file.size,
@@ -2875,8 +2928,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           description,
           uploadedBy: req.user?.id || null,
           relatedId: relatedId ? Number(relatedId) : null,
-          relatedType: relatedType || null
-        });
+          relatedType: relatedType || null,
+          tenantId: req.tenant?.id // Explicitly set the tenant ID
+        }, { tenantId: req.tenant?.id }); // Also pass tenant filter for additional security
         
         fileRecords.push(fileRecord);
       }
@@ -2897,9 +2951,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'relatedId and relatedType are required' });
       }
       
+      // Apply tenant filtering based on user's tenant context
       const files = await storage.getFileAttachmentsByRelatedEntity(
         relatedType as string,
-        Number(relatedId)
+        Number(relatedId),
+        { tenantId: req.tenant?.id }
       );
       
       res.json(files);
@@ -2913,7 +2969,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get('/api/files/:id', requireAuth, async (req, res) => {
     try {
       const fileId = Number(req.params.id);
-      const file = await storage.getFileAttachment(fileId);
+      
+      // Apply tenant filtering based on user's tenant context
+      const file = await storage.getFileAttachment(fileId, { tenantId: req.tenant?.id });
       
       if (!file) {
         return res.status(404).json({ message: 'File not found' });
@@ -2936,7 +2994,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: 'Invalid related type or ID' });
       }
       
-      const files = await storage.getFileAttachmentsByRelatedEntity(relatedType, relatedId);
+      // Apply tenant filtering based on user's tenant context
+      const files = await storage.getFileAttachmentsByRelatedEntity(
+        relatedType, 
+        relatedId,
+        { tenantId: req.tenant?.id }
+      );
+      
       res.json(files);
     } catch (error) {
       console.error('Error fetching files for related entity:', error);
@@ -2948,7 +3012,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete('/api/files/:id', requireAuth, async (req, res) => {
     try {
       const fileId = Number(req.params.id);
-      const file = await storage.getFileAttachment(fileId);
+      
+      // Get the file with tenant filtering to ensure it belongs to the user's tenant
+      const file = await storage.getFileAttachment(fileId, { tenantId: req.tenant?.id });
       
       if (!file) {
         return res.status(404).json({ message: 'File not found' });
@@ -2957,8 +3023,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Delete from Google Cloud Storage
       await cloudStorage.deleteFile(file.fileUrl);
       
-      // Delete from database
-      const deleted = await storage.deleteFileAttachment(fileId);
+      // Delete from database with tenant filtering
+      const deleted = await storage.deleteFileAttachment(fileId, { tenantId: req.tenant?.id });
       
       if (deleted) {
         res.status(204).send();
