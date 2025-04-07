@@ -74,22 +74,22 @@ app.use((req, res, next) => {
     // Continue starting the server even if migrations fail
   }
   
-  // Set up Vite first for development or static file serving
-  // This ensures all frontend routes work before any API middleware
-  const server = await registerRoutes(app);
-  
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
-  
-  // Initialize authentication system
+  // Initialize authentication system first so routes can access user info
   setupAuth(app);
   
   // Apply tenant middleware only to API routes
   // This prevents the middleware from interfering with frontend resources
   app.use('/api', tenantMiddleware);
+  
+  // Register API routes after authentication and tenant middleware
+  const server = await registerRoutes(app);
+  
+  // Set up Vite for development or static file serving
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
   
   // Apply the centralized error handling
   applyErrorHandling(app);

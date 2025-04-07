@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/hooks/use-tenant';
@@ -109,14 +109,43 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   const { tenant } = useTenant();
   
   useEffect(() => {
-    if (!user) return;
+    // Only initialize socket if we have both user and tenant
+    if (!user || !tenant?.id) return;
     
-    // Get the Socket.IO client instance
-    if (!socketRef.current) {
+    // Prevent socket reconnection if already connected
+    if (socketRef.current) {
+      // Check if we need to reconnect with new tenant ID
+      try {
+        const currentQuery = socketRef.current.io?.opts?.query;
+        const currentTenantId = currentQuery && typeof currentQuery === 'object' ? 
+          (currentQuery as Record<string, unknown>).tenantId : undefined;
+          
+        if (currentTenantId !== tenant.id.toString()) {
+          console.log('Tenant changed, reconnecting socket');
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        } else {
+          // Already connected with correct tenant
+          return;
+        }
+      } catch (error) {
+        console.error('Error checking socket query:', error);
+        // Reconnect to be safe
+        if (socketRef.current) {
+          socketRef.current.disconnect();
+          socketRef.current = null;
+        }
+      }
+    }
+    
+    console.log('Initializing socket connection');
+    
+    try {
+      // Get the Socket.IO client instance
       socketRef.current = io('/', {
         query: {
           userId: user.id.toString(),
-          tenantId: tenant?.id?.toString()
+          tenantId: tenant.id.toString()
         },
         transports: ['websocket', 'polling'],
         autoConnect: true
@@ -130,9 +159,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         setSocketConnected(true);
         
         // Join room for tenant-specific notifications
-        if (tenant?.id) {
-          socket.emit('join', [`tenant-${tenant.id}`]);
-        }
+        socket.emit('join', [`tenant-${tenant.id}`]);
       });
       
       socket.on('disconnect', (reason) => {
@@ -151,16 +178,19 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
           handleSocketEvent(eventType, payload);
         });
       });
+    } catch (error) {
+      console.error('Error initializing Socket.IO:', error);
     }
     
-    // Cleanup when component unmounts
+    // Cleanup when component unmounts or dependencies change
     return () => {
       if (socketRef.current) {
+        console.log('Disconnecting socket');
         socketRef.current.disconnect();
         socketRef.current = null;
       }
     };
-  }, [user, tenant?.id]);
+  }, [user?.id, tenant?.id]); // Only re-run if user ID or tenant ID changes
   
   // Save notifications to localStorage
   useEffect(() => {
@@ -195,7 +225,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   }, []);
   
   // Handle incoming socket events
-  const handleSocketEvent = (eventType: string, payload: WebSocketPayload) => {
+  const handleSocketEvent = useCallback((eventType: string, payload: WebSocketPayload) => {
     // Only process events with message content
     if (payload.message) {
       const notificationType = (payload.type || 'default') as NotificationType;
@@ -260,7 +290,7 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
         duration: payload.duration || 5000
       });
     }
-  };
+  }, [toast]);
   
   // Helper to validate category
   const isValidCategory = (category: string): boolean => {
@@ -335,41 +365,57 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   );
 };
 
-export const useNotifications = () => {
+// Define a separate type that includes the showNotification method
+export type NotificationsHookResult = NotificationsContextType & {
+  showNotification: (notification: { 
+    message: string;
+    type: NotificationType;
+    category?: NotificationCategory;
+    entityId?: number;
+    duration?: number;
+    url?: string;
+  }) => string;
+};
+
+// Create the hook as a named function for better compatibility with Fast Refresh
+export const useNotifications = (): NotificationsHookResult => {
   const context = useContext(NotificationsContext);
+  
   if (!context) {
     throw new Error('useNotifications must be used within a NotificationsProvider');
   }
   
-  // Add a showNotification method to the context
+  const showNotification = (notification: { 
+    message: string;
+    type: NotificationType;
+    category?: NotificationCategory;
+    entityId?: number;
+    duration?: number;
+    url?: string;
+  }): string => {
+    // Create a new notification object
+    const newNotification: Notification = {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      message: notification.message,
+      type: notification.type,
+      timestamp: new Date().toISOString(),
+      read: false,
+      category: notification.category || 'system',
+      entityId: notification.entityId,
+      duration: notification.duration,
+      url: notification.url
+    };
+    
+    // Add the notification to the state
+    const notifications = [...context.notifications];
+    notifications.unshift(newNotification);
+    
+    // Return the notification ID
+    return newNotification.id;
+  };
+  
   return {
     ...context,
-    showNotification: (notification: { 
-      message: string;
-      type: NotificationType;
-      category?: NotificationCategory;
-      entityId?: number;
-      duration?: number;
-      url?: string;
-    }) => {
-      // Create a new notification object
-      const newNotification: Notification = {
-        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
-        message: notification.message,
-        type: notification.type,
-        timestamp: new Date().toISOString(),
-        read: false,
-        category: notification.category || 'system',
-        entityId: notification.entityId,
-        duration: notification.duration,
-        url: notification.url
-      };
-      
-      // Add the notification to the state
-      context.notifications.unshift(newNotification);
-      
-      // Return the notification ID
-      return newNotification.id;
-    }
+    showNotification
   };
-};
+}
