@@ -1,0 +1,67 @@
+Coding partner
+
+Show thinking
+Okay, CTO hat on. To ensure we build this SaaS platform methodically and minimize errors, we'll instruct the AI agent step-by-step. Think of it as sprints, where each prompt defines the goal for the next increment of work.
+
+Here is a sequence of prompts designed to guide the AI agent through the development process:
+
+Prompt 1: Project Initialization & Core Models (Foundation)
+
+"Goal: Set up the foundational structure and core data models for our multi-tenant SaaS application.
+
+Tasks:
+
+Initialize a monorepo structure (e.g., using pnpm workspaces or Turborepo). Include two main packages:
+packages/api: Backend Node.js/Express application using TypeScript.
+packages/web: Frontend React application using Vite, TypeScript, Tailwind CSS, and Shadcn/UI.
+Configure base tooling: TypeScript tsconfig.json for both packages, ESLint/Prettier, Vite config, basic Node/Express server setup.
+Install core dependencies in respective packages: Express, Drizzle ORM, pg (Postgres driver), Passport, bcrypt, Socket.IO for api; React, Wouter, TanStack Query, Tailwind, Shadcn/UI, Socket.IO client for web.
+Set up Drizzle ORM in the api package: Configure connection to your PostgreSQL database.
+Define the core Drizzle schemas for:
+Tenants: Basic tenant information (ID, name, creation date, etc.).
+Users: User details (ID, name, email, hashed password, creation date) including a mandatory foreign key tenant_id referencing the Tenants table.
+Generate and apply the initial database migration using Drizzle Kit.
+Provide the complete file structure, configuration files (package.json, tsconfig.json, etc.), the Drizzle schema definitions (schema.ts), and the initial migration file. Explain the monorepo setup and the core model relationship."
+Prompt 2: Tenant-Aware Authentication
+
+"Goal: Implement the core user authentication system, ensuring it's strictly tenant-aware.
+
+Prerequisites: Completion of Prompt 1 (Project Init & Core Models).
+
+Tasks:
+
+Backend (api):
+Implement password hashing using bcrypt during user registration.
+Set up Passport.js with a local strategy (email/password) and session-based authentication.
+Create API endpoints for:
+User Registration: Accepts user details (name, email, password) and potentially a tenant identifier (or handles tenant creation/association logic). Ensures user is linked to a tenant_id.
+User Login: Authenticates user against stored hash, verifies user belongs to a valid tenant, and establishes a session containing user ID and tenant_id.
+User Logout: Destroys the session.
+Get Current User: An endpoint (/api/auth/me) that returns the logged-in user's details (excluding password) and their tenant_id, relying on the active session.
+Implement middleware to protect API routes, requiring authentication.
+Frontend (web):
+Create basic pages/components for Login and Registration using React Hook Form and Zod for validation, styled with Shadcn/UI.
+Implement functions to call the backend registration/login/logout API endpoints.
+Set up basic frontend routing using Wouter.
+Implement a "Protected Route" mechanism that checks if the user is authenticated (e.g., by calling /api/auth/me) before rendering specific parts of the application. Redirect to login if not authenticated.
+Store user/session state globally (e.g., using Zustand, Jotai, or a simple React Context paired with TanStack Query's cache for the /api/auth/me call).
+Provide the backend authentication code (Passport setup, routes, controllers/services), frontend components (Login/Register forms, ProtectedRoute), and API calling logic. Explain how tenant context is established and maintained during auth."
+Prompt 3: Basic Frontend Layout & Tenant Context
+
+"Goal: Establish the main application layout and ensure tenant/user context is available throughout the authenticated frontend experience.
+
+Prerequisites: Completion of Prompt 2 (Authentication).
+
+Tasks:
+
+Frontend (web):
+Create a main application layout component (e.g., AppLayout.tsx) using Shadcn/UI components (like Resizable Panel Group, Sidebar, Header). This layout should render when a user is authenticated.
+Include placeholders for key navigation items in the sidebar (Dashboard, Customers, Quotes, Projects, Settings, etc.). Use Wouter for navigation links.
+Implement a global context or state management solution (if not already done in Prompt 2) to hold the authenticated user's information, including their tenant_id, fetched from the /api/auth/me endpoint via TanStack Query.
+Ensure this context is accessible within all components rendered inside the AppLayout.
+Create basic placeholder components for each main navigation item (e.g., DashboardPage, CustomersPage).
+Set up the TanStack Query QueryClientProvider at the root of the authenticated app.
+Provide the code for AppLayout.tsx, updated routing setup, the context/state management for user/tenant info, and the placeholder page components. Explain how the layout uses Shadcn and how tenant context is passed down or made available."
+(Continue with subsequent prompts, following the refined step-by-step plan from the previous thought block. Each prompt should build on the last, clearly stating its goal, prerequisites, specific tasks for backend/frontend, and expected deliverables/explanations.)
+
+Prompt 4: Tenant Settings Management (Basic tenant details, user management within tenant)
