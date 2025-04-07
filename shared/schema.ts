@@ -461,6 +461,14 @@ export const companySettings = pgTable("company_settings", {
     expense?: string;
     purchaseOrder?: string;
     inventory?: string;
+    task?: string;
+    payment?: string;
+    service?: string;
+    product?: string;
+    lead?: string;
+    opportunity?: string;
+    contract?: string;
+    milestone?: string;
   }>(), // Custom terms for different modules
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
   updatedBy: integer("updated_by").references(() => users.id),
