@@ -11,7 +11,9 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
+import bcrypt from "bcrypt";
 import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
+import { User } from "@shared/types";
 import { registerDocumentRoutes } from "./routes/document-routes";
 import { 
   insertCustomerSchema, 
@@ -42,22 +44,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply tenant filter middleware for multi-tenant data isolation
   app.use(tenantMiddleware);
   
-  // Tenant information endpoint
-  app.get("/api/tenant", (req: Request, res: Response) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ success: false, message: "Not authenticated" });
-    }
-    
-    if (!req.tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
-    }
-    
-    return res.json({ success: true, tenant: req.tenant });
-  });
-  
-  // Register document routes for PDF generation and email sharing
-  registerDocumentRoutes(app);
-
   // Common authentication middleware for protected routes
   const requireAuth = (req: Request, res: Response, next: Function) => {
     if (!req.isAuthenticated()) {
@@ -80,6 +66,227 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
     };
   };
+  
+  // Tenant information endpoint
+  app.get("/api/tenant", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    
+    if (!req.tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+    
+    return res.json({ success: true, tenant: req.tenant });
+  });
+  
+  // Tenant management routes
+  app.get("/api/tenant/settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      // Get current tenant details
+      const tenant = await storage.getTenant(req.tenant.id);
+      if (!tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      return res.json({ success: true, tenant });
+    } catch (error) {
+      console.error("Error fetching tenant settings:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch tenant settings" });
+    }
+  });
+  
+  // Update tenant settings
+  app.patch("/api/tenant/settings", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      // Check if user has admin privileges
+      if ((req.user as User).role !== 'admin') {
+        return res.status(403).json({ success: false, message: "Only administrators can update tenant settings" });
+      }
+      
+      // Update tenant with provided data
+      const updatedTenant = await storage.updateTenant(req.tenant.id, req.body);
+      if (!updatedTenant) {
+        return res.status(404).json({ success: false, message: "Failed to update tenant" });
+      }
+      
+      return res.json({ success: true, tenant: updatedTenant });
+    } catch (error) {
+      console.error("Error updating tenant settings:", error);
+      return res.status(500).json({ success: false, message: "Failed to update tenant settings" });
+    }
+  });
+  
+  // User management routes within tenant
+  
+  // Get all users in the current tenant
+  app.get("/api/tenant/users", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      // Get all users for the current tenant
+      const users = await storage.getAllUsers({ tenantId: req.tenant.id });
+      
+      // Remove password field from each user for security
+      const sanitizedUsers = users.map(user => {
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword;
+      });
+      
+      return res.json({ success: true, users: sanitizedUsers });
+    } catch (error) {
+      console.error("Error fetching tenant users:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch users" });
+    }
+  });
+  
+  // Get a specific user in the current tenant
+  app.get("/api/tenant/users/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      const userId = Number(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+      
+      // Ensure the user belongs to the current tenant
+      if (user.tenantId !== req.tenant.id) {
+        return res.status(403).json({ success: false, message: "Access denied to user from another tenant" });
+      }
+      
+      // Remove password field for security
+      const { password, ...userWithoutPassword } = user;
+      
+      return res.json({ success: true, user: userWithoutPassword });
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      return res.status(500).json({ success: false, message: "Failed to fetch user" });
+    }
+  });
+  
+  // Update a user in the current tenant
+  app.patch("/api/tenant/users/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      // Check if current user has admin privileges or is updating their own account
+      if ((req.user as User).role !== 'admin' && (req.user as User).id !== Number(req.params.id)) {
+        return res.status(403).json({ success: false, message: "You can only update your own account or be an admin" });
+      }
+      
+      const userId = Number(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+      
+      // Ensure the user belongs to the current tenant
+      if (user.tenantId !== req.tenant.id) {
+        return res.status(403).json({ success: false, message: "Access denied to user from another tenant" });
+      }
+      
+      // Only admins can change roles
+      if (req.body.role && (req.user as User).role !== 'admin') {
+        return res.status(403).json({ success: false, message: "Only administrators can change user roles" });
+      }
+      
+      // Do not allow changing tenantId through this endpoint
+      if (req.body.tenantId) {
+        delete req.body.tenantId;
+      }
+      
+      // Handle password updates
+      if (req.body.password) {
+        // Hash password if provided
+        const salt = await bcrypt.genSalt(10);
+        req.body.password = await bcrypt.hash(req.body.password, salt);
+      }
+      
+      const updatedUser = await storage.updateUser(userId, req.body);
+      if (!updatedUser) {
+        return res.status(404).json({ success: false, message: "Failed to update user" });
+      }
+      
+      // Remove password field for security
+      const { password, ...userWithoutPassword } = updatedUser;
+      
+      return res.json({ success: true, user: userWithoutPassword });
+    } catch (error) {
+      console.error("Error updating user:", error);
+      return res.status(500).json({ success: false, message: "Failed to update user" });
+    }
+  });
+  
+  // Delete a user from the current tenant
+  app.delete("/api/tenant/users/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      if (!req.tenant) {
+        return res.status(404).json({ success: false, message: "Tenant not found" });
+      }
+      
+      // Check if current user has admin privileges
+      if ((req.user as User).role !== 'admin') {
+        return res.status(403).json({ success: false, message: "Only administrators can delete users" });
+      }
+      
+      const userId = Number(req.params.id);
+      const user = await storage.getUser(userId);
+      
+      if (!user) {
+        return res.status(404).json({ success: false, message: "User not found" });
+      }
+      
+      // Ensure the user belongs to the current tenant
+      if (user.tenantId !== req.tenant.id) {
+        return res.status(403).json({ success: false, message: "Access denied to user from another tenant" });
+      }
+      
+      // Prevent deleting the last admin user
+      if (user.role === 'admin') {
+        const adminUsers = (await storage.getAllUsers({ tenantId: req.tenant.id }))
+          .filter(u => u.role === 'admin');
+        
+        if (adminUsers.length <= 1) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Cannot delete the last admin user for this tenant" 
+          });
+        }
+      }
+      
+      const deleted = await storage.deleteUser(userId);
+      
+      if (deleted) {
+        return res.status(200).json({ success: true, message: "User deleted successfully" });
+      } else {
+        return res.status(500).json({ success: false, message: "Failed to delete user" });
+      }
+    } catch (error) {
+      console.error("Error deleting user:", error);
+      return res.status(500).json({ success: false, message: "Failed to delete user" });
+    }
+  });
+  
+  // Register document routes for PDF generation and email sharing
+  registerDocumentRoutes(app);
 
   // Customer routes
   app.get("/api/customers", requireAuth, async (req, res) => {
