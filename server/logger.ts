@@ -12,16 +12,6 @@ export const logger = pino({
   // Don't log in test environment
   enabled: process.env.NODE_ENV !== 'test',
   
-  // Configure log format
-  transport: {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname',
-    },
-  },
-  
   // Custom log level based on environment
   level: process.env.NODE_ENV === 'production' ? 'info' : 'debug',
   
