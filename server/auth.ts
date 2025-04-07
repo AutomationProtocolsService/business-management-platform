@@ -7,6 +7,7 @@ import ConnectPgSimple from "connect-pg-simple";
 import { db, client } from "./db";
 import { storage } from "./storage";
 import { User as SelectUser, Tenant as SelectTenant } from "@shared/schema";
+import { User } from "@shared/types";
 import logger from "./logger";
 
 declare global {

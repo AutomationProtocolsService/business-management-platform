@@ -2,6 +2,7 @@ import { Express, Request, Response } from 'express';
 import PDFService from '../services/pdf-service';
 import EmailService from '../services/email-service';
 import { storage } from '../storage';
+import { TenantFilter } from '@shared/types';
 
 /**
  * Register document-related API routes
@@ -31,8 +32,8 @@ export const registerDocumentRoutes = (app: Express) => {
       
       // Fetch the quote with tenant filtering
       // Get the tenant ID from the tenant filter middleware
-      const tenantId = req.tenantFilter?.tenantId;
-      const quote = await storage.getQuote(quoteId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const quote = await storage.getQuote(quoteId, tenantFilter);
       
       if (!quote) {
         console.log(`[PDF Route] Quote not found with ID: ${quoteId}`);
@@ -64,8 +65,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${quote.customerId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          customer = await storage.getCustomer(quote.customerId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          customer = await storage.getCustomer(quote.customerId, tenantFilter);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -82,8 +83,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${quote.projectId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          project = await storage.getProject(quote.projectId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          project = await storage.getProject(quote.projectId, tenantFilter);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -142,8 +143,8 @@ export const registerDocumentRoutes = (app: Express) => {
       }
       
       // Get quote with items - using tenant filtering
-      const tenantId = req.tenantFilter?.tenantId;
-      const quote = await storage.getQuote(quoteId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const quote = await storage.getQuote(quoteId, tenantFilter);
       if (!quote) {
         console.log(`[Email Route] Error: Quote not found with ID: ${quoteId}`);
         return res.status(404).json({ message: 'Quote not found' });
@@ -166,8 +167,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.customerId) {
         try {
           console.log(`[Email Route] Fetching customer with ID: ${quote.customerId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          customer = await storage.getCustomer(quote.customerId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          customer = await storage.getCustomer(quote.customerId, tenantFilter);
           if (customer) {
             console.log(`[Email Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -184,8 +185,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.projectId) {
         try {
           console.log(`[Email Route] Fetching project with ID: ${quote.projectId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          project = await storage.getProject(quote.projectId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          project = await storage.getProject(quote.projectId, tenantFilter);
           if (project) {
             console.log(`[Email Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -254,8 +255,8 @@ export const registerDocumentRoutes = (app: Express) => {
       console.log(`[PDF Route] Starting PDF generation for invoice ID: ${invoiceId}`);
       
       // Fetch the invoice - using tenant filtering
-      const tenantId = req.tenantFilter?.tenantId;
-      const invoice = await storage.getInvoice(invoiceId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const invoice = await storage.getInvoice(invoiceId, tenantFilter);
       
       if (!invoice) {
         console.log(`[PDF Route] Invoice not found with ID: ${invoiceId}`);
@@ -287,8 +288,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${invoice.customerId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          customer = await storage.getCustomer(invoice.customerId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          customer = await storage.getCustomer(invoice.customerId, tenantFilter);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -305,8 +306,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${invoice.projectId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          project = await storage.getProject(invoice.projectId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          project = await storage.getProject(invoice.projectId, tenantFilter);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -365,8 +366,8 @@ export const registerDocumentRoutes = (app: Express) => {
       }
       
       // Get invoice with items - using tenant filtering
-      const tenantId = req.tenantFilter?.tenantId;
-      const invoice = await storage.getInvoice(invoiceId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const invoice = await storage.getInvoice(invoiceId, tenantFilter);
       if (!invoice) {
         console.log(`[Email Route] Error: Invoice not found with ID: ${invoiceId}`);
         return res.status(404).json({ message: 'Invoice not found' });
@@ -389,8 +390,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.customerId) {
         try {
           console.log(`[Email Route] Fetching customer with ID: ${invoice.customerId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          customer = await storage.getCustomer(invoice.customerId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          customer = await storage.getCustomer(invoice.customerId, tenantFilter);
           if (customer) {
             console.log(`[Email Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -407,8 +408,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.projectId) {
         try {
           console.log(`[Email Route] Fetching project with ID: ${invoice.projectId}`);
-          const tenantId = req.tenantFilter?.tenantId;
-          project = await storage.getProject(invoice.projectId, tenantId);
+          const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+          project = await storage.getProject(invoice.projectId, tenantFilter);
           if (project) {
             console.log(`[Email Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -469,8 +470,8 @@ export const registerDocumentRoutes = (app: Express) => {
       const poId = Number(req.params.id);
       
       // Get PO with items - using tenant filtering
-      const tenantId = req.tenantFilter?.tenantId;
-      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
@@ -511,8 +512,8 @@ export const registerDocumentRoutes = (app: Express) => {
       }
       
       // Get PO with items - using tenant filtering
-      const tenantId = req.tenantFilter?.tenantId;
-      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantId);
+      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
+      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
