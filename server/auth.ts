@@ -2,7 +2,7 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import ConnectPgSimple from "connect-pg-simple";
+import memorystore from "memorystore";
 import { db, client } from "./db";
 import { storage } from "./storage";
 import { User as SelectUser, Tenant as SelectTenant } from "@shared/schema";
@@ -25,12 +25,10 @@ declare global {
  * Set up the authentication system
  */
 export function setupAuth(app: Express) {
-  // Create PostgreSQL session store
-  const PgSessionStore = ConnectPgSimple(session);
-  const sessionStore = new PgSessionStore({
-    pool: { query: (text, params) => client.query(text, params) },
-    tableName: 'sessions',
-    createTableIfMissing: true,
+  // Create a memory store for session data
+  const MemoryStore = memorystore(session);
+  const sessionStore = new MemoryStore({
+    checkPeriod: 86400000 // prune expired entries every 24h
   });
 
   // Configure session settings
@@ -290,7 +288,7 @@ export function setupAuth(app: Express) {
           });
         }
         
-        // Store user_id in session for connect-pg-simple
+        // Store user_id and tenant_id in session
         if (req.session) {
           (req.session as any).user_id = user.id;
           (req.session as any).tenant_id = user.tenantId;
