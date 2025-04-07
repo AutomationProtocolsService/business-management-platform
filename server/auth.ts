@@ -8,7 +8,8 @@ import { storage } from "./storage";
 import { User as SelectUser, Tenant as SelectTenant } from "@shared/schema";
 import { User } from "@shared/types";
 import { logger } from "./logger";
-import { hashPassword, comparePasswords } from "./auth-utils";
+import { hashPassword, comparePasswords, generateSecureToken, calculateTokenExpiry } from "./auth-utils";
+import EmailService from "./services/email-service";
 
 declare global {
   namespace Express {
@@ -347,21 +348,21 @@ export function setupAuth(app: Express) {
     });
   });
 
-  // Password reset request endpoint (stub)
+  // Password reset request endpoint
   app.post("/api/auth/request-password-reset", async (req: Request, res: Response) => {
     try {
-      const { email, tenantId } = req.body;
+      const { email, username, tenantId } = req.body;
       
-      if (!email) {
-        logger.warn({}, "Password reset request failed: Missing email");
+      if (!email || !username || !tenantId) {
+        logger.warn({}, "Password reset request failed: Missing required fields");
         return res.status(400).json({ 
           success: false, 
-          message: "Email is required" 
+          message: "Email, username, and tenant information are required" 
         });
       }
       
       // Determine tenant ID (from request body or request tenant)
-      const effectiveTenantId = tenantId || req.tenant?.id;
+      const effectiveTenantId = parseInt(tenantId) || req.tenant?.id;
       
       if (!effectiveTenantId) {
         logger.warn({ email }, "Password reset request failed: No tenant specified");
@@ -371,7 +372,66 @@ export function setupAuth(app: Express) {
         });
       }
       
-      logger.info({ email, tenantId: effectiveTenantId }, "Password reset requested");
+      // Get tenant for company name and validation
+      const tenant = await storage.getTenant(effectiveTenantId);
+      if (!tenant) {
+        logger.warn({ email, tenantId: effectiveTenantId }, "Password reset request failed: Invalid tenant");
+        // For security, don't reveal that the tenant doesn't exist
+        return res.json({ 
+          success: true,
+          message: "If your email is registered, you will receive password reset instructions" 
+        });
+      }
+      
+      // Find user by username and tenant
+      const user = await storage.getUserByUsername(username, effectiveTenantId);
+      
+      // Generate and store token if the user exists and email matches
+      if (user && user.email.toLowerCase() === email.toLowerCase()) {
+        // Generate a secure token
+        const token = generateSecureToken();
+        const expiryDate = calculateTokenExpiry();
+        
+        // Store the token in the database
+        await storage.createPasswordResetToken({
+          userId: user.id,
+          tenantId: effectiveTenantId,
+          token,
+          expiresAt: expiryDate,
+          used: false
+        });
+        
+        // Generate reset URL
+        const baseUrl = process.env.APP_URL || `http://${req.get('host')}`;
+        const resetUrl = `${baseUrl}/reset-password?token=${token}`;
+        
+        // Get the from email address
+        const fromEmail = process.env.EMAIL_FROM || "noreply@example.com";
+        
+        // Send the password reset email
+        await EmailService.sendPasswordResetEmail(
+          user.email,
+          token,
+          resetUrl,
+          fromEmail,
+          {
+            companyName: tenant.companyName || tenant.name,
+          }
+        );
+        
+        logger.info({ 
+          userId: user.id, 
+          email: user.email, 
+          tenantId: effectiveTenantId,
+          tokenExpiry: expiryDate
+        }, "Password reset email sent");
+      } else {
+        logger.warn({ 
+          providedEmail: email, 
+          providedUsername: username, 
+          tenantId: effectiveTenantId 
+        }, "Password reset requested for non-existent user or email mismatch");
+      }
       
       // Always return success even if email doesn't exist (security best practice)
       res.json({ 
@@ -387,22 +447,88 @@ export function setupAuth(app: Express) {
     }
   });
 
-  // Password reset execution endpoint (stub)
+  // Password reset execution endpoint
   app.post("/api/auth/reset-password", async (req: Request, res: Response) => {
     try {
-      const { token, newPassword } = req.body;
+      const { token, password, confirmPassword } = req.body;
       
-      if (!token || !newPassword) {
-        logger.warn({}, "Password reset execution failed: Missing token or new password");
+      if (!token || !password) {
+        logger.warn({}, "Password reset execution failed: Missing token or password");
         return res.status(400).json({ 
           success: false, 
-          message: "Token and new password are required" 
+          message: "Token and password are required" 
         });
       }
       
-      logger.info({ token: token.substring(0, 8) + '...' }, "Password reset execution");
+      if (password !== confirmPassword) {
+        logger.warn({}, "Password reset execution failed: Passwords don't match");
+        return res.status(400).json({ 
+          success: false, 
+          message: "Passwords do not match" 
+        });
+      }
       
-      // Always return success (we'll implement the actual reset later)
+      // Find the token in the database
+      const resetToken = await storage.getPasswordResetTokenByToken(token);
+      
+      if (!resetToken) {
+        logger.warn({ token: token.substring(0, 8) + '...' }, "Password reset execution failed: Token not found");
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid or expired token" 
+        });
+      }
+      
+      // Check if token is already used
+      if (resetToken.used) {
+        logger.warn({ tokenId: resetToken.id }, "Password reset execution failed: Token already used");
+        return res.status(400).json({ 
+          success: false, 
+          message: "This reset link has already been used" 
+        });
+      }
+      
+      // Check if token is expired
+      if (new Date() > new Date(resetToken.expiresAt)) {
+        logger.warn({ 
+          tokenId: resetToken.id, 
+          expiry: resetToken.expiresAt 
+        }, "Password reset execution failed: Token expired");
+        return res.status(400).json({ 
+          success: false, 
+          message: "This reset link has expired" 
+        });
+      }
+      
+      // Find the user associated with the token
+      const user = await storage.getUser(resetToken.userId);
+      
+      if (!user) {
+        logger.warn({ 
+          tokenId: resetToken.id, 
+          userId: resetToken.userId 
+        }, "Password reset execution failed: User not found");
+        return res.status(400).json({ 
+          success: false, 
+          message: "User not found" 
+        });
+      }
+      
+      // Hash the new password
+      const hashedPassword = await hashPassword(password);
+      
+      // Update the user's password
+      await storage.updateUser(user.id, { password: hashedPassword });
+      
+      // Mark the token as used
+      await storage.invalidatePasswordResetToken(token);
+      
+      logger.info({ 
+        userId: user.id, 
+        username: user.username, 
+        tokenId: resetToken.id 
+      }, "Password reset successful");
+      
       res.json({ 
         success: true, 
         message: "Password has been reset successfully" 
