@@ -1,0 +1,103 @@
+Okay, this error message, "Too many re-renders. React limits the number of renders to prevent an infinite loop," is a common issue in React development. Let's figure out what's happening.
+
+1. Understanding the Error
+
+What it means: React components update (re-render) their display when their internal state or incoming props change. This error occurs when a component gets stuck in a loop where rendering causes a state/prop change, which causes another render, which causes the same change, and so on, indefinitely. React stops this loop after a certain number of renders to prevent your browser from freezing.
+Where it Happens: This is occurring in your frontend code (the user interface part of your SaaS application built with React). The error overlay is likely provided by Vite, a common build tool used with React.
+2. Common Causes and How to Fix Them
+
+Here are the most frequent reasons for this error:
+
+Calling setState (or the update function from useState) directly in the component body:
+
+Problem: When the component renders, it calls setState, which triggers a re-render. When it re-renders, it calls setState again, leading to the loop.
+Example:
+JavaScript
+
+function MyComponent() {
+  const [count, setCount] = useState(0);
+
+  // INCORRECT: Calls setCount on every render
+  setCount(count + 1); // <-- Infinite loop!
+
+  return <div>Count: {count}</div>;
+}
+Fix: Only call state update functions inside event handlers (like onClick, onChange), useEffect hooks, or other callbacks.
+JavaScript
+
+function MyComponent() {
+  const [count, setCount] = useState(0);
+
+  // CORRECT: Call setCount only when button is clicked
+  const handleClick = () => {
+    setCount(count + 1);
+  };
+
+  return (
+    <div>
+      Count: {count}
+      <button onClick={handleClick}>Increment</button>
+    </div>
+   );
+}
+Incorrect useEffect Dependency Array:
+
+Problem: An effect modifies a state variable, and that same variable (or an object/array that changes on every render) is included in the effect's dependency array. The state change triggers the effect, which changes the state again, triggering the effect again.
+Example:
+JavaScript
+
+function MyComponent() {
+  const [data, setData] = useState(null);
+  const [options, setOptions] = useState({ enabled: true }); // Example state
+
+  // INCORRECT: 'options' is recreated on every render, causing the effect to re-run
+  // useEffect(() => {
+  //   console.log("Fetching data with options:", options);
+  //   fetchData(options).then(setData);
+  // }, [options]); // <-- 'options' is a new object each time
+
+  // Also INCORRECT: Effect updates 'data', which is in its own dependency array
+  // useEffect(() => {
+  //    console.log("Processing data");
+  //    setData(processData(data)); // <-- Modifies 'data'
+  // }, [data]); // <-- Depends on 'data'
+
+  return <div>{/* ... */}</div>;
+}
+Fix:
+Ensure the dependency array only includes values that should actually trigger the effect.
+If you need to depend on an object/array, consider:
+Memoizing it with useMemo or useCallback if it's defined in the component.
+Depending on primitive values inside the object if possible (e.g., [options.enabled] instead of [options]).
+Using the functional update form of setState if the effect only needs the previous state to calculate the new one, potentially removing the dependency.
+Carefully review if the effect really needs to run whenever the dependency changes. Maybe the dependency array should be empty ([]) if it only needs to run once on mount.
+Calling State Updates Incorrectly in JSX Event Handlers:
+
+Problem: Directly calling the update function in the JSX instead of passing a function reference.
+Example:
+JavaScript
+
+// INCORRECT: setCount(1) is *called* during render
+return <button onClick={setCount(1)}>Set to 1</button>;
+Fix: Use an arrow function or pass the function reference.
+JavaScript
+
+// CORRECT: Pass an arrow function that calls setCount on click
+return <button onClick={() => setCount(1)}>Set to 1</button>;
+
+// Also CORRECT (if no arguments needed):
+// return <button onClick={handleResetClick}>Reset</button>;
+// where handleResetClick = () => setCount(0);
+3. How to Debug
+
+Identify the Component: Look at the browser's developer console. Often, React will provide a component stack trace along with the "Too many re-renders" error, pointing you to the component causing the loop.
+Examine State Updates: Check all useState calls in the suspected component. Are any update functions (like setMyState) called directly inside the component's main function body?
+Examine Effects: Check all useEffect hooks in the component. Look closely at the dependency arrays and the code inside the effect.
+Examine Event Handlers: Check onClick, onChange, etc., in your JSX. Ensure you're not accidentally calling update functions immediately.
+React DevTools: Use the React DevTools browser extension. It lets you inspect component state and props and can help visualize render cycles.
+To help you further, could you please:
+
+Share the code for the React component(s) where you suspect the error is happening? (The component you were working on just before the error appeared is a good place to start).
+Check your browser's developer console for any additional error messages or stack traces that might pinpoint the component name.
+
+Sources and related content

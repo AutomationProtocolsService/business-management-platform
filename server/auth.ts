@@ -77,6 +77,19 @@ export function setupAuth(app: Express) {
         }
       }
       
+      // Method 3: Extract tenant from authenticated user if available
+      // If the user is already authenticated, add tenant context from user
+      if (req.isAuthenticated() && !req.tenant) {
+        const user = req.user as User;
+        if (user?.tenantId) {
+          const userTenant = await storage.getTenant(user.tenantId);
+          if (userTenant) {
+            req.tenant = userTenant;
+            logger.info({ tenantId: user.tenantId, userId: user.id }, "Set tenant from authenticated user");
+          }
+        }
+      }
+      
       next();
     } catch (error) {
       logger.error({ err: error }, 'Error determining tenant');
