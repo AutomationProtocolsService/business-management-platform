@@ -7,7 +7,7 @@ import { db, client } from "./db";
 import { storage } from "./storage";
 import { User as SelectUser, Tenant as SelectTenant } from "@shared/schema";
 import { User } from "@shared/types";
-import logger from "./logger";
+import { logger } from "./logger";
 import { hashPassword, comparePasswords } from "./auth-utils";
 
 declare global {
@@ -27,7 +27,7 @@ export function setupAuth(app: Express) {
   // Create PostgreSQL session store
   const PgSessionStore = ConnectPgSimple(session);
   const sessionStore = new PgSessionStore({
-    pool: client, // Use the PostgreSQL client directly
+    pool: { query: (text, params) => client.query(text, params) },
     tableName: 'sessions',
     createTableIfMissing: true,
   });

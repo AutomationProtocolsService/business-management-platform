@@ -2,7 +2,7 @@ import { MailService } from '@sendgrid/mail';
 import { Quote, Invoice, PurchaseOrder } from '@shared/schema';
 import PDFService from './pdf-service';
 import NodemailerService, { EmailParams as NodemailerEmailParams } from './nodemailer-service';
-import logger from '../logger';
+import { logger } from '../logger';
 
 // Initialize SendGrid
 const mailService = new MailService();

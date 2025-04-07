@@ -1,5 +1,5 @@
 import nodemailer from 'nodemailer';
-import logger from '../logger';
+import { logger } from '../logger';
 
 // Types for email parameters
 export interface EmailParams {

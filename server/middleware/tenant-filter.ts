@@ -9,7 +9,7 @@
 
 import { Request, Response, NextFunction } from "express";
 import { User } from "@shared/types";
-import logger from "../logger";
+import { logger } from "../logger";
 
 // Extend the Express Request interface to include tenant-specific methods and properties
 declare global {

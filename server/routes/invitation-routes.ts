@@ -2,7 +2,7 @@ import { Express, Request, Response } from 'express';
 import crypto from 'crypto';
 import { storage } from '../storage';
 import { insertUserInvitationSchema, UserInvitation } from '@shared/schema';
-import logger from '../logger';
+import { logger } from '../logger';
 import { hashPassword } from '../auth-utils';
 import UnifiedEmailService from '../services/unified-email-service';
 import { z } from 'zod';
