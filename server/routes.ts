@@ -14,6 +14,12 @@ import fs from "fs";
 import bcrypt from "bcrypt";
 import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
 import { User } from "@shared/types";
+
+// Helper to consistently get tenant information from request
+function getTenantFilterFromRequest(req: Request): { tenantId: number } | undefined {
+  return req.tenantFilter || 
+    ((req.user as User)?.tenantId ? { tenantId: (req.user as User).tenantId } : undefined);
+}
 import { registerDocumentRoutes } from "./routes/document-routes";
 import { registerReportingRoutes } from "./routes/reporting-routes";
 import { 
@@ -3739,7 +3745,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, supplierId, lowStock } = req.query;
       
       let inventoryItems;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = req.tenantFilter || ((req.user as User)?.tenantId ? { tenantId: (req.user as User).tenantId } : undefined);
       
       if (category) {
         inventoryItems = await storage.getInventoryItemsByCategory(category as string, tenantFilter);
@@ -3759,7 +3765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = req.tenantFilter || ((req.user as User)?.tenantId ? { tenantId: (req.user as User).tenantId } : undefined);
       const inventoryItem = await storage.getInventoryItem(Number(req.params.id), tenantFilter);
       if (!inventoryItem) {
         return res.status(404).json({ message: "Inventory item not found" });
@@ -3805,7 +3811,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
       const inventoryItemId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       const inventoryItem = await storage.getInventoryItem(inventoryItemId, tenantFilter);
       
       if (!inventoryItem) {
@@ -3834,7 +3840,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/inventory/:id", requireAuth, async (req, res) => {
     try {
       const inventoryItemId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       const inventoryItem = await storage.getInventoryItem(inventoryItemId, tenantFilter);
       
       if (!inventoryItem) {
@@ -3876,7 +3882,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/inventory-transactions", requireAuth, validateBody(insertInventoryTransactionSchema), async (req, res) => {
     try {
       // Add tenant ID if available
-      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      const tenantFilter = getTenantFilterFromRequest(req);
+      const tenantData = tenantFilter || {};
       
       const transaction = await storage.createInventoryTransaction({
         ...req.body,
@@ -3887,7 +3894,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
       if (wsManager) {
-        const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
         const inventoryItem = await storage.getInventoryItem(transaction.inventoryItemId, tenantFilter);
         const itemName = inventoryItem ? inventoryItem.name : 'Unknown item';
         
@@ -3917,7 +3923,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } = req.query;
       
       let transactions;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       if (inventoryItemId) {
         transactions = await storage.getInventoryTransactionsByItem(Number(inventoryItemId), tenantFilter);
