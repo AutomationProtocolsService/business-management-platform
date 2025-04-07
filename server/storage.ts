@@ -1954,25 +1954,48 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllQuotes(): Promise<Quote[]> {
+  async getAllQuotes(filter?: TenantFilter): Promise<Quote[]> {
+    if (filter?.tenantId) {
+      return await db.query.quotes.findMany({
+        where: eq(schema.quotes.tenantId, filter.tenantId)
+      });
+    }
     return await db.query.quotes.findMany();
   }
 
-  async getQuotesByProject(projectId: number): Promise<Quote[]> {
+  async getQuotesByProject(projectId: number, filter?: TenantFilter): Promise<Quote[]> {
+    let query = eq(schema.quotes.projectId, projectId);
+    
+    if (filter?.tenantId) {
+      query = and(query, eq(schema.quotes.tenantId, filter.tenantId));
+    }
+    
     return await db.query.quotes.findMany({
-      where: eq(schema.quotes.projectId, projectId)
+      where: query
     });
   }
 
-  async getQuotesByCustomer(customerId: number): Promise<Quote[]> {
+  async getQuotesByCustomer(customerId: number, filter?: TenantFilter): Promise<Quote[]> {
+    let query = eq(schema.quotes.customerId, customerId);
+    
+    if (filter?.tenantId) {
+      query = and(query, eq(schema.quotes.tenantId, filter.tenantId));
+    }
+    
     return await db.query.quotes.findMany({
-      where: eq(schema.quotes.customerId, customerId)
+      where: query
     });
   }
 
-  async getQuotesByStatus(status: string): Promise<Quote[]> {
+  async getQuotesByStatus(status: string, filter?: TenantFilter): Promise<Quote[]> {
+    let query = eq(schema.quotes.status, status);
+    
+    if (filter?.tenantId) {
+      query = and(query, eq(schema.quotes.tenantId, filter.tenantId));
+    }
+    
     return await db.query.quotes.findMany({
-      where: eq(schema.quotes.status, status)
+      where: query
     });
   }
 
