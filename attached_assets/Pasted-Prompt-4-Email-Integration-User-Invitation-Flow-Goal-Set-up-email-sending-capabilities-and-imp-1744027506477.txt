@@ -1,0 +1,22 @@
+Prompt 4: Email Integration & User Invitation Flow
+
+"Goal: Set up email sending capabilities and implement a user invitation flow.
+
+Prerequisites: Completion of Prompts 1-3 (Auth, Basic Layout).
+
+Tasks:
+
+Backend (api):
+Install nodemailer. Configure it using environment variables for SMTP server details or an email service provider's API key (e.g., EMAIL_HOST, EMAIL_PORT, EMAIL_USER, EMAIL_PASS, EMAIL_FROM). Add these to .env.example.
+Create a reusable email sending service/function.
+Define a Drizzle schema for UserInvitations (ID, email, tenant_id, unique token, expiry date, status - pending/accepted). Add appropriate indexes (token, email). Generate/apply migration.
+Create API endpoints for:
+POST /api/invitations: (Protected, Admin role) Creates an invitation record, generates a unique secure token, and sends an invitation email (using the email service) to the specified email address containing a link with the token (e.g., https://your-app.com/accept-invite?token=...). Log success/failure.
+GET /api/invitations/:token: Retrieves invitation details by token (checking expiry/status).
+POST /api/invitations/:token/accept: Accepts user details (name, password), validates token, hashes password, creates the User record linked to the correct tenant_id from the invitation, marks invitation as accepted, logs user in, and returns auth details. Log success/failure.
+Error Handling: Handle invalid/expired tokens, email already registered, etc., logging details and returning appropriate client errors.
+Frontend (web):
+Create a UI section (e.g., in Tenant Settings/User Management) for Admins to invite new users by email.
+Create a public page (/accept-invite) that takes the token from the URL, calls the GET /api/invitations/:token endpoint, and displays a form (React Hook Form/Zod) for the user to set their name and password if the token is valid.
+Implement logic to call the POST /api/invitations/:token/accept endpoint upon form submission, handle success (redirect to dashboard) or failure (show error message).
+Provide backend code (email service, invitation schema/API routes/logic), frontend components (invite form, acceptance page/form), API calling functions. Explain the invitation flow, token handling, and email setup."

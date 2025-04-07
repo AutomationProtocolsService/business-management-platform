@@ -48,6 +48,8 @@ import {
   type InventoryItem,
   type InsertInventoryItem,
   type InventoryTransaction,
+  type UserInvitation,
+  type InsertUserInvitation,
   type InsertInventoryTransaction
 } from "@shared/schema";
 import session from "express-session";
@@ -275,6 +277,15 @@ export interface IStorage {
   deleteFileAttachment(id: number): Promise<boolean>;
   getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]>;
   
+  // User Invitations
+  getUserInvitation(id: number): Promise<UserInvitation | undefined>;
+  getUserInvitationByToken(token: string): Promise<UserInvitation | undefined>;
+  getUserInvitationsByTenant(tenantId: number): Promise<UserInvitation[]>;
+  getUserInvitationsByEmail(email: string, tenantId: number): Promise<UserInvitation[]>; 
+  createUserInvitation(invitation: InsertUserInvitation): Promise<UserInvitation>;
+  updateUserInvitation(id: number, invitation: Partial<UserInvitation>): Promise<UserInvitation | undefined>;
+  deleteUserInvitation(id: number): Promise<boolean>;
+  
   // Session store
   sessionStore: any; // Using any to fix Express session store type issue
 }
@@ -304,6 +315,8 @@ export class MemStorage implements IStorage {
   private inventoryItems: Map<number, InventoryItem>;
   private inventoryTransactions: Map<number, InventoryTransaction>;
   private fileAttachments: Map<number, FileAttachment>;
+  private tenants: Map<number, Tenant>;
+  private userInvitations: Map<number, UserInvitation>;
   
   // Auto-incrementing IDs
   private userId: number;
@@ -329,6 +342,8 @@ export class MemStorage implements IStorage {
   private inventoryItemId: number;
   private inventoryTransactionId: number;
   private fileAttachmentId: number;
+  private tenantId: number;
+  private userInvitationId: number;
   
   // Session store
   sessionStore: any; // Using any for Express session store type issue
@@ -357,6 +372,8 @@ export class MemStorage implements IStorage {
     this.inventoryItems = new Map();
     this.inventoryTransactions = new Map();
     this.fileAttachments = new Map();
+    this.tenants = new Map();
+    this.userInvitations = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -381,6 +398,8 @@ export class MemStorage implements IStorage {
     this.inventoryItemId = 1;
     this.inventoryTransactionId = 1;
     this.fileAttachmentId = 1;
+    this.tenantId = 1;
+    this.userInvitationId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -1327,6 +1346,78 @@ export class MemStorage implements IStorage {
     return Array.from(this.fileAttachments.values()).filter(
       file => file.relatedType === relatedType && file.relatedId === relatedId
     );
+  }
+
+  // Tenant methods
+  async getTenant(id: number): Promise<Tenant | undefined> {
+    return this.tenants.get(id);
+  }
+
+  async getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined> {
+    return Array.from(this.tenants.values()).find(tenant => tenant.subdomain === subdomain);
+  }
+
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const id = this.tenantId++;
+    const newTenant: Tenant = { ...tenant, id, createdAt: new Date() };
+    this.tenants.set(id, newTenant);
+    return newTenant;
+  }
+
+  async updateTenant(id: number, tenantData: Partial<Tenant>): Promise<Tenant | undefined> {
+    const tenant = this.tenants.get(id);
+    if (!tenant) return undefined;
+    
+    const updatedTenant = { ...tenant, ...tenantData };
+    this.tenants.set(id, updatedTenant);
+    return updatedTenant;
+  }
+
+  async deleteTenant(id: number): Promise<boolean> {
+    return this.tenants.delete(id);
+  }
+
+  async getAllTenants(): Promise<Tenant[]> {
+    return Array.from(this.tenants.values());
+  }
+
+  // User Invitation methods
+  async getUserInvitation(id: number): Promise<UserInvitation | undefined> {
+    return this.userInvitations.get(id);
+  }
+
+  async getUserInvitationByToken(token: string): Promise<UserInvitation | undefined> {
+    return Array.from(this.userInvitations.values()).find(invitation => invitation.token === token);
+  }
+
+  async getUserInvitationsByTenant(tenantId: number): Promise<UserInvitation[]> {
+    return Array.from(this.userInvitations.values()).filter(invitation => invitation.tenantId === tenantId);
+  }
+
+  async getUserInvitationsByEmail(email: string, tenantId: number): Promise<UserInvitation[]> {
+    return Array.from(this.userInvitations.values()).filter(
+      invitation => invitation.email === email && invitation.tenantId === tenantId
+    );
+  }
+
+  async createUserInvitation(invitation: InsertUserInvitation): Promise<UserInvitation> {
+    const id = this.userInvitationId++;
+    const newInvitation: UserInvitation = { ...invitation, id, createdAt: new Date() };
+    this.userInvitations.set(id, newInvitation);
+    return newInvitation;
+  }
+
+  async updateUserInvitation(id: number, invitationData: Partial<UserInvitation>): Promise<UserInvitation | undefined> {
+    const invitation = this.userInvitations.get(id);
+    if (!invitation) return undefined;
+    
+    const updatedInvitation = { ...invitation, ...invitationData };
+    this.userInvitations.set(id, updatedInvitation);
+    return updatedInvitation;
+  }
+
+  async deleteUserInvitation(id: number): Promise<boolean> {
+    return this.userInvitations.delete(id);
   }
 }
 
@@ -2776,6 +2867,59 @@ export class DatabaseStorage implements IStorage {
         eq(schema.fileAttachments.relatedId, relatedId)
       )
     });
+  }
+
+  // User Invitation methods
+  async getUserInvitation(id: number): Promise<UserInvitation | undefined> {
+    return await db.query.userInvitations.findFirst({
+      where: eq(schema.userInvitations.id, id)
+    });
+  }
+
+  async getUserInvitationByToken(token: string): Promise<UserInvitation | undefined> {
+    return await db.query.userInvitations.findFirst({
+      where: eq(schema.userInvitations.token, token)
+    });
+  }
+
+  async getUserInvitationsByTenant(tenantId: number): Promise<UserInvitation[]> {
+    return await db.query.userInvitations.findMany({
+      where: eq(schema.userInvitations.tenantId, tenantId)
+    });
+  }
+
+  async getUserInvitationsByEmail(email: string, tenantId: number): Promise<UserInvitation[]> {
+    return await db.query.userInvitations.findMany({
+      where: and(
+        eq(schema.userInvitations.email, email),
+        eq(schema.userInvitations.tenantId, tenantId)
+      )
+    });
+  }
+
+  async createUserInvitation(invitation: InsertUserInvitation): Promise<UserInvitation> {
+    const result = await db.insert(schema.userInvitations)
+      .values(invitation)
+      .returning();
+    
+    return result[0];
+  }
+
+  async updateUserInvitation(id: number, invitation: Partial<UserInvitation>): Promise<UserInvitation | undefined> {
+    const result = await db.update(schema.userInvitations)
+      .set(invitation)
+      .where(eq(schema.userInvitations.id, id))
+      .returning();
+    
+    return result[0];
+  }
+
+  async deleteUserInvitation(id: number): Promise<boolean> {
+    const result = await db.delete(schema.userInvitations)
+      .where(eq(schema.userInvitations.id, id))
+      .returning();
+    
+    return result.length > 0;
   }
 }
 

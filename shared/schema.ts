@@ -1,6 +1,7 @@
 import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
+import { relations } from "drizzle-orm";
 
 // Tenants 
 export const tenants = pgTable("tenants", {
@@ -756,3 +757,55 @@ export type FileAttachment = typeof fileAttachments.$inferSelect;
 
 export type InsertSystemSettings = z.infer<typeof insertSystemSettingsSchema>;
 export type SystemSettings = typeof systemSettings.$inferSelect;
+
+// User Invitations
+export const userInvitations = pgTable("user_invitations", {
+  id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  email: text("email").notNull(),
+  token: text("token").notNull().unique(),
+  role: text("role").notNull().default("employee"),
+  expiresAt: timestamp("expires_at").notNull(),
+  status: text("status").notNull().default("pending"), // pending, accepted, expired
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
+}, (userInvitations) => ({
+  // Create index on token for faster lookups
+  tokenIndex: uniqueIndex("user_invitations_token_idx").on(userInvitations.token),
+  // Create index on email for checking duplicates
+  emailIndex: uniqueIndex("user_invitations_email_tenant_idx").on(userInvitations.email, userInvitations.tenantId),
+}));
+
+// Establish relations
+export const usersRelations = relations(users, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [users.tenantId],
+    references: [tenants.id]
+  })
+}));
+
+export const tenantsRelations = relations(tenants, ({ many }) => ({
+  users: many(users),
+  invitations: many(userInvitations)
+}));
+
+export const userInvitationsRelations = relations(userInvitations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [userInvitations.tenantId],
+    references: [tenants.id]
+  }),
+  createdByUser: one(users, {
+    fields: [userInvitations.createdBy],
+    references: [users.id]
+  })
+}));
+
+// Export types for the invitations
+export type UserInvitation = typeof userInvitations.$inferSelect;
+export type InsertUserInvitation = typeof userInvitations.$inferInsert;
+export const insertUserInvitationSchema = createInsertSchema(userInvitations)
+  .omit({ 
+    id: true, 
+    createdAt: true
+  });
+export type UserInvitationInsert = z.infer<typeof insertUserInvitationSchema>;
