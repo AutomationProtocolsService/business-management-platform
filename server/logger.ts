@@ -32,24 +32,36 @@ export const logger = pino({
   
   // Custom serializers to control what information is logged
   serializers: {
-    req: (req) => ({
-      method: req.method,
-      url: req.url,
-      user: (req as any).user?.id || 'anonymous',
-      tenant: (req as any).tenant?.id || 'none',
-      headers: {
-        'user-agent': req.headers['user-agent'],
-        'x-request-id': req.headers['x-request-id'],
-      },
-      ...(Object.keys(req.body || {}).length > 0 && {
-        body: {
-          ...req.body,
-          // Remove sensitive data from logs
-          password: req.body.password ? '[REDACTED]' : undefined,
-          token: req.body.token ? '[REDACTED]' : undefined,
+    req: (req) => {
+      // Null check for req and req.headers
+      if (!req || !req.headers) {
+        return {
+          method: req?.method || 'UNKNOWN',
+          url: req?.url || 'UNKNOWN',
+          user: 'unknown',
+          tenant: 'unknown',
+        };
+      }
+      
+      return {
+        method: req.method,
+        url: req.url,
+        user: (req as any).user?.id || 'anonymous',
+        tenant: (req as any).tenant?.id || 'none',
+        headers: {
+          'user-agent': req.headers['user-agent'],
+          'x-request-id': req.headers['x-request-id'],
         },
-      }),
-    }),
+        ...(Object.keys(req.body || {}).length > 0 && {
+          body: {
+            ...req.body,
+            // Remove sensitive data from logs
+            password: req.body.password ? '[REDACTED]' : undefined,
+            token: req.body.token ? '[REDACTED]' : undefined,
+          },
+        }),
+      };
+    },
     res: (res) => ({
       statusCode: res.statusCode,
     }),

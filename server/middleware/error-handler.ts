@@ -204,12 +204,18 @@ export function errorHandler(
   const appError = processError(err);
   
   // Get request info for logging
-  const requestInfo = {
+  const requestInfo = req ? {
     method: req.method,
     url: req.originalUrl,
     ip: req.ip,
     userId: (req as any).user?.id,
     tenantId: (req as any).tenant?.id
+  } : {
+    method: 'UNKNOWN',
+    url: 'UNKNOWN',
+    ip: 'UNKNOWN',
+    userId: undefined,
+    tenantId: undefined
   };
   
   // Log the error with context
