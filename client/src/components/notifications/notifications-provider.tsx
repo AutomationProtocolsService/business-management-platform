@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState, useCallback, useRef, useMemo } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { useTenant } from '@/hooks/use-tenant';
@@ -58,6 +58,7 @@ export type NotificationsContextType = {
   unreadCount: number;
   activeFilter: NotificationCategory | 'all';
   setFilter: (filter: NotificationCategory | 'all') => void;
+  addNotification: (notification: Omit<Notification, 'id' | 'timestamp' | 'read'>) => string;
 };
 
 const NotificationsContext = createContext<NotificationsContextType | null>(null);
@@ -348,6 +349,33 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   
   const unreadCount = notifications.filter(n => !n.read).length;
   
+  // Function to add a new notification
+  const addNotification = useCallback((notification: Omit<Notification, 'id' | 'timestamp' | 'read'>): string => {
+    const newNotification: Notification = {
+      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      message: notification.message,
+      type: notification.type,
+      timestamp: new Date().toISOString(),
+      read: false,
+      category: notification.category,
+      entityId: notification.entityId,
+      duration: notification.duration,
+      url: notification.url
+    };
+    
+    setNotifications(prev => [newNotification, ...prev]);
+    
+    // Show toast notification for immediate visibility
+    toast({
+      title: getNotificationTitle(notification.type, notification.category),
+      description: notification.message,
+      variant: mapNotificationTypeToToastVariant(notification.type),
+      duration: notification.duration || 5000
+    });
+    
+    return newNotification.id;
+  }, [toast]);
+
   return (
     <NotificationsContext.Provider value={{ 
       notifications,
@@ -358,7 +386,8 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
       clearAllNotifications,
       unreadCount,
       activeFilter,
-      setFilter
+      setFilter,
+      addNotification
     }}>
       {children}
     </NotificationsContext.Provider>
@@ -378,14 +407,15 @@ export type NotificationsHookResult = NotificationsContextType & {
 };
 
 // Create the hook as a named function for better compatibility with Fast Refresh
-export const useNotifications = (): NotificationsHookResult => {
+export function useNotifications(): NotificationsHookResult {
   const context = useContext(NotificationsContext);
   
   if (!context) {
     throw new Error('useNotifications must be used within a NotificationsProvider');
   }
   
-  const showNotification = (notification: { 
+  // Create a showNotification function that uses the context's addNotification
+  const showNotification = useCallback((notification: { 
     message: string;
     type: NotificationType;
     category?: NotificationCategory;
@@ -393,27 +423,18 @@ export const useNotifications = (): NotificationsHookResult => {
     duration?: number;
     url?: string;
   }): string => {
-    // Create a new notification object
-    const newNotification: Notification = {
-      id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    // Use the context's addNotification function
+    return context.addNotification({
       message: notification.message,
       type: notification.type,
-      timestamp: new Date().toISOString(),
-      read: false,
       category: notification.category || 'system',
       entityId: notification.entityId,
       duration: notification.duration,
       url: notification.url
-    };
-    
-    // Add the notification to the state
-    const notifications = [...context.notifications];
-    notifications.unshift(newNotification);
-    
-    // Return the notification ID
-    return newNotification.id;
-  };
+    });
+  }, [context]);
   
+  // Return the context with the showNotification function
   return {
     ...context,
     showNotification
