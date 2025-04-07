@@ -14,6 +14,12 @@ export const registerDocumentRoutes = (app: Express) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    
+    // Set tenant ID from the authenticated user for use in routes
+    if (req.user && (req.user as any).tenantId) {
+      (req as any).tenantId = (req.user as any).tenantId;
+    }
+    
     next();
   };
 

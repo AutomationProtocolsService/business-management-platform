@@ -275,10 +275,14 @@ export const tasks = pgTable("tasks", {
 // Catalog Items (reusable items for quotes and invoices)
 export const catalogItems = pgTable("catalog_items", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   name: text("name").notNull(),
   description: text("description").notNull(),
   unitPrice: doublePrecision("unit_price").notNull(),
   category: text("category"),
+  sku: text("sku"), // Stock Keeping Unit for inventory tracking
+  type: text("type").default("product"), // product or service
+  active: boolean("active").default(true), // Whether item is active and available for use
   createdBy: integer("created_by").references(() => users.id),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -619,6 +623,9 @@ export const insertTaskSchema = createInsertSchema(tasks).omit({
 export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
+  type: z.enum(['product', 'service']).default('product'),
 });
 
 export const insertCompanySettingsSchema = createInsertSchema(companySettings).omit({
