@@ -377,6 +377,7 @@ export const purchaseOrders = pgTable("purchase_orders", {
 // Inventory Items
 export const inventoryItems = pgTable("inventory_items", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id), // Link to tenant
   name: text("name").notNull(),
   description: text("description"),
   sku: text("sku"), // Internal SKU
@@ -413,6 +414,7 @@ export const purchaseOrderItems = pgTable("purchase_order_items", {
 // Inventory Transactions (stock movements)
 export const inventoryTransactions = pgTable("inventory_transactions", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id), // Link to tenant
   inventoryItemId: integer("inventory_item_id").references(() => inventoryItems.id).notNull(),
   transactionType: text("transaction_type").notNull(), // purchase, sale, adjustment, transfer, return, write-off
   quantity: doublePrecision("quantity").notNull(), // Positive for in, negative for out
@@ -700,11 +702,15 @@ export const insertPurchaseOrderItemSchema = createInsertSchema(purchaseOrderIte
 export const insertInventoryItemSchema = createInsertSchema(inventoryItems).omit({
   id: true,
   createdAt: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 });
 
 export const insertInventoryTransactionSchema = createInsertSchema(inventoryTransactions).omit({
   id: true,
   transactionDate: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 });
 
 export const insertFileAttachmentSchema = createInsertSchema(fileAttachments).omit({
