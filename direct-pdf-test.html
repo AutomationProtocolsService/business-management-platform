@@ -61,13 +61,17 @@
     <div class="link-card">
       <h2>Test Invoice (Template Data)</h2>
       <p>This link will download a test invoice PDF with hardcoded data:</p>
-      <a href="/api/test-invoice-pdf" target="_blank">Download Test Invoice PDF</a>
+      <a href="/api/test-invoice-pdf" target="_blank">No Tenant</a>
+      <a href="/api/test-invoice-pdf?tenantId=1" target="_blank">Tenant ID: 1</a>
+      <a href="/api/test-invoice-pdf?tenantId=2" target="_blank">Tenant ID: 2</a>
     </div>
 
     <div class="link-card">
       <h2>Real Invoice (ID: 7)</h2>
       <p>This link will download a real invoice PDF from the database:</p>
-      <a href="/api/test-invoice-pdf/7" target="_blank">Download Real Invoice PDF</a>
+      <a href="/api/test-invoice-pdf/7" target="_blank">No Tenant</a>
+      <a href="/api/test-invoice-pdf/7?tenantId=1" target="_blank">Tenant ID: 1</a>
+      <a href="/api/test-invoice-pdf/7?tenantId=2" target="_blank">Tenant ID: 2</a>
     </div>
 
     <div class="link-card">
@@ -90,6 +94,15 @@
     <div class="link-card">
       <h2>Programmatic Download</h2>
       <p>Test download using JavaScript (similar to what the application does):</p>
+      <div style="margin-bottom: 10px;">
+        <label for="tenantSelect">Select Tenant: </label>
+        <select id="tenantSelect">
+          <option value="">No Tenant</option>
+          <option value="1" selected>Tenant ID: 1</option>
+          <option value="2">Tenant ID: 2</option>
+          <option value="3">Tenant ID: 3</option>
+        </select>
+      </div>
       <button id="jsDownloadBtn">Download with JavaScript</button>
       <div id="status"></div>
       
@@ -98,23 +111,37 @@
           const statusElement = document.getElementById('status');
           statusElement.textContent = 'Starting download...';
           
+          // Get selected tenant ID from dropdown
+          const tenantSelect = document.getElementById('tenantSelect');
+          const tenantId = tenantSelect.value;
+          
           try {
-            const response = await fetch('/api/test-invoice-pdf/7');
+            // Build URL with optional tenant parameter
+            let url = '/api/test-invoice-pdf/7';
+            if (tenantId) {
+              url += `?tenantId=${tenantId}`;
+            }
+            
+            const response = await fetch(url);
             if (!response.ok) {
               throw new Error(`Download failed: ${response.status} ${response.statusText}`);
             }
             
             const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
+            const url_obj = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
-            a.href = url;
-            a.download = 'Invoice_JS_Download.pdf';
+            a.href = url_obj;
+            a.download = tenantId 
+              ? `Invoice_JS_Download_Tenant${tenantId}.pdf` 
+              : 'Invoice_JS_Download.pdf';
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            window.URL.revokeObjectURL(url);
+            window.URL.revokeObjectURL(url_obj);
             
-            statusElement.textContent = 'Download complete!';
+            statusElement.textContent = tenantId 
+              ? `Download complete for tenant ${tenantId}!` 
+              : 'Download complete (no tenant)!';
           } catch (error) {
             console.error('Download error:', error);
             statusElement.textContent = `Error: ${error.message}`;

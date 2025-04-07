@@ -502,16 +502,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotes", requireAuth, async (req, res) => {
     try {
       const { status, customerId, projectId } = req.query;
+      const tenantId = req.tenant?.id;
+      
+      // Create tenant filter if tenant context is available
+      const tenantFilter = tenantId ? { tenantId } : undefined;
       
       let quotes;
       if (status) {
-        quotes = await storage.getQuotesByStatus(status as string);
+        quotes = await storage.getQuotesByStatus(status as string, tenantFilter);
       } else if (customerId) {
-        quotes = await storage.getQuotesByCustomer(Number(customerId));
+        quotes = await storage.getQuotesByCustomer(Number(customerId), tenantFilter);
       } else if (projectId) {
-        quotes = await storage.getQuotesByProject(Number(projectId));
+        quotes = await storage.getQuotesByProject(Number(projectId), tenantFilter);
       } else {
-        quotes = await storage.getAllQuotes();
+        quotes = await storage.getAllQuotes(tenantFilter);
       }
       
       res.json(quotes);
@@ -522,7 +526,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/quotes/:id", requireAuth, async (req, res) => {
     try {
-      const quote = await storage.getQuote(Number(req.params.id));
+      const tenantId = req.tenant?.id;
+      const quote = await storage.getQuote(Number(req.params.id), tenantId);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -540,7 +545,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotes/:id/items", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const tenantId = req.tenant?.id;
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
@@ -563,11 +569,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log("Creating quote with body:", quoteData);
       const quoteNumber = `Q-${Date.now().toString().substr(-6)}`;
       
+      // Add tenant ID from authenticated user context
+      const tenantId = req.tenant?.id;
+      
       // Create the quote without items first
       const quote = await storage.createQuote({
         ...quoteData,
         quoteNumber,
         createdBy: req.user?.id,
+        tenantId: tenantId,
         status: quoteData.status || "draft"
       });
       
@@ -610,7 +620,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes/:id/items", requireAuth, validateBody(insertQuoteItemSchema), async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const tenantId = req.tenant?.id;
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
@@ -637,7 +648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/quotes/:id", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const tenantId = req.tenant?.id;
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
@@ -653,7 +665,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/quotes/:id", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const tenantId = req.tenant?.id;
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
@@ -681,6 +694,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/quotes/:id/pdf", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
+      const tenantId = req.tenant?.id;
       
       // Add cache-busting headers to prevent browser caching
       res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
@@ -690,8 +704,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`[PDF Route] Starting PDF generation for quote ID: ${quoteId}`);
       
-      // Fetch the quote
-      const quote = await storage.getQuote(quoteId);
+      // Fetch the quote with tenant context
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         console.log(`[PDF Route] Quote not found with ID: ${quoteId}`);
@@ -723,7 +737,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (quote.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${quote.customerId}`);
-          customer = await storage.getCustomer(quote.customerId);
+          customer = await storage.getCustomer(quote.customerId, tenantId);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -740,7 +754,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (quote.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${quote.projectId}`);
-          project = await storage.getProject(quote.projectId);
+          project = await storage.getProject(quote.projectId, tenantId);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -787,6 +801,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes/:id/email", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
+      const tenantId = req.tenant?.id;
       const { recipientEmail, subject, message, includePdf = true } = req.body;
       
       console.log('Email request:', { quoteId, recipientEmail, subject, hasMessage: !!message, includePdf });
@@ -801,7 +816,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email format" });
       }
       
-      const quote = await storage.getQuote(quoteId);
+      const quote = await storage.getQuote(quoteId, tenantId);
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
       }
@@ -824,12 +839,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`[Email Route] Quote Project ID: ${quote.projectId}`);
       
       if (quote.customerId) {
-        customer = await storage.getCustomer(quote.customerId);
+        customer = await storage.getCustomer(quote.customerId, tenantId);
         console.log(`[Email Route] Fetched Customer:`, customer ? { name: customer.name, id: customer.id } : null);
       }
       
       if (quote.projectId) {
-        project = await storage.getProject(quote.projectId);
+        project = await storage.getProject(quote.projectId, tenantId);
         console.log(`[Email Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
       }
       
@@ -873,10 +888,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quotes/:id/convert-to-invoice", requireAuth, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
-      const quote = await storage.getQuote(quoteId);
+      const tenantId = req.tenant?.id;
+      
+      // Fetch quote with tenant context
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       // Generate invoice number
@@ -897,7 +920,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total: quote.total,
         notes: quote.notes,
         terms: quote.terms,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        tenantId: tenantId // Add tenant ID to the invoice
       };
       
       const invoice = await storage.createInvoice(newInvoice);
@@ -917,10 +941,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Update quote status
-      await storage.updateQuote(quoteId, { status: "converted" });
+      await storage.updateQuote(quoteId, { status: "converted" }, tenantId);
       
       res.status(201).json(invoice);
     } catch (error) {
+      console.error('Error converting quote to invoice:', error);
       res.status(500).json({ message: "Failed to convert quote to invoice" });
     }
   });
@@ -929,29 +954,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/invoices", requireAuth, async (req, res) => {
     try {
       const { status, customerId, projectId } = req.query;
+      const tenantId = req.tenant?.id;
       
       let invoices;
       if (status) {
-        invoices = await storage.getInvoicesByStatus(status as string);
+        invoices = await storage.getInvoicesByStatus(status as string, tenantId);
       } else if (customerId) {
-        invoices = await storage.getInvoicesByCustomer(Number(customerId));
+        invoices = await storage.getInvoicesByCustomer(Number(customerId), tenantId);
       } else if (projectId) {
-        invoices = await storage.getInvoicesByProject(Number(projectId));
+        invoices = await storage.getInvoicesByProject(Number(projectId), tenantId);
       } else {
-        invoices = await storage.getAllInvoices(req.tenantId ? { tenantId: req.tenantId } : undefined);
+        invoices = await storage.getAllInvoices(tenantId ? { tenantId } : undefined);
       }
       
       res.json(invoices);
     } catch (error) {
+      console.error('Error fetching invoices:', error);
       res.status(500).json({ message: "Failed to fetch invoices" });
     }
   });
 
   app.get("/api/invoices/:id", requireAuth, async (req, res) => {
     try {
-      const invoice = await storage.getInvoice(Number(req.params.id));
+      const invoiceId = Number(req.params.id);
+      const tenantId = req.tenant?.id;
+      
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       // Get invoice items
@@ -959,6 +994,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({ ...invoice, items: invoiceItems });
     } catch (error) {
+      console.error('Error fetching invoice:', error);
       res.status(500).json({ message: "Failed to fetch invoice" });
     }
   });
@@ -967,6 +1003,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       // Extract items from the request body if present
       const { items, ...invoiceData } = req.body;
+      const tenantId = req.tenant?.id;
       
       // Generate invoice number
       console.log("Creating invoice with body:", invoiceData);
@@ -977,7 +1014,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ...invoiceData,
         invoiceNumber,
         createdBy: req.user?.id,
-        status: invoiceData.status || "draft"
+        status: invoiceData.status || "draft",
+        tenantId: tenantId // Add tenant ID to the invoice
       });
       
       console.log("Created invoice:", invoice);
@@ -1019,10 +1057,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices/:id/items", requireAuth, validateBody(insertInvoiceItemSchema), async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      const invoice = await storage.getInvoice(invoiceId);
+      const tenantId = req.tenant?.id;
+      
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       const invoiceItem = await storage.createInvoiceItem({
@@ -1035,10 +1080,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const subtotal = invoiceItems.reduce((sum, item) => sum + item.total, 0);
       const total = subtotal - (invoice.discount || 0) + (invoice.tax || 0);
       
-      await storage.updateInvoice(invoiceId, { subtotal, total });
+      await storage.updateInvoice(invoiceId, { subtotal, total }, tenantId);
       
       res.status(201).json(invoiceItem);
     } catch (error) {
+      console.error('Error adding invoice item:', error);
       res.status(500).json({ message: "Failed to add invoice item" });
     }
   });
@@ -1046,15 +1092,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/invoices/:id", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      const invoice = await storage.getInvoice(invoiceId);
+      const tenantId = req.tenant?.id;
+      
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
       
-      const updatedInvoice = await storage.updateInvoice(invoiceId, req.body);
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedInvoice = await storage.updateInvoice(invoiceId, req.body, tenantId);
       res.json(updatedInvoice);
     } catch (error) {
+      console.error('Error updating invoice:', error);
       res.status(500).json({ message: "Failed to update invoice" });
     }
   });
@@ -1062,10 +1116,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/invoices/:id", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      const invoice = await storage.getInvoice(invoiceId);
+      const tenantId = req.tenant?.id;
+      
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+        return res.status(403).json({ message: "Access denied" });
       }
       
       // Delete associated invoice items first
@@ -1074,7 +1135,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.deleteInvoiceItem(item.id);
       }
       
-      const deleted = await storage.deleteInvoice(invoiceId);
+      const deleted = await storage.deleteInvoice(invoiceId, tenantId);
       
       if (deleted) {
         res.status(204).send();
@@ -1082,6 +1143,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: "Failed to delete invoice" });
       }
     } catch (error) {
+      console.error('Error deleting invoice:', error);
       res.status(500).json({ message: "Failed to delete invoice" });
     }
   });
@@ -1089,13 +1151,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Test invoice PDF generation with hardcoded data (no auth)
   app.get("/api/test-invoice-pdf", async (req, res) => {
     try {
-      console.log("Test PDF endpoint called - using hardcoded test data");
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      console.log(`Test PDF endpoint called - using hardcoded test data${tenantId ? ` for tenant ID ${tenantId}` : ''}`);
       
       // Generate PDF directly using the PDFService with test data flag
       const pdfBuffer = await PDFService.generateInvoicePDF({
         id: 1,
         invoiceNumber: 'DIRECT-TEST',
-        items: []
+        items: [],
+        tenantId
       } as any, true); // Pass true to use test data
       
       res.setHeader('Content-Type', 'application/pdf');
@@ -1120,9 +1184,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/test-invoice-pdf/:id", async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
-      console.log(`Test specific invoice PDF endpoint called for invoice ID ${invoiceId}`);
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
       
-      const invoice = await storage.getInvoice(invoiceId);
+      console.log(`Test specific invoice PDF endpoint called for invoice ID ${invoiceId}${tenantId ? ` and tenant ID ${tenantId}` : ''}`);
+      
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
@@ -1135,20 +1201,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get customer data
       let customer = null;
       if (invoice.customerId) {
-        customer = await storage.getCustomer(invoice.customerId);
+        customer = await storage.getCustomer(invoice.customerId, tenantId);
       }
       
       // Get project data
       let project = null;
       if (invoice.projectId) {
-        project = await storage.getProject(invoice.projectId);
+        project = await storage.getProject(invoice.projectId, tenantId);
       }
       
       const completeInvoiceData = {
         ...invoice,
         items: invoiceItems,
         customer,
-        project
+        project,
+        tenantId
       };
       
       // Generate PDF using the PDFService with full context
@@ -1171,6 +1238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Regular invoice PDF generation route
   app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
     const invoiceId = Number(req.params.id);
+    const tenantId = req.tenant?.id;
 
     // Input validation: Check if invoiceId is a valid number
     if (isNaN(invoiceId)) {
@@ -1179,8 +1247,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
 
     try {
-      // Fetch invoice data
-      const invoice = await storage.getInvoice(invoiceId);
+      // Fetch invoice data with tenant context
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
 
       if (!invoice) {
         console.warn(`[WARN] Invoice not found: ${invoiceId}`);
@@ -1201,7 +1269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let customer = null;
       if (invoice.customerId) {
         try {
-          customer = await storage.getCustomer(invoice.customerId);
+          customer = await storage.getCustomer(invoice.customerId, tenantId);
           console.log(`[INFO] Retrieved customer data for invoice: ${customer ? 'found' : 'not found'}`);
         } catch (error) {
           console.error(`[ERROR] Failed to fetch customer data:`, error);
@@ -1214,7 +1282,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let project = null;
       if (invoice.projectId) {
         try {
-          project = await storage.getProject(invoice.projectId);
+          project = await storage.getProject(invoice.projectId, tenantId);
           console.log(`[INFO] Retrieved project data for invoice: ${project ? 'found' : 'not found'}`);
         } catch (error) {
           console.error(`[ERROR] Failed to fetch project data:`, error);
@@ -1231,6 +1299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         items: invoiceItems,
         customer,
         project,
+        tenantId
       };
 
       // Log items count right before passing to PDF service
@@ -1266,6 +1335,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/invoices/:id/email", requireAuth, async (req, res) => {
     try {
       const invoiceId = Number(req.params.id);
+      const tenantId = req.tenant?.id;
       const { recipientEmail, subject, message, includePdf = true } = req.body;
       
       console.log('Email request:', { invoiceId, recipientEmail, subject, hasMessage: !!message, includePdf });
@@ -1280,7 +1350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email format" });
       }
       
-      const invoice = await storage.getInvoice(invoiceId);
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       if (!invoice) {
         return res.status(404).json({ message: "Invoice not found" });
       }
@@ -1297,19 +1367,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get customer data
       let customer = null;
       if (invoice.customerId) {
-        customer = await storage.getCustomer(invoice.customerId);
+        customer = await storage.getCustomer(invoice.customerId, tenantId);
         console.log(`Retrieved customer data for invoice ${invoiceId}: ${customer?.name}`);
       }
       
       // Get project data
       let project = null;
       if (invoice.projectId) {
-        project = await storage.getProject(invoice.projectId);
+        project = await storage.getProject(invoice.projectId, tenantId);
         console.log(`Retrieved project data for invoice ${invoiceId}: ${project?.name}`);
       }
       
       // Get company settings for sender email
-      const companySettings = await storage.getCompanySettings();
+      const companySettings = await storage.getCompanySettings(tenantId);
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
       console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
@@ -1326,7 +1396,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ...invoice, 
           items: invoiceItems,
           customer,
-          project 
+          project,
+          tenantId 
         },
         recipientEmail,
         senderEmail,
