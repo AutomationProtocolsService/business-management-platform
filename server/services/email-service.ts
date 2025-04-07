@@ -1,320 +1,341 @@
-import { MailService } from '@sendgrid/mail';
-import { Quote, Invoice, PurchaseOrder } from '@shared/schema';
+import sgMail from '@sendgrid/mail';
 import PDFService from './pdf-service';
-
-// Initialize SendGrid
-const mailService = new MailService();
-
-// Set the API key from environment variables
-if (process.env.SENDGRID_API_KEY) {
-  mailService.setApiKey(process.env.SENDGRID_API_KEY);
-}
-
-// Email parameters interface
-export interface EmailParams {
-  to: string;
-  from: string;
-  subject: string;
-  text?: string;
-  html?: string;
-  attachments?: Array<{
-    content: string;
-    filename: string;
-    type: string;
-    disposition: 'attachment' | 'inline';
-  }>;
-}
+import { logger } from '../logger';
 
 /**
- * Service for sending emails with optional PDF attachments
+ * Email service implementation using SendGrid
  */
-export default class EmailService {
-  /**
-   * Send a general email
-   * @param params Email parameters including recipient, subject, text/html body
-   * @returns Success status
-   */
-  static async sendEmail(params: EmailParams): Promise<boolean> {
-    try {
-      if (!process.env.SENDGRID_API_KEY) {
-        console.error('SendGrid API key not found. Cannot send email.');
-        return false;
-      }
+class EmailServiceImpl {
+  constructor() {
+    // Initialize SendGrid with API key if available
+    if (process.env.SENDGRID_API_KEY) {
+      sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    } else {
+      logger.warn('SendGrid API key not found. Email functionality will not work.');
+    }
+  }
 
-      // Set a default from address if not provided
-      const fromAddress = params.from || 'noreply@example.com';
+  /**
+   * Send a quote via email, with optional PDF attachment
+   * @param quoteData The quote data with all related entities
+   * @param recipientEmail The email address to send to
+   * @param senderEmail The email address to send from
+   * @param options Additional options (subject, message, includePdf)
+   * @returns Boolean indicating success
+   */
+  async sendQuote(
+    quoteData: any,
+    recipientEmail: string,
+    senderEmail: string,
+    options: { subject?: string; message?: string; includePdf?: boolean } = {}
+  ): Promise<boolean> {
+    try {
+      const { subject, message, includePdf = true } = options;
       
-      console.log(`Attempting to send email to ${params.to} from ${fromAddress}`);
-      console.log(`Subject: ${params.subject}`);
-      console.log(`Has attachments: ${params.attachments ? 'Yes' : 'No'}`);
+      // Generate a PDF buffer if needed
+      let pdfBuffer: Buffer | null = null;
+      if (includePdf) {
+        pdfBuffer = await PDFService.generateQuotePDF(quoteData);
+      }
       
-      await mailService.send({
-        to: params.to,
-        from: fromAddress,
-        subject: params.subject,
-        text: params.text || '',
-        html: params.html || '',
-        attachments: params.attachments
-      });
+      // Construct the email
+      const emailData: any = {
+        to: recipientEmail,
+        from: senderEmail,
+        subject: subject || `Quote #${quoteData.quoteNumber}`,
+        text: message || `Please find attached Quote #${quoteData.quoteNumber}.`,
+        html: this.generateHtmlContent('quote', quoteData, message),
+      };
       
-      console.log(`Email sent successfully to ${params.to}`);
+      // Add attachment if we have a PDF
+      if (pdfBuffer) {
+        emailData.attachments = [
+          {
+            content: pdfBuffer.toString('base64'),
+            filename: `Quote_${quoteData.quoteNumber}.pdf`,
+            type: 'application/pdf',
+            disposition: 'attachment',
+          },
+        ];
+      }
+      
+      // Send the email
+      await sgMail.send(emailData);
+      logger.info(`Quote email sent to ${recipientEmail}`);
       return true;
     } catch (error) {
-      console.error('Error sending email:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-        console.error('Error stack:', error.stack);
-      }
+      logger.error(`Error sending quote email: ${error}`);
       return false;
     }
   }
 
   /**
-   * Send a quote via email with PDF attachment
-   * @param quote The quote data including items
-   * @param recipientEmail Email address of the recipient
-   * @param senderEmail Email address of the sender
-   * @param options Optional settings for the email (subject, message, includePdf)
-   * @returns Success status
+   * Send an invoice via email, with optional PDF attachment
+   * @param invoiceData The invoice data with all related entities
+   * @param recipientEmail The email address to send to
+   * @param senderEmail The email address to send from
+   * @param options Additional options (subject, message, includePdf)
+   * @returns Boolean indicating success
    */
-  static async sendQuote(
-    quote: Quote & { items: any[] }, 
-    recipientEmail: string, 
+  async sendInvoice(
+    invoiceData: any,
+    recipientEmail: string,
     senderEmail: string,
-    options?: {
-      subject?: string;
-      message?: string;
-      includePdf?: boolean;
-    }
+    options: { subject?: string; message?: string; includePdf?: boolean } = {}
   ): Promise<boolean> {
     try {
-      // Prepare email content
-      const emailParams: EmailParams = {
+      const { subject, message, includePdf = true } = options;
+      
+      // Generate a PDF buffer if needed
+      let pdfBuffer: Buffer | null = null;
+      if (includePdf) {
+        pdfBuffer = await PDFService.generateInvoicePDF(invoiceData);
+      }
+      
+      // Construct the email
+      const emailData: any = {
         to: recipientEmail,
         from: senderEmail,
-        subject: options?.subject || `Quote #${quote.quoteNumber}`,
-        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
-          <p>Dear Customer,</p>
-          <p>Please find attached the quote #${quote.quoteNumber} for your review.</p>
-          <p>The quote total is $${quote.total.toFixed(2)} and is valid until ${
-            quote.expiryDate ? new Date(quote.expiryDate).toLocaleDateString() : 'N/A'
-          }.</p>
-          <p>If you have any questions, please don't hesitate to contact us.</p>
-          <p>Thank you for your business!</p>
-        `
+        subject: subject || `Invoice #${invoiceData.invoiceNumber}`,
+        text: message || `Please find attached Invoice #${invoiceData.invoiceNumber}.`,
+        html: this.generateHtmlContent('invoice', invoiceData, message),
       };
       
-      // Add PDF attachment if requested (default is true)
-      if (options?.includePdf !== false) {
-        // Generate PDF
-        const pdfBuffer = await PDFService.generateQuotePDF(quote);
-        
-        // Convert buffer to base64 for email attachment
-        const base64PDF = pdfBuffer.toString('base64');
-        
-        emailParams.attachments = [
+      // Add attachment if we have a PDF
+      if (pdfBuffer) {
+        emailData.attachments = [
           {
-            content: base64PDF,
-            filename: `Quote_${quote.quoteNumber}.pdf`,
+            content: pdfBuffer.toString('base64'),
+            filename: `Invoice_${invoiceData.invoiceNumber}.pdf`,
             type: 'application/pdf',
-            disposition: 'attachment'
-          }
+            disposition: 'attachment',
+          },
         ];
       }
       
-      // Send email
-      return await this.sendEmail(emailParams);
+      // Send the email
+      await sgMail.send(emailData);
+      logger.info(`Invoice email sent to ${recipientEmail}`);
+      return true;
     } catch (error) {
-      console.error('Error sending quote email:', error);
+      logger.error(`Error sending invoice email: ${error}`);
       return false;
     }
   }
 
   /**
-   * Send an invoice via email with PDF attachment
-   * @param invoice The invoice data including items
-   * @param recipientEmail Email address of the recipient
-   * @param senderEmail Email address of the sender
-   * @returns Success status
+   * Send a password reset email
+   * @param email Recipient email
+   * @param resetToken Reset token
+   * @param resetUrl URL for the reset page
    */
-  static async sendInvoice(
-    invoice: Invoice & { items: any[]; customer?: any; project?: any }, 
-    recipientEmail: string, 
-    senderEmail: string,
-    options?: {
-      subject?: string;
-      message?: string;
-      includePdf?: boolean;
-    }
-  ): Promise<boolean> {
+  async sendPasswordResetEmail(email: string, resetToken: string, resetUrl: string): Promise<boolean> {
     try {
-      console.log(`Preparing to send invoice #${invoice.invoiceNumber} to ${recipientEmail}`);
-      
-      // Get customer name if available
-      const customerName = invoice.customer ? invoice.customer.name : 'Customer';
-      const projectName = invoice.project ? invoice.project.name : '';
-      
-      // Prepare email content
-      const emailParams: EmailParams = {
-        to: recipientEmail,
-        from: senderEmail,
-        subject: options?.subject || `${invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice'} #${invoice.invoiceNumber}${projectName ? ' for ' + projectName : ''}`,
-        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
-          <p>Dear ${customerName},</p>
-          <p>Please find attached the ${invoice.type === 'deposit' ? 'deposit invoice' : 'invoice'} #${invoice.invoiceNumber}${projectName ? ' for ' + projectName : ''} for your payment.</p>
-          <p>The invoice total is $${invoice.total.toFixed(2)} and is due on ${new Date(invoice.dueDate).toLocaleDateString()}.</p>
-          <p>If you have any questions, please don't hesitate to contact us.</p>
-          <p>Thank you for your business!</p>
-        `
-      };
-      
-      // Add PDF attachment if requested (default is true)
-      if (options?.includePdf !== false) {
-        console.log(`Generating PDF for invoice #${invoice.invoiceNumber}`);
-        
-        // Generate PDF
-        const pdfBuffer = await PDFService.generateInvoicePDF(invoice);
-        
-        console.log(`PDF generated, size: ${pdfBuffer.length} bytes`);
-        
-        // Convert buffer to base64 for email attachment
-        const base64PDF = pdfBuffer.toString('base64');
-        
-        emailParams.attachments = [
-          {
-            content: base64PDF,
-            filename: `Invoice_${invoice.invoiceNumber}.pdf`,
-            type: 'application/pdf',
-            disposition: 'attachment'
-          }
-        ];
-      }
-      
-      // Send email
-      return await this.sendEmail(emailParams);
-    } catch (error) {
-      console.error('Error sending invoice email:', error);
-      if (error instanceof Error) {
-        console.error('Error details:', error.message);
-      }
-      return false;
-    }
-  }
-
-  /**
-   * Send a purchase order via email with PDF attachment
-   * @param purchaseOrder The purchase order data including items
-   * @param recipientEmail Email address of the recipient
-   * @param senderEmail Email address of the sender
-   * @returns Success status
-   */
-  static async sendPurchaseOrder(
-    purchaseOrder: PurchaseOrder & { items: any[] }, 
-    recipientEmail: string, 
-    senderEmail: string,
-    options?: {
-      subject?: string;
-      message?: string;
-      includePdf?: boolean;
-    }
-  ): Promise<boolean> {
-    try {
-      console.log(`Preparing to send PO #${purchaseOrder.poNumber} to ${recipientEmail}`);
-      
-      // Prepare email content
-      const emailParams: EmailParams = {
-        to: recipientEmail,
-        from: senderEmail,
-        subject: options?.subject || `Purchase Order #${purchaseOrder.poNumber}`,
-        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
-          <p>Dear Supplier,</p>
-          <p>Please find attached our purchase order #${purchaseOrder.poNumber}.</p>
-          <p>The purchase order total is $${purchaseOrder.total.toFixed(2)}.</p>
-          <p>Expected delivery date: ${
-            purchaseOrder.expectedDeliveryDate 
-              ? new Date(purchaseOrder.expectedDeliveryDate).toLocaleDateString() 
-              : 'As soon as possible'
-          }.</p>
-          <p>If you have any questions, please don't hesitate to contact us.</p>
-          <p>Thank you for your cooperation.</p>
-        `
-      };
-      
-      // Add PDF attachment if requested (default is true)
-      if (options?.includePdf !== false) {
-        console.log(`Generating PDF for PO #${purchaseOrder.poNumber}`);
-        
-        // Generate PDF
-        const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
-        
-        console.log(`PDF generated, size: ${pdfBuffer.length} bytes`);
-        
-        // Convert buffer to base64 for email attachment
-        const base64PDF = pdfBuffer.toString('base64');
-        
-        emailParams.attachments = [
-          {
-            content: base64PDF,
-            filename: `PO_${purchaseOrder.poNumber}.pdf`,
-            type: 'application/pdf',
-            disposition: 'attachment'
-          }
-        ];
-      }
-      
-      // Send email
-      return await this.sendEmail(emailParams);
-    } catch (error) {
-      console.error('Error sending purchase order email:', error);
-      return false;
-    }
-  }
-
-  /**
-   * Send a password reset email with a reset link
-   * @param email Recipient email address
-   * @param resetToken The password reset token
-   * @param resetUrl The URL to use for password reset (including token)
-   * @param senderEmail Email address of the sender
-   * @param options Optional settings for the email (subject, message)
-   * @returns Success status
-   */
-  static async sendPasswordResetEmail(
-    email: string,
-    resetToken: string,
-    resetUrl: string,
-    senderEmail: string,
-    options?: {
-      subject?: string;
-      message?: string;
-      companyName?: string;
-    }
-  ): Promise<boolean> {
-    try {
-      console.log(`Preparing to send password reset email to ${email}`);
-      
-      const companyName = options?.companyName || 'Our Company';
-      
-      // Prepare email content
-      const emailParams: EmailParams = {
+      const msg = {
         to: email,
-        from: senderEmail,
-        subject: options?.subject || `Password Reset Request - ${companyName}`,
-        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
-          <p>Hello,</p>
-          <p>You recently requested to reset your password for your ${companyName} account. Click the link below to reset it:</p>
-          <p><a href="${resetUrl}">${resetUrl}</a></p>
-          <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
-          <p>This password reset link is only valid for 24 hours.</p>
-          <p>Thank you,<br/>${companyName} Team</p>
-        `
+        from: process.env.SENDGRID_SENDER_EMAIL || 'noreply@example.com',
+        subject: 'Password Reset Request',
+        text: `You requested a password reset. Click the following link to reset your password: ${resetUrl}?token=${resetToken}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Password Reset Request</h2>
+            <p>You requested a password reset. Click the button below to reset your password:</p>
+            <a href="${resetUrl}?token=${resetToken}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
+              Reset Password
+            </a>
+            <p>If you did not request this password reset, please ignore this email.</p>
+            <p>The link will expire in 24 hours.</p>
+          </div>
+        `,
       };
       
-      // Send email
-      return await this.sendEmail(emailParams);
+      await sgMail.send(msg);
+      logger.info(`Password reset email sent to ${email}`);
+      return true;
     } catch (error) {
-      console.error('Error sending password reset email:', error);
+      logger.error(`Error sending password reset email: ${error}`);
       return false;
     }
+  }
+
+  /**
+   * Send a welcome email to a new user
+   * @param email Recipient email
+   * @param name User's name
+   * @param loginUrl URL for the login page
+   */
+  async sendWelcomeEmail(email: string, name: string, loginUrl: string): Promise<boolean> {
+    try {
+      const msg = {
+        to: email,
+        from: process.env.SENDGRID_SENDER_EMAIL || 'noreply@example.com',
+        subject: 'Welcome to Our Platform',
+        text: `Welcome ${name}! Your account has been created. You can now login at ${loginUrl}`,
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+            <h2>Welcome to Our Platform!</h2>
+            <p>Hello ${name},</p>
+            <p>Your account has been created. You can now login to access your dashboard.</p>
+            <a href="${loginUrl}" style="display: inline-block; padding: 10px 20px; background-color: #007bff; color: white; text-decoration: none; border-radius: 4px; margin: 20px 0;">
+              Login to Your Account
+            </a>
+            <p>Thank you for joining us!</p>
+          </div>
+        `,
+      };
+      
+      await sgMail.send(msg);
+      logger.info(`Welcome email sent to ${email}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error sending welcome email: ${error}`);
+      return false;
+    }
+  }
+
+  /**
+   * Generate HTML content for quote or invoice emails
+   * @param type Type of document ('quote' or 'invoice')
+   * @param data The document data
+   * @param customMessage Optional custom message to include
+   * @returns HTML string
+   */
+  private generateHtmlContent(type: 'quote' | 'invoice', data: any, customMessage?: string): string {
+    const documentNumber = type === 'quote' ? data.quoteNumber : data.invoiceNumber;
+    const documentType = type === 'quote' ? 'Quote' : 'Invoice';
+    const documentDate = type === 'quote' 
+      ? new Date(data.createdAt).toLocaleDateString() 
+      : new Date(data.issueDate).toLocaleDateString();
+    
+    let itemsHtml = '';
+    if (data.items && data.items.length > 0) {
+      itemsHtml = `
+        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+          <thead>
+            <tr style="background-color: #f2f2f2;">
+              <th style="padding: 8px; text-align: left; border: 1px solid #ddd;">Description</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Quantity</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Price</th>
+              <th style="padding: 8px; text-align: right; border: 1px solid #ddd;">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.items.forEach((item: any) => {
+        itemsHtml += `
+          <tr>
+            <td style="padding: 8px; text-align: left; border: 1px solid #ddd;">${item.description}</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">${item.quantity}</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">$${item.unitPrice.toFixed(2)}</td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">$${item.total.toFixed(2)}</td>
+          </tr>
+        `;
+      });
+      
+      itemsHtml += `
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3" style="padding: 8px; text-align: right; border: 1px solid #ddd;"><strong>Subtotal:</strong></td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">$${data.subtotal.toFixed(2)}</td>
+            </tr>
+      `;
+      
+      if (data.tax) {
+        itemsHtml += `
+          <tr>
+            <td colspan="3" style="padding: 8px; text-align: right; border: 1px solid #ddd;"><strong>Tax:</strong></td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">$${data.tax.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+      
+      if (data.discount) {
+        itemsHtml += `
+          <tr>
+            <td colspan="3" style="padding: 8px; text-align: right; border: 1px solid #ddd;"><strong>Discount:</strong></td>
+            <td style="padding: 8px; text-align: right; border: 1px solid #ddd;">$${data.discount.toFixed(2)}</td>
+          </tr>
+        `;
+      }
+      
+      itemsHtml += `
+            <tr>
+              <td colspan="3" style="padding: 8px; text-align: right; border: 1px solid #ddd;"><strong>Total:</strong></td>
+              <td style="padding: 8px; text-align: right; border: 1px solid #ddd;"><strong>$${data.total.toFixed(2)}</strong></td>
+            </tr>
+          </tfoot>
+        </table>
+      `;
+    }
+    
+    let customerHtml = '';
+    if (data.customer) {
+      customerHtml = `
+        <div style="margin-bottom: 20px;">
+          <h3>Customer Information</h3>
+          <p>Name: ${data.customer.name}</p>
+          <p>Email: ${data.customer.email}</p>
+          ${data.customer.phone ? `<p>Phone: ${data.customer.phone}</p>` : ''}
+          ${data.customer.address ? `<p>Address: ${data.customer.address}</p>` : ''}
+        </div>
+      `;
+    }
+    
+    let projectHtml = '';
+    if (data.project) {
+      projectHtml = `
+        <div style="margin-bottom: 20px;">
+          <h3>Project</h3>
+          <p>Project Name: ${data.project.name}</p>
+          ${data.project.description ? `<p>Description: ${data.project.description}</p>` : ''}
+        </div>
+      `;
+    }
+    
+    let customMessageHtml = '';
+    if (customMessage) {
+      customMessageHtml = `
+        <div style="margin-bottom: 20px; border-left: 4px solid #007bff; padding-left: 15px;">
+          <p>${customMessage.replace(/\n/g, '<br>')}</p>
+        </div>
+      `;
+    }
+    
+    const specialInstructions = type === 'invoice' 
+      ? `<p>Please remit payment by the due date: ${new Date(data.dueDate).toLocaleDateString()}</p>` 
+      : '';
+    
+    return `
+      <div style="font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px;">
+        <div style="text-align: center; margin-bottom: 30px;">
+          <h1>${documentType} #${documentNumber}</h1>
+          <p>Date: ${documentDate}</p>
+        </div>
+        
+        ${customMessageHtml}
+        
+        ${customerHtml}
+        
+        ${projectHtml}
+        
+        <div style="margin-bottom: 20px;">
+          <h3>${documentType} Details</h3>
+          ${itemsHtml}
+        </div>
+        
+        ${specialInstructions}
+        
+        <div style="margin-top: 30px; border-top: 1px solid #eee; padding-top: 20px; font-size: 12px; color: #777;">
+          <p>This ${documentType.toLowerCase()} was sent to you from our system. Please do not reply to this email.</p>
+          <p>For inquiries, please contact us directly.</p>
+        </div>
+      </div>
+    `;
   }
 }
+
+// Export a singleton instance
+const EmailService = new EmailServiceImpl();
+export default EmailService;

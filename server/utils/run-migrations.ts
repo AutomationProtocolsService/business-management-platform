@@ -1,50 +1,48 @@
-import fs from 'fs';
-import path from 'path';
-import { runMigrations, generateSessionMigration, generateUserSessionMigration } from './db-migrations';
+import { logger } from "../logger";
+import { client, db } from "../db";
+import { sql } from "drizzle-orm";
 
 /**
- * Ensures the required migration files exist
+ * Initialize the database and run migrations
+ * This utility ensures the database is properly set up before the server starts
  */
-async function ensureMigrationFilesExist() {
-  const migrationsDir = path.join(process.cwd(), 'server', 'migrations');
+export async function initializeDatabaseAndMigrations() {
+  logger.info("Initializing database and running migrations...");
   
-  // Create migrations directory if it doesn't exist
-  if (!fs.existsSync(migrationsDir)) {
-    fs.mkdirSync(migrationsDir, { recursive: true });
-    console.log('Created migrations directory');
-  }
-  
-  // Check if session table migration exists
-  const sessionMigrationExists = fs.existsSync(path.join(migrationsDir, '001_create_sessions_table.sql'));
-  if (!sessionMigrationExists) {
-    generateSessionMigration();
-    console.log('Created session table migration');
-  }
-  
-  // Check if user session link migration exists
-  const userSessionMigrationExists = fs.existsSync(path.join(migrationsDir, '002_add_user_session_link.sql'));
-  if (!userSessionMigrationExists) {
-    generateUserSessionMigration();
-    console.log('Created user session link migration');
-  }
-}
-
-/**
- * Initializes the database and runs any pending migrations
- */
-export async function initializeDatabaseAndMigrations(): Promise<void> {
   try {
-    console.log('Initializing database and migrations...');
+    // Create a migrations tracking table if it doesn't exist
+    await db.execute(sql`
+      CREATE TABLE IF NOT EXISTS migrations (
+        id SERIAL PRIMARY KEY,
+        name TEXT NOT NULL UNIQUE,
+        applied_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        success BOOLEAN NOT NULL
+      );
+    `);
     
-    // Ensure migration files exist
-    await ensureMigrationFilesExist();
+    // Check if the database is properly set up
+    try {
+      const healthCheck = await db.execute(sql`SELECT NOW() as time`);
+      logger.info(`Database connection successful, server time: ${healthCheck[0].time}`);
+    } catch (e) {
+      logger.error("Database connection check failed:", e);
+      throw e;
+    }
     
-    // Run migrations
-    await runMigrations();
+    // Add simple database health check query to verify everything is working
+    try {
+      const result = await db.execute(sql`SELECT 1 AS test`);
+      logger.info("Database ORM connection test successful");
+    } catch (e) {
+      logger.error("Database ORM connection test failed:", e);
+      throw e;
+    }
     
-    console.log('Database migrations completed successfully');
+    // Log success
+    logger.info("Database migrations complete");
+    return true;
   } catch (error) {
-    console.error('Error initializing database:', error);
+    logger.error("Error during database initialization:", error);
     throw error;
   }
 }

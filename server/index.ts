@@ -3,7 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabaseAndMigrations } from "./utils/run-migrations";
 import { setupAuth } from "./auth";
-import tenantMiddleware from "./middleware/tenant-filter";
+import { tenantFilterMiddleware } from "./middleware/tenant-filter";
 import { setupUnhandledRejectionHandler } from "./middleware/error-handler";
 import { logger } from "./logger";
 import { applyErrorHandling } from "./middleware/apply-error-handling";
@@ -79,7 +79,7 @@ app.use((req, res, next) => {
   
   // Apply tenant middleware only to API routes
   // This prevents the middleware from interfering with frontend resources
-  app.use('/api', tenantMiddleware);
+  app.use('/api', tenantFilterMiddleware);
   
   // Register API routes after authentication and tenant middleware
   const server = await registerRoutes(app);
@@ -94,15 +94,20 @@ app.use((req, res, next) => {
   // Apply the centralized error handling
   applyErrorHandling(app);
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // Use the port provided by Replit or fall back to 5000
+  // This serves both the API and the client
+  const port = process.env.PORT || 5000;
+  
+  // Add a health check endpoint at the root
+  app.get("/", (_, res) => {
+    res.send("✅ Server is up and running!");
+  });
+  
   server.listen({
     port,
-    host: "0.0.0.0",
+    host: "0.0.0.0", // Bind to all network interfaces, not just localhost
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`Server is listening on http://0.0.0.0:${port}`);
   });
 })();
