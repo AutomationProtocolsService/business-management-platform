@@ -71,6 +71,9 @@ export interface TenantFilter {
 
 // Interface for storage operations
 export interface IStorage {
+  // General database operations
+  execQuery(query: string, params?: any[]): Promise<any>;
+  
   // Tenants
   getTenant(id: number): Promise<Tenant | undefined>;
   getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined>;
@@ -303,6 +306,11 @@ export interface IStorage {
 }
 
 export class MemStorage implements IStorage {
+  // General database operations
+  async execQuery(query: string, params?: any[]): Promise<any> {
+    throw new Error('Direct SQL queries are not supported in memory storage');
+  }
+
   // In-memory storage
   private users: Map<number, User>;
   private customers: Map<number, Customer>;
@@ -1591,6 +1599,18 @@ export class MemStorage implements IStorage {
 
 // Export a single instance for use across the application
 export class DatabaseStorage implements IStorage {
+  // General database operations
+  async execQuery(query: string, params?: any[]): Promise<any> {
+    try {
+      // Execute the raw SQL query with optional parameters
+      const result = await client.unsafe(query, params || []);
+      return result;
+    } catch (error) {
+      console.error("Error executing raw SQL query:", error);
+      throw error;
+    }
+  }
+  
   sessionStore: any; // Using any for Express session store type issue
   
   // Implement the system settings methods
