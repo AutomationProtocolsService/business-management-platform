@@ -206,77 +206,231 @@ export default class PDFService {
       items: invoice.items ? invoice.items.length : 0
     }));
     
+    // Format currency helper function
+    const formatCurrency = (value: number) => {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+      }).format(value);
+    };
+    
+    // Today's date for PDF generation
+    const generatedDate = new Date().toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Format dates for the invoice
+    const issueDate = new Date(invoice.issueDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    const dueDate = new Date(invoice.dueDate).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    
+    // Invoice type display (Deposit vs Final)
+    const invoiceTypeDisplay = invoice.type === 'deposit' ? 'Deposit Invoice' : 'Invoice';
+    
     // In a real application, this would involve using a templating engine
     // to generate HTML based on the invoice data.
-    // For this example, we'll return a simple string.
     let html = `
       <html>
       <head>
         <title>Invoice ${invoice.invoiceNumber}</title>
         <style>
-          body { font-family: 'Helvetica'; font-size: 12px; }
-          .header { text-align: center; margin-bottom: 20px; }
-          .customer-info, .project-info, .invoice-details { margin-bottom: 15px; }
-          .underline { text-decoration: underline; }
-          .items-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-          .items-table th, .items-table td { border: 1px solid #ccc; padding: 8px; text-align: left; }
-          .items-table th { background-color: #f0f0f0; }
+          body { 
+            font-family: 'Helvetica'; 
+            font-size: 12px; 
+            margin: 0;
+            padding: 15px;
+            color: #333;
+          }
+          .header { 
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #e0e0e0;
+          }
+          .logo-container { text-align: left; }
+          .invoice-info { text-align: right; }
+          .invoice-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 5px;
+          }
+          .invoice-number {
+            font-size: 16px;
+            color: #7f8c8d;
+            margin-bottom: 15px;
+          }
+          .invoice-meta {
+            margin-top: 10px;
+            font-size: 12px;
+          }
+          .invoice-meta-item {
+            margin-bottom: 5px;
+          }
+          .grid-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+          }
+          .grid-item {
+            width: 48%;
+          }
+          .section-title {
+            font-size: 14px;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 5px;
+            margin-bottom: 10px;
+          }
+          .customer-info, .billing-info { margin-bottom: 25px; }
+          .info-row { margin-bottom: 5px; }
+          .items-table { 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin-top: 20px;
+            margin-bottom: 20px;
+          }
+          .items-table th, .items-table td { 
+            border: 1px solid #e0e0e0; 
+            padding: 10px; 
+            text-align: left; 
+          }
+          .items-table th { 
+            background-color: #f8f9fa; 
+            font-weight: bold;
+            color: #2c3e50;
+          }
+          .items-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+          }
           .text-right { text-align: right; }
+          .totals-container {
+            margin-top: 20px;
+            margin-left: auto;
+            width: 40%;
+          }
+          .totals-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px 0;
+          }
+          .totals-row.total {
+            font-weight: bold;
+            border-top: 2px solid #e0e0e0;
+            margin-top: 5px;
+            padding-top: 5px;
+          }
+          .notes-section {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+          }
+          .payment-status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-weight: bold;
+            margin-top: 10px;
+          }
+          .status-paid {
+            background-color: #d5f5e3;
+            color: #27ae60;
+          }
+          .status-unpaid {
+            background-color: #fadbd8;
+            color: #e74c3c;
+          }
+          .status-draft {
+            background-color: #f2f3f4;
+            color: #7f8c8d;
+          }
+          .status-sent {
+            background-color: #ebf5fb;
+            color: #3498db;
+          }
+          .footer {
+            margin-top: 50px;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 11px;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 20px;
+          }
         </style>
       </head>
       <body>
         <div class="header">
-          <h1>Company Name</h1>
-          <p>123 Business St, City, State, ZIP</p>
-          <p>Phone: (123) 456-7890 | Email: info@company.com</p>
+          <div class="logo-container">
+            <h1>Your Company</h1>
+            <p>123 Business St, City, State, ZIP</p>
+            <p>Phone: (123) 456-7890 | Email: info@company.com</p>
+          </div>
+          <div class="invoice-info">
+            <div class="invoice-title">${invoiceTypeDisplay}</div>
+            <div class="invoice-number">#${invoice.invoiceNumber}</div>
+            <div class="invoice-meta">
+              <div class="invoice-meta-item"><strong>Reference:</strong> ${invoice.reference || 'N/A'}</div>
+              <div class="invoice-meta-item"><strong>Issue Date:</strong> ${issueDate}</div>
+              <div class="invoice-meta-item"><strong>Due Date:</strong> ${dueDate}</div>
+              <div class="invoice-meta-item"><strong>Generated:</strong> ${generatedDate}</div>
+              <div class="payment-status status-${invoice.status.toLowerCase()}">
+                ${invoice.status.toUpperCase()}
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="customer-info">
-          <h3 class="underline">CUSTOMER</h3>
-          <p>${invoice.customer?.name || 'N/A'}</p>
-          <p>${invoice.customer?.email || 'N/A'}</p>
-          <p>${invoice.customer?.phone || 'N/A'}</p>
-          <p>${invoice.customer?.address || 'N/A'}</p>
-          <p>${invoice.customer?.city || 'N/A'}, ${invoice.customer?.state || 'N/A'} ${invoice.customer?.zipCode || 'N/A'}</p>
-          <p>${invoice.customer?.country || 'N/A'}</p>
-        </div>
-
-        <div class="project-info">
-          <h3 class="underline">PROJECT</h3>
-          <p>Project: ${invoice.project?.name || 'N/A'}</p>
-          <p>Description: ${invoice.project?.description || 'N/A'}</p>
-        </div>
-
-        <div class="invoice-details">
-          <h2 class="underline">INVOICE DETAILS</h2>
-          <p>Reference: ${invoice.reference || 'N/A'}</p>
-          <p>Issue Date: ${new Date(invoice.issueDate).toLocaleDateString()}</p>
-          <p>Due Date: ${new Date(invoice.dueDate).toLocaleDateString()}</p>
-          <p>Status: ${invoice.status?.toUpperCase() || 'N/A'}</p>
+        <div class="grid-container">
+          <div class="grid-item">
+            <div class="customer-info">
+              <div class="section-title">BILL TO</div>
+              <div class="info-row"><strong>${invoice.customer?.name || 'N/A'}</strong></div>
+              <div class="info-row">${invoice.customer?.address || 'N/A'}</div>
+              <div class="info-row">${invoice.customer?.city || 'N/A'}, ${invoice.customer?.state || 'N/A'} ${invoice.customer?.zipCode || 'N/A'}</div>
+              <div class="info-row">${invoice.customer?.country || 'N/A'}</div>
+              <div class="info-row">Email: ${invoice.customer?.email || 'N/A'}</div>
+              <div class="info-row">Phone: ${invoice.customer?.phone || 'N/A'}</div>
+            </div>
+          </div>
+          <div class="grid-item">
+            <div class="project-info">
+              <div class="section-title">PROJECT DETAILS</div>
+              <div class="info-row"><strong>${invoice.project?.name || 'N/A'}</strong></div>
+              <div class="info-row">${invoice.project?.description || 'N/A'}</div>
+              ${invoice.project?.startDate ? `<div class="info-row">Start: ${new Date(invoice.project.startDate).toLocaleDateString()}</div>` : ''}
+              ${invoice.project?.endDate ? `<div class="info-row">End: ${new Date(invoice.project.endDate).toLocaleDateString()}</div>` : ''}
+            </div>
+          </div>
         </div>
 
         <div>
-          <h3 class="underline">Invoice Items</h3>
+          <div class="section-title">INVOICE ITEMS</div>
           <table class="items-table">
             <thead>
               <tr>
                 <th>Description</th>
-                <th>Quantity</th>
-                <th>Unit Price</th>
-                <th class="text-right">Total</th>
+                <th style="width: 80px;">Quantity</th>
+                <th style="width: 100px;">Unit Price</th>
+                <th style="width: 100px;" class="text-right">Total</th>
               </tr>
             </thead>
             <tbody>
     `;
 
     if (invoice.items && invoice.items.length > 0) {
-      const formatCurrency = (value: number) => {
-        return new Intl.NumberFormat('en-US', {
-          style: 'currency',
-          currency: 'USD',
-        }).format(value);
-      };
-
       invoice.items.forEach((item) => {
         html += `
               <tr>
@@ -296,6 +450,56 @@ export default class PDFService {
     html += `
             </tbody>
           </table>
+          
+          <div class="totals-container">
+            <div class="totals-row">
+              <div>Subtotal:</div>
+              <div>${formatCurrency(Number(invoice.subtotal) || 0)}</div>
+            </div>
+            ${invoice.tax > 0 ? `
+            <div class="totals-row">
+              <div>Tax:</div>
+              <div>${formatCurrency(Number(invoice.tax) || 0)}</div>
+            </div>
+            ` : ''}
+            ${invoice.discount > 0 ? `
+            <div class="totals-row">
+              <div>Discount:</div>
+              <div>-${formatCurrency(Number(invoice.discount) || 0)}</div>
+            </div>
+            ` : ''}
+            <div class="totals-row total">
+              <div>Total:</div>
+              <div>${formatCurrency(Number(invoice.total) || 0)}</div>
+            </div>
+          </div>
+          
+          <div class="notes-section">
+            ${invoice.notes ? `
+            <div class="section-title">NOTES</div>
+            <p>${invoice.notes}</p>
+            ` : ''}
+            
+            ${invoice.terms ? `
+            <div class="section-title">TERMS & CONDITIONS</div>
+            <p>${invoice.terms}</p>
+            ` : ''}
+            
+            ${invoice.status === 'paid' ? `
+            <div class="section-title">PAYMENT INFORMATION</div>
+            <p>
+              <strong>Payment Date:</strong> ${invoice.paymentDate ? new Date(invoice.paymentDate).toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric'}) : 'N/A'}<br>
+              <strong>Payment Amount:</strong> ${invoice.paymentAmount ? formatCurrency(Number(invoice.paymentAmount)) : 'N/A'}<br>
+              <strong>Payment Method:</strong> ${invoice.paymentMethod ? invoice.paymentMethod.charAt(0).toUpperCase() + invoice.paymentMethod.slice(1) : 'N/A'}<br>
+              ${invoice.paymentReference ? `<strong>Reference:</strong> ${invoice.paymentReference}` : ''}
+            </p>
+            ` : ''}
+          </div>
+          
+          <div class="footer">
+            <p>Thank you for your business!</p>
+            <p>Invoice generated on ${generatedDate} • Document ID: ${invoice.invoiceNumber}</p>
+          </div>
         </div>
       </body>
       </html>
