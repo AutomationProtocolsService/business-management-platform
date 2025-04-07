@@ -63,6 +63,7 @@ export interface WebSocketPayload {
 export class WebSocketManager {
   private io: Server;
   private connections: Map<string, Socket> = new Map();
+  private userTenants: Map<string, number> = new Map(); // Map user IDs to tenant IDs
 
   constructor(httpServer: HttpServer) {
     this.io = new Server(httpServer, {
@@ -79,10 +80,20 @@ export class WebSocketManager {
   private setupSocketHandlers() {
     this.io.on('connection', (socket: Socket) => {
       const userId = socket.handshake.query.userId as string;
+      const tenantId = socket.handshake.query.tenantId as string;
       
       if (userId) {
         this.connections.set(userId, socket);
         log(`User ${userId} connected`, 'websocket');
+        
+        // Store tenant association if provided
+        if (tenantId) {
+          this.userTenants.set(userId, parseInt(tenantId, 10));
+          // Join tenant-specific room
+          const tenantRoom = `tenant-${tenantId}`;
+          socket.join(tenantRoom);
+          log(`User ${userId} joined tenant room ${tenantRoom}`, 'websocket');
+        }
         
         // Handle user roles and channels
         socket.on('join', (channels: string[]) => {
@@ -97,6 +108,7 @@ export class WebSocketManager {
         // Handle user disconnection
         socket.on('disconnect', () => {
           this.connections.delete(userId);
+          this.userTenants.delete(userId);
           log(`User ${userId} disconnected`, 'websocket');
         });
       } else {
@@ -125,6 +137,37 @@ export class WebSocketManager {
   public sendToChannel(channel: string, event: WebSocketEvent, payload: WebSocketPayload) {
     this.io.to(channel).emit(event, payload);
     log(`Sent event ${event} to channel ${channel}`, 'websocket');
+  }
+  
+  // Broadcast to all users in a specific tenant
+  public broadcastToTenant(tenantId: number, event: WebSocketEvent, payload: WebSocketPayload) {
+    const tenantRoom = `tenant-${tenantId}`;
+    this.io.to(tenantRoom).emit(event, payload);
+    log(`Broadcast event ${event} to tenant ${tenantId}`, 'websocket');
+  }
+  
+  // Send a system notification to all users in a tenant
+  public notifyTenant(tenantId: number, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+    const payload: WebSocketPayload = {
+      message,
+      type,
+      timestamp: new Date().toISOString(),
+      category: 'system'
+    };
+    
+    this.broadcastToTenant(tenantId, 'notification', payload);
+  }
+  
+  // Send a system notification to a specific user
+  public notifyUser(userId: string, message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') {
+    const payload: WebSocketPayload = {
+      message,
+      type,
+      timestamp: new Date().toISOString(),
+      category: 'system'
+    };
+    
+    this.sendToUser(userId, 'notification', payload);
   }
 }
 

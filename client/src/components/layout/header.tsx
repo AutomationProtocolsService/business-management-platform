@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, Bell, ChevronDown } from "lucide-react";
+import { Menu, ChevronDown } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
-import { NotificationsCenter } from "@/components/notifications";
+import { NotificationBell } from "@/components/notifications";
 
 export default function Header() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,7 +62,7 @@ export default function Header() {
           <h1 className="text-xl font-semibold text-gray-800">Business Management System</h1>
         </div>
         <div className="flex items-center space-x-4">
-          <NotificationsCenter />
+          <NotificationBell />
           
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

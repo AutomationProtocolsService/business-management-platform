@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import { useTenant } from '@/hooks/use-tenant';
+import { io, Socket } from 'socket.io-client';
 
 export type NotificationType = 'default' | 'info' | 'success' | 'warning' | 'error';
 
@@ -14,6 +16,13 @@ export type NotificationCategory =
   | 'employee' 
   | 'timesheet' 
   | 'task'
+  | 'catalog-item'
+  | 'supplier'
+  | 'expense'
+  | 'purchase-order'
+  | 'inventory'
+  | 'inventory-transaction'
+  | 'settings'
   | 'system';
 
 export type Notification = {
@@ -25,6 +34,7 @@ export type Notification = {
   category: NotificationCategory;
   entityId?: number;
   duration?: number;
+  url?: string;
 };
 
 export type WebSocketPayload = {
@@ -35,6 +45,7 @@ export type WebSocketPayload = {
   timestamp?: string;
   category?: string;
   duration?: number;
+  url?: string;
 };
 
 export type NotificationsContextType = {
@@ -50,8 +61,6 @@ export type NotificationsContextType = {
 };
 
 const NotificationsContext = createContext<NotificationsContextType | null>(null);
-
-
 
 // Key for localStorage
 const STORAGE_KEY = 'bms_notifications';
@@ -69,80 +78,89 @@ const getStoredNotifications = (): Notification[] => {
   return [];
 };
 
+// WebSocket event types that we're interested in
+const NOTIFICATION_EVENTS = [
+  'notification',
+  'customer:created', 'customer:updated', 'customer:deleted',
+  'project:created', 'project:updated', 'project:deleted',
+  'quote:created', 'quote:updated', 'quote:deleted',
+  'invoice:created', 'invoice:updated', 'invoice:deleted',
+  'survey:created', 'survey:updated', 'survey:deleted',
+  'installation:created', 'installation:updated', 'installation:deleted',
+  'employee:created', 'employee:updated', 'employee:deleted',
+  'timesheet:created', 'timesheet:updated', 'timesheet:deleted',
+  'task:created', 'task:updated', 'task:deleted',
+  'catalog-item:created', 'catalog-item:updated', 'catalog-item:deleted',
+  'supplier:created', 'supplier:updated', 'supplier:deleted',
+  'expense:created', 'expense:updated', 'expense:deleted',
+  'purchase-order:created', 'purchase-order:updated', 'purchase-order:deleted',
+  'inventory:created', 'inventory:updated', 'inventory:deleted',
+  'inventory-transaction:created',
+  'settings:updated'
+];
+
 export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [notifications, setNotifications] = useState<Notification[]>(getStoredNotifications);
   const [activeFilter, setActiveFilter] = useState<NotificationCategory | 'all'>('all');
-  const [websocket, setWebsocket] = useState<WebSocket | null>(null);
+  const [socketConnected, setSocketConnected] = useState(false);
+  const socketRef = useRef<Socket | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { tenant } = useTenant();
   
   useEffect(() => {
     if (!user) return;
     
-    let socket: WebSocket | null = null;
-    let reconnectTimeout: NodeJS.Timeout;
-    let reconnectAttempts = 0;
-    const MAX_RECONNECT_ATTEMPTS = 5;
-    const RECONNECT_DELAY = 3000; // 3 seconds
-    
-    const connectWebSocket = () => {
-      // WebSocket setup
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/ws`;
+    // Get the Socket.IO client instance
+    if (!socketRef.current) {
+      socketRef.current = io('/', {
+        query: {
+          userId: user.id.toString(),
+          tenantId: tenant?.id?.toString()
+        },
+        transports: ['websocket', 'polling'],
+        autoConnect: true
+      });
       
-      socket = new WebSocket(wsUrl);
+      const socket = socketRef.current;
       
-      socket.addEventListener('open', () => {
-        console.log('WebSocket connected');
-        reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+      // Connection events
+      socket.on('connect', () => {
+        console.log('Socket.IO connected, socket ID:', socket.id);
+        setSocketConnected(true);
         
-        // Send user identification
-        if (socket) {
-          socket.send(JSON.stringify({ 
-            type: 'connect', 
-            userId: user.id 
-          }));
+        // Join room for tenant-specific notifications
+        if (tenant?.id) {
+          socket.emit('join', [`tenant-${tenant.id}`]);
         }
       });
       
-      socket.addEventListener('message', (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
-        } catch (error) {
-          console.error('Error parsing WebSocket message:', error);
-        }
+      socket.on('disconnect', (reason) => {
+        console.log('Socket.IO disconnected:', reason);
+        setSocketConnected(false);
       });
       
-      socket.addEventListener('close', (event) => {
-        console.log(`WebSocket disconnected with code: ${event.code}`);
-        
-        // Attempt to reconnect unless it was a clean closure or maximum attempts reached
-        if (!event.wasClean && reconnectAttempts < MAX_RECONNECT_ATTEMPTS) {
-          reconnectAttempts++;
-          console.log(`Attempting to reconnect (${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})...`);
-          reconnectTimeout = setTimeout(connectWebSocket, RECONNECT_DELAY);
-        }
+      socket.on('connect_error', (error) => {
+        console.error('Socket.IO connection error:', error);
+        setSocketConnected(false);
       });
       
-      socket.addEventListener('error', (error) => {
-        console.error('WebSocket error:', error);
+      // Subscribe to all notification events
+      NOTIFICATION_EVENTS.forEach(eventType => {
+        socket.on(eventType, (payload: WebSocketPayload) => {
+          handleSocketEvent(eventType, payload);
+        });
       });
-      
-      setWebsocket(socket);
-    };
+    }
     
-    // Initial connection
-    connectWebSocket();
-    
+    // Cleanup when component unmounts
     return () => {
-      if (socket && socket.readyState === WebSocket.OPEN) {
-        socket.close();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
       }
-      // Clear any pending reconnect
-      clearTimeout(reconnectTimeout);
     };
-  }, [user]);
+  }, [user, tenant?.id]);
   
   // Save notifications to localStorage
   useEffect(() => {
@@ -176,9 +194,9 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     setActiveFilter(filter);
   }, []);
   
-  // Handle incoming WebSocket messages
-  const handleWebSocketMessage = (payload: WebSocketPayload) => {
-    // Handle notifications for specific events
+  // Handle incoming socket events
+  const handleSocketEvent = (eventType: string, payload: WebSocketPayload) => {
+    // Only process events with message content
     if (payload.message) {
       const notificationType = (payload.type || 'default') as NotificationType;
       
@@ -188,34 +206,58 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
       
       if (payload.category) {
         category = payload.category as NotificationCategory;
-      } else if (typeof payload.type === 'string') {
+      } else if (eventType !== 'notification') {
         // Try to extract category from event type (e.g., 'project:created' -> 'project')
-        const parts = payload.type.split(':');
+        const parts = eventType.split(':');
         if (parts.length > 0 && isValidCategory(parts[0])) {
           category = parts[0] as NotificationCategory;
         }
       }
       
+      // Create a URL for the notification if we have an ID and category
+      let url: string | undefined = payload.url;
+      if (!url && entityId) {
+        switch (category) {
+          case 'customer':
+            url = `/customers/${entityId}`;
+            break;
+          case 'project':
+            url = `/projects/${entityId}`;
+            break;
+          case 'invoice':
+            url = `/invoices/${entityId}`;
+            break;
+          case 'quote':
+            url = `/quotes/${entityId}`;
+            break;
+          case 'task':
+            url = `/tasks/${entityId}`;
+            break;
+          // ... add more URL mappings as needed
+        }
+      }
+      
       // Add to notifications list
       const newNotification: Notification = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         message: payload.message,
         type: notificationType,
         timestamp: payload.timestamp || new Date().toISOString(),
         read: false,
         category,
         entityId,
-        duration: payload.duration
+        duration: payload.duration,
+        url
       };
       
       setNotifications(prev => [newNotification, ...prev]);
       
       // Show toast notification for immediate visibility
       toast({
-        title: getNotificationTitle(notificationType),
+        title: getNotificationTitle(notificationType, category),
         description: payload.message,
         variant: mapNotificationTypeToToastVariant(notificationType),
-        duration: payload.duration
+        duration: payload.duration || 5000
       });
     }
   };
@@ -224,19 +266,36 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
   const isValidCategory = (category: string): boolean => {
     const validCategories: string[] = [
       'customer', 'project', 'quote', 'invoice', 'survey', 
-      'installation', 'employee', 'timesheet', 'task', 'system'
+      'installation', 'employee', 'timesheet', 'task', 'system',
+      'catalog-item', 'supplier', 'expense', 'purchase-order',
+      'inventory', 'inventory-transaction', 'settings'
     ];
     return validCategories.includes(category);
   };
   
-  const getNotificationTitle = (type: NotificationType): string => {
+  const getNotificationTitle = (type: NotificationType, category: NotificationCategory): string => {
+    // First determine by notification type
+    let title: string;
     switch (type) {
-      case 'success': return 'Success';
-      case 'error': return 'Error';
-      case 'warning': return 'Warning';
-      case 'info': return 'Information';
-      default: return 'Notification';
+      case 'success': title = 'Success'; break;
+      case 'error': title = 'Error'; break;
+      case 'warning': title = 'Warning'; break;
+      case 'info': title = 'Information'; break;
+      default: title = 'Notification';
     }
+    
+    // For system notifications, use the default title based on type
+    if (category !== 'system') {
+      // Capitalize and format the category name
+      const formattedCategory = category
+        .split('-')
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+        
+      title = `${formattedCategory} ${title}`;
+    }
+    
+    return title;
   };
   
   const mapNotificationTypeToToastVariant = (type: NotificationType): 'default' | 'destructive' => {
@@ -288,18 +347,22 @@ export const useNotifications = () => {
     showNotification: (notification: { 
       message: string;
       type: NotificationType;
+      category?: NotificationCategory;
+      entityId?: number;
       duration?: number;
+      url?: string;
     }) => {
       // Create a new notification object
       const newNotification: Notification = {
-        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        id: `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
         message: notification.message,
         type: notification.type,
         timestamp: new Date().toISOString(),
         read: false,
-        category: 'system',
-        entityId: undefined,
-        duration: notification.duration
+        category: notification.category || 'system',
+        entityId: notification.entityId,
+        duration: notification.duration,
+        url: notification.url
       };
       
       // Add the notification to the state
