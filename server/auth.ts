@@ -2,13 +2,13 @@ import passport from "passport";
 import { Strategy as LocalStrategy } from "passport-local";
 import { Express, Request, Response, NextFunction } from "express";
 import session from "express-session";
-import bcrypt from "bcrypt";
 import ConnectPgSimple from "connect-pg-simple";
 import { db, client } from "./db";
 import { storage } from "./storage";
 import { User as SelectUser, Tenant as SelectTenant } from "@shared/schema";
 import { User } from "@shared/types";
 import logger from "./logger";
+import { hashPassword, comparePasswords } from "./auth-utils";
 
 declare global {
   namespace Express {
@@ -18,25 +18,6 @@ declare global {
       tenant?: SelectTenant;
     }
   }
-}
-
-// Use environment variables for bcrypt salt rounds with fallback
-const SALT_ROUNDS = process.env.BCRYPT_SALT_ROUNDS 
-  ? parseInt(process.env.BCRYPT_SALT_ROUNDS) 
-  : 10;
-
-/**
- * Hash a password with bcrypt
- */
-async function hashPassword(password: string): Promise<string> {
-  return bcrypt.hash(password, SALT_ROUNDS);
-}
-
-/**
- * Compare a password with a hashed password
- */
-async function comparePasswords(supplied: string, stored: string): Promise<boolean> {
-  return bcrypt.compare(supplied, stored);
 }
 
 /**

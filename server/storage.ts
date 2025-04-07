@@ -80,6 +80,7 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string, tenantId?: number): Promise<User | undefined>;
+  getUserByEmail(email: string, tenantId?: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
@@ -413,6 +414,15 @@ export class MemStorage implements IStorage {
 
   async getUserByUsername(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(user => user.username === username);
+  }
+  
+  async getUserByEmail(email: string, tenantId?: number): Promise<User | undefined> {
+    if (tenantId) {
+      return Array.from(this.users.values()).find(user => 
+        user.email === email && user.tenantId === tenantId
+      );
+    }
+    return Array.from(this.users.values()).find(user => user.email === email);
   }
 
   async createUser(user: InsertUser): Promise<User> {
@@ -1545,6 +1555,20 @@ export class DatabaseStorage implements IStorage {
           eq(schema.users.tenantId, tenantId)
         )
       : eq(schema.users.username, username);
+      
+    const result = await db.query.users.findFirst({
+      where: query
+    });
+    return result;
+  }
+  
+  async getUserByEmail(email: string, tenantId?: number): Promise<User | undefined> {
+    const query = tenantId
+      ? and(
+          eq(schema.users.email, email),
+          eq(schema.users.tenantId, tenantId)
+        )
+      : eq(schema.users.email, email);
       
     const result = await db.query.users.findFirst({
       where: query
