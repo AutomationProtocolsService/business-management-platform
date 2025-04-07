@@ -42,6 +42,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Set up authentication routes
   setupAuth(app);
   
+  // Public route to get all active tenants (for login/registration)
+  app.get("/api/public/tenants", async (req: Request, res: Response) => {
+    try {
+      // Get all active tenants
+      const allTenants = await storage.getAllTenants();
+      // Filter to only include active tenants and return only necessary fields for security
+      const tenants = allTenants
+        .filter(tenant => tenant.active === true)
+        .map(tenant => ({
+          id: tenant.id,
+          name: tenant.name,
+          subdomain: tenant.subdomain,
+          companyName: tenant.companyName || tenant.name
+        }));
+      
+      return res.json({ success: true, tenants });
+    } catch (error) {
+      console.error("Error fetching tenants:", error);
+      return res.status(500).json({ success: false, message: "Failed to retrieve tenants" });
+    }
+  });
+  
   // Apply tenant filter middleware for multi-tenant data isolation
   app.use(tenantMiddleware);
   
