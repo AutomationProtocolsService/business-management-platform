@@ -15,10 +15,29 @@ import bcrypt from "bcrypt";
 import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
 import { User } from "@shared/types";
 
-// Helper to consistently get tenant information from request
+// Helper functions for tenant context
+// Get tenant filter object for operations that expect a TenantFilter object
 function getTenantFilterFromRequest(req: Request): { tenantId: number } | undefined {
-  return req.tenantFilter || 
-    ((req.user as User)?.tenantId ? { tenantId: (req.user as User).tenantId } : undefined);
+  // First try to get from user, then from req.tenant, then from tenantFilter
+  if ((req.user as User)?.tenantId) {
+    return { tenantId: (req.user as User).tenantId };
+  } else if (req.tenant?.id) {
+    return { tenantId: req.tenant.id };
+  } else if (req.tenantFilter?.tenantId) {
+    return req.tenantFilter;
+  }
+  return undefined;
+}
+
+// Get tenant ID directly for operations that expect just the ID
+function getTenantIdFromRequest(req: Request): number | undefined {
+  // First try to get from user, then from req.tenant, then from tenantFilter
+  if ((req.user as User)?.tenantId) {
+    return (req.user as User).tenantId;
+  } else if (req.tenant?.id) {
+    return req.tenant.id;
+  }
+  return req.tenantFilter?.tenantId;
 }
 import { registerDocumentRoutes } from "./routes/document-routes";
 import { registerReportingRoutes } from "./routes/reporting-routes";
@@ -2707,14 +2726,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, userId } = req.query;
       
       let catalogItems;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantId = getTenantIdFromRequest(req);
       
       if (category) {
-        catalogItems = await storage.getCatalogItemsByCategory(category as string, tenantFilter);
+        catalogItems = await storage.getCatalogItemsByCategory(category as string, tenantId);
       } else if (userId) {
-        catalogItems = await storage.getCatalogItemsByUser(Number(userId), tenantFilter);
+        catalogItems = await storage.getCatalogItemsByUser(Number(userId), tenantId);
       } else {
-        catalogItems = await storage.getAllCatalogItems(tenantFilter);
+        catalogItems = await storage.getAllCatalogItems(tenantId);
       }
       
       res.json(catalogItems);
@@ -2725,8 +2744,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
-      const catalogItem = await storage.getCatalogItem(Number(req.params.id), tenantFilter);
+      const tenantId = getTenantIdFromRequest(req);
+      const catalogItem = await storage.getCatalogItem(Number(req.params.id), tenantId);
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
       }
@@ -2739,11 +2758,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/catalog-items", requireAuth, validateBody(insertCatalogItemSchema), async (req, res) => {
     try {
       // Add tenant ID if available
-      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      const tenantId = getTenantIdFromRequest(req);
       
       const catalogItem = await storage.createCatalogItem({
         ...req.body,
-        ...tenantData,
+        tenantId,
         createdBy: req.user?.id
       });
       
@@ -2767,7 +2786,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const tenantId = req.tenantId;
+      const tenantId = getTenantIdFromRequest(req);
       
       // Get item with tenant check
       const catalogItem = await storage.getCatalogItem(itemId, tenantId);
@@ -2800,7 +2819,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const tenantId = req.tenantId;
+      const tenantId = getTenantIdFromRequest(req);
       
       // Get item with tenant check
       const catalogItem = await storage.getCatalogItem(itemId, tenantId);
@@ -3188,7 +3207,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category } = req.query;
       
       let suppliers;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       if (category) {
         suppliers = await storage.getSuppliersByCategory(category as string, tenantFilter);
@@ -3205,7 +3224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
       const supplierId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const supplier = await storage.getSupplier(supplierId, tenantFilter);
       if (!supplier) {
@@ -3244,7 +3263,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
       const supplierId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const supplier = await storage.getSupplier(supplierId, tenantFilter);
       
@@ -3274,7 +3293,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/suppliers/:id", requireAuth, async (req, res) => {
     try {
       const supplierId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const supplier = await storage.getSupplier(supplierId, tenantFilter);
       
@@ -3311,7 +3330,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, projectId, supplierId, startDate, endDate } = req.query;
       
       let expenses;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       if (category) {
         expenses = await storage.getExpensesByCategory(category as string, tenantFilter);
@@ -3338,7 +3357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
       const expenseId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const expense = await storage.getExpense(expenseId, tenantFilter);
       if (!expense) {
@@ -3378,7 +3397,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
       const expenseId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const expense = await storage.getExpense(expenseId, tenantFilter);
       
@@ -3408,7 +3427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/expenses/:id", requireAuth, async (req, res) => {
     try {
       const expenseId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const expense = await storage.getExpense(expenseId, tenantFilter);
       
@@ -3445,7 +3464,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, projectId, supplierId } = req.query;
       
       let purchaseOrders;
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       if (status) {
         purchaseOrders = await storage.getPurchaseOrdersByStatus(status as string, tenantFilter);
@@ -3465,7 +3484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       const purchaseOrder = await storage.getPurchaseOrder(Number(req.params.id), tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -3540,7 +3559,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/purchase-orders/:id/items", requireAuth, validateBody(insertPurchaseOrderItemSchema), async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
@@ -3569,7 +3588,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
@@ -3605,7 +3624,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/purchase-orders/:id", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       
       const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
@@ -3646,7 +3665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/purchase-orders/:id/pdf", requireAuth, async (req, res) => {
     try {
       const purchaseOrderId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       
       if (!purchaseOrder) {
@@ -3694,7 +3713,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Invalid email format" });
       }
       
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantFilter = getTenantFilterFromRequest(req);
       const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, tenantFilter);
       if (!purchaseOrder) {
         return res.status(404).json({ message: "Purchase order not found" });
@@ -3783,7 +3802,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/inventory", requireAuth, validateBody(insertInventoryItemSchema), async (req, res) => {
     try {
       // Add tenant ID if available
-      const tenantData = req.tenantId ? { tenantId: req.tenantId } : {};
+      const tenantFilter = getTenantFilterFromRequest(req);
+      const tenantData = tenantFilter || {};
       
       const inventoryItem = await storage.createInventoryItem({
         ...req.body,
