@@ -230,22 +230,22 @@ export interface IStorage {
   getExpensesByDateRange(startDate: Date, endDate: Date): Promise<Expense[]>;
   
   // Purchase Orders
-  getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined>;
+  getPurchaseOrder(id: number, filter?: TenantFilter): Promise<PurchaseOrder | undefined>;
   getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined>;
   createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder>;
   updatePurchaseOrder(id: number, po: Partial<PurchaseOrder>): Promise<PurchaseOrder | undefined>;
   deletePurchaseOrder(id: number): Promise<boolean>;
-  getAllPurchaseOrders(): Promise<PurchaseOrder[]>;
-  getPurchaseOrdersByProject(projectId: number): Promise<PurchaseOrder[]>;
-  getPurchaseOrdersBySupplier(supplierId: number): Promise<PurchaseOrder[]>;
-  getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]>;
+  getAllPurchaseOrders(filter?: TenantFilter): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByProject(projectId: number, filter?: TenantFilter): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersBySupplier(supplierId: number, filter?: TenantFilter): Promise<PurchaseOrder[]>;
+  getPurchaseOrdersByStatus(status: string, filter?: TenantFilter): Promise<PurchaseOrder[]>;
   
   // Purchase Order Items
-  getPurchaseOrderItem(id: number): Promise<PurchaseOrderItem | undefined>;
+  getPurchaseOrderItem(id: number, filter?: TenantFilter): Promise<PurchaseOrderItem | undefined>;
   createPurchaseOrderItem(item: InsertPurchaseOrderItem): Promise<PurchaseOrderItem>;
   updatePurchaseOrderItem(id: number, item: Partial<PurchaseOrderItem>): Promise<PurchaseOrderItem | undefined>;
   deletePurchaseOrderItem(id: number): Promise<boolean>;
-  getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]>;
+  getPurchaseOrderItemsByPO(purchaseOrderId: number, filter?: TenantFilter): Promise<PurchaseOrderItem[]>;
   
   // Inventory Items
   getInventoryItem(id: number): Promise<InventoryItem | undefined>;
@@ -253,21 +253,21 @@ export interface IStorage {
   createInventoryItem(item: InsertInventoryItem): Promise<InventoryItem>;
   updateInventoryItem(id: number, item: Partial<InventoryItem>): Promise<InventoryItem | undefined>;
   deleteInventoryItem(id: number): Promise<boolean>;
-  getAllInventoryItems(): Promise<InventoryItem[]>;
-  getInventoryItemsByCategory(category: string): Promise<InventoryItem[]>;
-  getInventoryItemsBySupplier(supplierId: number): Promise<InventoryItem[]>;
-  getLowStockItems(): Promise<InventoryItem[]>;
+  getAllInventoryItems(filter?: TenantFilter): Promise<InventoryItem[]>;
+  getInventoryItemsByCategory(category: string, filter?: TenantFilter): Promise<InventoryItem[]>;
+  getInventoryItemsBySupplier(supplierId: number, filter?: TenantFilter): Promise<InventoryItem[]>;
+  getLowStockItems(filter?: TenantFilter): Promise<InventoryItem[]>;
   
   // Inventory Transactions
   getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined>;
   createInventoryTransaction(transaction: InsertInventoryTransaction): Promise<InventoryTransaction>;
   updateInventoryTransaction(id: number, transaction: Partial<InventoryTransaction>): Promise<InventoryTransaction | undefined>;
   deleteInventoryTransaction(id: number): Promise<boolean>;
-  getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]>;
-  getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]>;
-  getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]>;
-  getInventoryTransactionsByType(transactionType: string): Promise<InventoryTransaction[]>;
-  getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByItem(inventoryItemId: number, filter?: TenantFilter): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByProject(projectId: number, filter?: TenantFilter): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByPO(purchaseOrderId: number, filter?: TenantFilter): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByType(transactionType: string, filter?: TenantFilter): Promise<InventoryTransaction[]>;
+  getInventoryTransactionsByDateRange(startDate: Date, endDate: Date, filter?: TenantFilter): Promise<InventoryTransaction[]>;
   
   // File Attachments
   getFileAttachment(id: number): Promise<FileAttachment | undefined>;
@@ -1071,8 +1071,13 @@ export class MemStorage implements IStorage {
   }
 
   // Purchase Order methods
-  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
-    return this.purchaseOrders.get(id);
+  async getPurchaseOrder(id: number, filter?: TenantFilter): Promise<PurchaseOrder | undefined> {
+    const purchaseOrder = this.purchaseOrders.get(id);
+    // If tenantId is provided, filter by tenant
+    if (filter?.tenantId !== undefined && purchaseOrder) {
+      return purchaseOrder.tenantId === filter.tenantId ? purchaseOrder : undefined;
+    }
+    return purchaseOrder;
   }
 
   async getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined> {
@@ -1140,8 +1145,20 @@ export class MemStorage implements IStorage {
     return this.purchaseOrderItems.delete(id);
   }
 
-  async getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
-    return Array.from(this.purchaseOrderItems.values()).filter(item => item.purchaseOrderId === purchaseOrderId);
+  async getPurchaseOrderItemsByPO(purchaseOrderId: number, filter?: TenantFilter): Promise<PurchaseOrderItem[]> {
+    // Get all items for the purchase order
+    const items = Array.from(this.purchaseOrderItems.values()).filter(item => item.purchaseOrderId === purchaseOrderId);
+    
+    // If we need to filter by tenant, we need to get the purchase order first to check its tenant
+    if (filter && filter.tenantId) {
+      const purchaseOrder = this.purchaseOrders.get(purchaseOrderId);
+      if (purchaseOrder && purchaseOrder.tenantId === filter.tenantId) {
+        return items;
+      }
+      return []; // No matching tenant or PO not found
+    }
+    
+    return items;
   }
 
   // Inventory Item methods
@@ -2431,9 +2448,19 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Purchase Order methods
-  async getPurchaseOrder(id: number): Promise<PurchaseOrder | undefined> {
+  async getPurchaseOrder(id: number, filter?: TenantFilter): Promise<PurchaseOrder | undefined> {
+    let whereCondition: any = eq(schema.purchaseOrders.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (filter?.tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.purchaseOrders.tenantId, filter.tenantId)
+      );
+    }
+    
     const result = await db.query.purchaseOrders.findFirst({
-      where: eq(schema.purchaseOrders.id, id)
+      where: whereCondition
     });
     return result;
   }
@@ -2518,7 +2545,16 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getPurchaseOrderItemsByPO(purchaseOrderId: number): Promise<PurchaseOrderItem[]> {
+  async getPurchaseOrderItemsByPO(purchaseOrderId: number, filter?: TenantFilter): Promise<PurchaseOrderItem[]> {
+    // If tenant filtering is needed, we first check if the purchase order belongs to the tenant
+    if (filter?.tenantId) {
+      const po = await this.getPurchaseOrder(purchaseOrderId, filter);
+      if (!po) {
+        return []; // Purchase order not found or doesn't belong to tenant
+      }
+    }
+    
+    // Get purchase order items
     return await db.query.purchaseOrderItems.findMany({
       where: eq(schema.purchaseOrderItems.purchaseOrderId, purchaseOrderId)
     });
