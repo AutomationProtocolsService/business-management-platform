@@ -143,13 +143,14 @@ export const NotificationsProvider: React.FC<{ children: React.ReactNode }> = ({
     
     try {
       // Get the Socket.IO client instance
-      socketRef.current = io('/', {
+      socketRef.current = io(window.location.origin, {
         query: {
           userId: user.id.toString(),
           tenantId: tenant.id.toString()
         },
         transports: ['websocket', 'polling'],
-        autoConnect: true
+        autoConnect: true,
+        withCredentials: true
       });
       
       const socket = socketRef.current;
