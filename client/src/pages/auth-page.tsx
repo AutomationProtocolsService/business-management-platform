@@ -262,6 +262,16 @@ export default function AuthPage() {
                   >
                     {loginMutation.isPending ? "Signing in..." : "Sign In"}
                   </Button>
+                  
+                  <div className="text-sm text-center mt-2">
+                    <button
+                      type="button"
+                      className="text-primary hover:underline"
+                      onClick={() => navigate("/reset-password")}
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
                 </form>
               </Form>
             </TabsContent>

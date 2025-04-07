@@ -4,6 +4,7 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
+import ResetPasswordPage from "@/pages/reset-password-page";
 import DashboardPage from "@/pages/dashboard-page";
 import ProjectsPage from "@/pages/projects-page";
 import ProjectNewPage from "@/pages/project-new-page";
@@ -40,8 +41,8 @@ import Sidebar from "./components/layout/sidebar";
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   
-  // Don't show layout for the auth page
-  if (location === '/auth') {
+  // Don't show layout for auth and reset password pages
+  if (location === '/auth' || location.startsWith('/reset-password')) {
     return <>{children}</>;
   }
   
@@ -62,6 +63,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/auth" component={AuthPage} />
+      <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/login-test" component={LoginTest} />
       <ProtectedRoute path="/email-test" component={EmailTestPage} />
       <ProtectedRoute path="/" component={DashboardPage} />

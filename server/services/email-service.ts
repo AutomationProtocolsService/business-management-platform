@@ -269,4 +269,52 @@ export default class EmailService {
       return false;
     }
   }
+
+  /**
+   * Send a password reset email with a reset link
+   * @param email Recipient email address
+   * @param resetToken The password reset token
+   * @param resetUrl The URL to use for password reset (including token)
+   * @param senderEmail Email address of the sender
+   * @param options Optional settings for the email (subject, message)
+   * @returns Success status
+   */
+  static async sendPasswordResetEmail(
+    email: string,
+    resetToken: string,
+    resetUrl: string,
+    senderEmail: string,
+    options?: {
+      subject?: string;
+      message?: string;
+      companyName?: string;
+    }
+  ): Promise<boolean> {
+    try {
+      console.log(`Preparing to send password reset email to ${email}`);
+      
+      const companyName = options?.companyName || 'Our Company';
+      
+      // Prepare email content
+      const emailParams: EmailParams = {
+        to: email,
+        from: senderEmail,
+        subject: options?.subject || `Password Reset Request - ${companyName}`,
+        html: options?.message ? options.message.replace(/\n/g, '<br/>') : `
+          <p>Hello,</p>
+          <p>You recently requested to reset your password for your ${companyName} account. Click the link below to reset it:</p>
+          <p><a href="${resetUrl}">${resetUrl}</a></p>
+          <p>If you did not request a password reset, please ignore this email or contact support if you have concerns.</p>
+          <p>This password reset link is only valid for 24 hours.</p>
+          <p>Thank you,<br/>${companyName} Team</p>
+        `
+      };
+      
+      // Send email
+      return await this.sendEmail(emailParams);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      return false;
+    }
+  }
 }
