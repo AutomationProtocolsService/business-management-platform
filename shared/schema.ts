@@ -319,6 +319,7 @@ export const suppliers = pgTable("suppliers", {
 // Expenses
 export const expenses = pgTable("expenses", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // For multi-tenant isolation
   description: text("description").notNull(),
   amount: doublePrecision("amount").notNull(),
   date: date("date").notNull(),
@@ -340,7 +341,8 @@ export const expenses = pgTable("expenses", {
 // Purchase Orders
 export const purchaseOrders = pgTable("purchase_orders", {
   id: serial("id").primaryKey(),
-  poNumber: text("po_number").notNull().unique(), // Purchase order number
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // For multi-tenant isolation
+  poNumber: text("po_number").notNull(), // Purchase order number
   supplierId: integer("supplier_id").references(() => suppliers.id).notNull(),
   projectId: integer("project_id").references(() => projects.id), // Optional link to a project
   issueDate: date("issue_date").notNull(),
@@ -363,7 +365,10 @@ export const purchaseOrders = pgTable("purchase_orders", {
   invoiceNumber: text("invoice_number"), // Invoice number from supplier
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => users.id),
-});
+}, (purchaseOrders) => ({
+  // Create a unique constraint for PO number within each tenant
+  uniquePoNumberInTenant: uniqueIndex("po_number_tenant_unique").on(purchaseOrders.poNumber, purchaseOrders.tenantId),
+}));
 
 // Inventory Items
 export const inventoryItems = pgTable("inventory_items", {
@@ -427,6 +432,7 @@ export const fileAttachments = pgTable("file_attachments", {
   relatedId: integer("related_id"), // ID of related entity (project, quote, invoice, etc.)
   relatedType: text("related_type"), // Type of related entity (project, quote, invoice, etc.)
   uploadedBy: integer("uploaded_by").references(() => users.id),
+  tenantId: integer("tenant_id").references(() => tenants.id), // Tenant ID for multi-tenant isolation
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -661,6 +667,7 @@ export const insertPurchaseOrderSchema = createInsertSchema(purchaseOrders, {
   terms: z.string().nullable().optional(),
   shippingMethod: z.string().nullable().optional(),
   deliveryAddress: z.string().nullable().optional(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
   // Items will be handled separately
   items: z.array(z.object({
@@ -697,6 +704,8 @@ export const insertInventoryTransactionSchema = createInsertSchema(inventoryTran
 export const insertFileAttachmentSchema = createInsertSchema(fileAttachments).omit({
   id: true,
   createdAt: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 });
 
 export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omit({

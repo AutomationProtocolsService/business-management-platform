@@ -57,7 +57,7 @@ import createMemoryStore from "memorystore";
 import connectPg from "connect-pg-simple";
 import { db } from "./db";
 import { client } from "./db"; // Import postgres client for session store
-import { eq, and, asc, desc, between, isNotNull, sql } from "drizzle-orm";
+import { eq, and, asc, desc, between, isNotNull, sql, like } from "drizzle-orm";
 
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
@@ -2935,18 +2935,58 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getPurchaseOrderByNumber(poNumber: string): Promise<PurchaseOrder | undefined> {
+  async getPurchaseOrderByNumber(poNumber: string, filter?: TenantFilter): Promise<PurchaseOrder | undefined> {
+    const conditions = [eq(schema.purchaseOrders.poNumber, poNumber)];
+    
+    // Add tenant filter if specified
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.purchaseOrders.tenantId, filter.tenantId));
+    }
+    
     const result = await db.query.purchaseOrders.findFirst({
-      where: eq(schema.purchaseOrders.poNumber, poNumber)
+      where: and(...conditions)
     });
     return result;
   }
 
   async createPurchaseOrder(po: InsertPurchaseOrder): Promise<PurchaseOrder> {
+    // Generate a unique PO number within the tenant
+    // Format: PO-{TENANT_ID}-{YEAR}-{SEQUENCE}
+    const date = new Date();
+    const year = date.getFullYear();
+    
+    // Get the highest existing PO number for this tenant and year
+    const latestPOs = await db.query.purchaseOrders.findMany({
+      where: and(
+        eq(schema.purchaseOrders.tenantId, po.tenantId),
+        like(schema.purchaseOrders.poNumber, `PO-${po.tenantId}-${year}-%`)
+      ),
+      orderBy: [desc(schema.purchaseOrders.poNumber)],
+      limit: 1
+    });
+    
+    let sequence = 1;
+    if (latestPOs.length > 0) {
+      const latestPO = latestPOs[0];
+      const parts = latestPO.poNumber.split('-');
+      if (parts.length === 4) {
+        const currentSequence = parseInt(parts[3], 10);
+        if (!isNaN(currentSequence)) {
+          sequence = currentSequence + 1;
+        }
+      }
+    }
+    
+    // Create the PO number
+    const poNumber = `PO-${po.tenantId}-${year}-${sequence.toString().padStart(4, '0')}`;
+    
+    // Insert the PO with the generated number
     const result = await db.insert(schema.purchaseOrders).values({
       ...po,
+      poNumber,
       createdAt: new Date()
     }).returning();
+    
     return result[0];
   }
 
@@ -2965,25 +3005,48 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllPurchaseOrders(): Promise<PurchaseOrder[]> {
+  async getAllPurchaseOrders(filter?: TenantFilter): Promise<PurchaseOrder[]> {
+    if (filter?.tenantId) {
+      return await db.query.purchaseOrders.findMany({
+        where: eq(schema.purchaseOrders.tenantId, filter.tenantId)
+      });
+    }
     return await db.query.purchaseOrders.findMany();
   }
 
-  async getPurchaseOrdersByProject(projectId: number): Promise<PurchaseOrder[]> {
+  async getPurchaseOrdersByProject(projectId: number, filter?: TenantFilter): Promise<PurchaseOrder[]> {
+    const conditions = [eq(schema.purchaseOrders.projectId, projectId)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.purchaseOrders.tenantId, filter.tenantId));
+    }
+    
     return await db.query.purchaseOrders.findMany({
-      where: eq(schema.purchaseOrders.projectId, projectId)
+      where: and(...conditions)
     });
   }
 
-  async getPurchaseOrdersBySupplier(supplierId: number): Promise<PurchaseOrder[]> {
+  async getPurchaseOrdersBySupplier(supplierId: number, filter?: TenantFilter): Promise<PurchaseOrder[]> {
+    const conditions = [eq(schema.purchaseOrders.supplierId, supplierId)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.purchaseOrders.tenantId, filter.tenantId));
+    }
+    
     return await db.query.purchaseOrders.findMany({
-      where: eq(schema.purchaseOrders.supplierId, supplierId)
+      where: and(...conditions)
     });
   }
 
-  async getPurchaseOrdersByStatus(status: string): Promise<PurchaseOrder[]> {
+  async getPurchaseOrdersByStatus(status: string, filter?: TenantFilter): Promise<PurchaseOrder[]> {
+    const conditions = [eq(schema.purchaseOrders.status, status)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.purchaseOrders.tenantId, filter.tenantId));
+    }
+    
     return await db.query.purchaseOrders.findMany({
-      where: eq(schema.purchaseOrders.status, status)
+      where: and(...conditions)
     });
   }
 
@@ -3031,16 +3094,28 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Inventory Item methods
-  async getInventoryItem(id: number): Promise<InventoryItem | undefined> {
+  async getInventoryItem(id: number, filter?: TenantFilter): Promise<InventoryItem | undefined> {
+    const conditions = [eq(schema.inventoryItems.id, id)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     const result = await db.query.inventoryItems.findFirst({
-      where: eq(schema.inventoryItems.id, id)
+      where: and(...conditions)
     });
     return result;
   }
 
-  async getInventoryItemBySku(sku: string): Promise<InventoryItem | undefined> {
+  async getInventoryItemBySku(sku: string, filter?: TenantFilter): Promise<InventoryItem | undefined> {
+    const conditions = [eq(schema.inventoryItems.sku, sku)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     const result = await db.query.inventoryItems.findFirst({
-      where: eq(schema.inventoryItems.sku, sku)
+      where: and(...conditions)
     });
     return result;
   }
@@ -3053,45 +3128,115 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateInventoryItem(id: number, itemData: Partial<InventoryItem>): Promise<InventoryItem | undefined> {
+  async updateInventoryItem(id: number, itemData: Partial<InventoryItem>, filter?: TenantFilter): Promise<InventoryItem | undefined> {
+    const conditions = [eq(schema.inventoryItems.id, id)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     const result = await db.update(schema.inventoryItems)
       .set(itemData)
-      .where(eq(schema.inventoryItems.id, id))
+      .where(and(...conditions))
       .returning();
     return result[0];
   }
 
-  async deleteInventoryItem(id: number): Promise<boolean> {
+  async deleteInventoryItem(id: number, filter?: TenantFilter): Promise<boolean> {
+    const conditions = [eq(schema.inventoryItems.id, id)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     const result = await db.delete(schema.inventoryItems)
-      .where(eq(schema.inventoryItems.id, id))
+      .where(and(...conditions))
       .returning();
     return result.length > 0;
   }
 
-  async getAllInventoryItems(): Promise<InventoryItem[]> {
+  async getAllInventoryItems(filter?: TenantFilter): Promise<InventoryItem[]> {
+    if (filter?.tenantId) {
+      return await db.query.inventoryItems.findMany({
+        where: eq(schema.inventoryItems.tenantId, filter.tenantId)
+      });
+    }
     return await db.query.inventoryItems.findMany();
   }
 
-  async getInventoryItemsByCategory(category: string): Promise<InventoryItem[]> {
+  async getInventoryItemsByCategory(category: string, filter?: TenantFilter): Promise<InventoryItem[]> {
+    const conditions = [eq(schema.inventoryItems.category, category)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     return await db.query.inventoryItems.findMany({
-      where: eq(schema.inventoryItems.category, category)
+      where: and(...conditions)
     });
   }
 
-  async getInventoryItemsBySupplier(supplierId: number): Promise<InventoryItem[]> {
+  async getInventoryItemsBySupplier(supplierId: number, filter?: TenantFilter): Promise<InventoryItem[]> {
+    const conditions = [eq(schema.inventoryItems.preferredSupplierId, supplierId)];
+    
+    if (filter?.tenantId) {
+      conditions.push(eq(schema.inventoryItems.tenantId, filter.tenantId));
+    }
+    
     return await db.query.inventoryItems.findMany({
-      where: eq(schema.inventoryItems.preferredSupplierId, supplierId)
+      where: and(...conditions)
     });
   }
 
-  async getLowStockItems(): Promise<InventoryItem[]> {
+  async getLowStockItems(filter?: TenantFilter): Promise<InventoryItem[]> {
+    const stockCondition = sql`${schema.inventoryItems.currentStock} <= ${schema.inventoryItems.reorderPoint}`;
+    
+    if (filter?.tenantId) {
+      const tenantCondition = eq(schema.inventoryItems.tenantId, filter.tenantId);
+      return await db.query.inventoryItems.findMany({
+        where: and(stockCondition, tenantCondition)
+      });
+    }
+    
     return await db.query.inventoryItems.findMany({
-      where: sql`${schema.inventoryItems.currentStock} <= ${schema.inventoryItems.reorderPoint}`
+      where: stockCondition
     });
   }
 
   // Inventory Transaction methods
-  async getInventoryTransaction(id: number): Promise<InventoryTransaction | undefined> {
+  async getInventoryTransaction(id: number, filter?: TenantFilter): Promise<InventoryTransaction | undefined> {
+    // For inventory transactions, we need to link through either the inventory item or purchase order to get tenant context
+    if (filter?.tenantId) {
+      // Get the transaction first
+      const transaction = await db.query.inventoryTransactions.findFirst({
+        where: eq(schema.inventoryTransactions.id, id)
+      });
+      
+      if (!transaction) return undefined;
+      
+      // If it's linked to an inventory item, check that the item belongs to the tenant
+      if (transaction.inventoryItemId) {
+        const item = await this.getInventoryItem(transaction.inventoryItemId, filter);
+        if (!item) return undefined; // Item doesn't exist or doesn't belong to tenant
+      }
+      
+      // If it's linked to a purchase order, check that the PO belongs to the tenant
+      if (transaction.purchaseOrderId) {
+        const po = await this.getPurchaseOrder(transaction.purchaseOrderId, filter);
+        if (!po) return undefined; // PO doesn't exist or doesn't belong to tenant
+      }
+      
+      // If it's linked to a project, check that the project belongs to the tenant
+      if (transaction.projectId) {
+        const project = await this.getProject(transaction.projectId, filter);
+        if (!project) return undefined; // Project doesn't exist or doesn't belong to tenant
+      }
+      
+      // If we got here, the transaction belongs to the tenant's context
+      return transaction;
+    }
+    
+    // No tenant filtering, just get the transaction
     const result = await db.query.inventoryTransactions.findFirst({
       where: eq(schema.inventoryTransactions.id, id)
     });
@@ -3106,7 +3251,11 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateInventoryTransaction(id: number, transactionData: Partial<InventoryTransaction>): Promise<InventoryTransaction | undefined> {
+  async updateInventoryTransaction(id: number, transactionData: Partial<InventoryTransaction>, filter?: TenantFilter): Promise<InventoryTransaction | undefined> {
+    // First check if the transaction belongs to the tenant
+    const existingTransaction = await this.getInventoryTransaction(id, filter);
+    if (!existingTransaction) return undefined; // Not found or not in tenant's context
+    
     const result = await db.update(schema.inventoryTransactions)
       .set(transactionData)
       .where(eq(schema.inventoryTransactions.id, id))
@@ -3114,38 +3263,106 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async deleteInventoryTransaction(id: number): Promise<boolean> {
+  async deleteInventoryTransaction(id: number, filter?: TenantFilter): Promise<boolean> {
+    // First check if the transaction belongs to the tenant
+    const existingTransaction = await this.getInventoryTransaction(id, filter);
+    if (!existingTransaction) return false; // Not found or not in tenant's context
+    
     const result = await db.delete(schema.inventoryTransactions)
       .where(eq(schema.inventoryTransactions.id, id))
       .returning();
     return result.length > 0;
   }
 
-  async getInventoryTransactionsByItem(inventoryItemId: number): Promise<InventoryTransaction[]> {
+  async getInventoryTransactionsByItem(inventoryItemId: number, filter?: TenantFilter): Promise<InventoryTransaction[]> {
+    // First verify the inventory item belongs to the tenant
+    if (filter?.tenantId) {
+      const item = await this.getInventoryItem(inventoryItemId, filter);
+      if (!item) return []; // Item doesn't exist or doesn't belong to tenant
+    }
+    
     return await db.query.inventoryTransactions.findMany({
       where: eq(schema.inventoryTransactions.inventoryItemId, inventoryItemId)
     });
   }
 
-  async getInventoryTransactionsByProject(projectId: number): Promise<InventoryTransaction[]> {
+  async getInventoryTransactionsByProject(projectId: number, filter?: TenantFilter): Promise<InventoryTransaction[]> {
+    // First verify the project belongs to the tenant
+    if (filter?.tenantId) {
+      const project = await this.getProject(projectId, filter);
+      if (!project) return []; // Project doesn't exist or doesn't belong to tenant
+    }
+    
     return await db.query.inventoryTransactions.findMany({
       where: eq(schema.inventoryTransactions.projectId, projectId)
     });
   }
 
-  async getInventoryTransactionsByPO(purchaseOrderId: number): Promise<InventoryTransaction[]> {
+  async getInventoryTransactionsByPO(purchaseOrderId: number, filter?: TenantFilter): Promise<InventoryTransaction[]> {
+    // First verify the purchase order belongs to the tenant
+    if (filter?.tenantId) {
+      const po = await this.getPurchaseOrder(purchaseOrderId, filter);
+      if (!po) return []; // PO doesn't exist or doesn't belong to tenant
+    }
+    
     return await db.query.inventoryTransactions.findMany({
       where: eq(schema.inventoryTransactions.purchaseOrderId, purchaseOrderId)
     });
   }
 
-  async getInventoryTransactionsByType(type: string): Promise<InventoryTransaction[]> {
+  async getInventoryTransactionsByType(type: string, filter?: TenantFilter): Promise<InventoryTransaction[]> {
+    if (filter?.tenantId) {
+      // For type filtering with tenant context, we need to:
+      // 1. Get all transactions of this type
+      const allTransactions = await db.query.inventoryTransactions.findMany({
+        where: eq(schema.inventoryTransactions.transactionType, type)
+      });
+      
+      // 2. Filter the transactions to those associated with the tenant's items, POs, or projects
+      const filteredTransactions: InventoryTransaction[] = [];
+      
+      for (const transaction of allTransactions) {
+        let belongsToTenant = false;
+        
+        // Check inventory item association
+        if (transaction.inventoryItemId) {
+          const item = await this.getInventoryItem(transaction.inventoryItemId, filter);
+          if (item) {
+            belongsToTenant = true;
+          }
+        }
+        
+        // Check purchase order association
+        if (!belongsToTenant && transaction.purchaseOrderId) {
+          const po = await this.getPurchaseOrder(transaction.purchaseOrderId, filter);
+          if (po) {
+            belongsToTenant = true;
+          }
+        }
+        
+        // Check project association
+        if (!belongsToTenant && transaction.projectId) {
+          const project = await this.getProject(transaction.projectId, filter);
+          if (project) {
+            belongsToTenant = true;
+          }
+        }
+        
+        if (belongsToTenant) {
+          filteredTransactions.push(transaction);
+        }
+      }
+      
+      return filteredTransactions;
+    }
+    
+    // No tenant filtering
     return await db.query.inventoryTransactions.findMany({
       where: eq(schema.inventoryTransactions.transactionType, type)
     });
   }
 
-  async getInventoryTransactionsByDateRange(startDate: Date, endDate: Date): Promise<InventoryTransaction[]> {
+  async getInventoryTransactionsByDateRange(startDate: Date, endDate: Date, filter?: TenantFilter): Promise<InventoryTransaction[]> {
     // Convert dates to ISO strings to avoid Date object serialization issues
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
@@ -3157,6 +3374,47 @@ export class DatabaseStorage implements IStorage {
       const result = await db.query.inventoryTransactions.findMany({
         where: sql`${schema.inventoryTransactions.transactionDate} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
       });
+      
+      // Filter by tenant if specified
+      if (filter?.tenantId) {
+        const filteredTransactions: InventoryTransaction[] = [];
+        
+        for (const transaction of result) {
+          let belongsToTenant = false;
+          
+          // Check inventory item association
+          if (transaction.inventoryItemId) {
+            const item = await this.getInventoryItem(transaction.inventoryItemId, filter);
+            if (item) {
+              belongsToTenant = true;
+            }
+          }
+          
+          // Check purchase order association
+          if (!belongsToTenant && transaction.purchaseOrderId) {
+            const po = await this.getPurchaseOrder(transaction.purchaseOrderId, filter);
+            if (po) {
+              belongsToTenant = true;
+            }
+          }
+          
+          // Check project association
+          if (!belongsToTenant && transaction.projectId) {
+            const project = await this.getProject(transaction.projectId, filter);
+            if (project) {
+              belongsToTenant = true;
+            }
+          }
+          
+          if (belongsToTenant) {
+            filteredTransactions.push(transaction);
+          }
+        }
+        
+        console.log(`Found ${filteredTransactions.length} tenant-specific inventory transactions in date range`);
+        return filteredTransactions;
+      }
+      
       console.log(`Found ${result.length} inventory transactions in date range`);
       return result;
     } catch (error) {
@@ -3167,35 +3425,167 @@ export class DatabaseStorage implements IStorage {
   }
 
   // File Attachment methods
-  async getFileAttachment(id: number): Promise<FileAttachment | undefined> {
-    const result = await db.query.fileAttachments.findFirst({
-      where: eq(schema.fileAttachments.id, id)
+  async getFileAttachment(id: number, filter?: TenantFilter): Promise<FileAttachment | undefined> {
+    // For file attachments, we directly filter by tenant ID when provided
+    const query = filter?.tenantId 
+      ? and(
+          eq(schema.fileAttachments.id, id),
+          eq(schema.fileAttachments.tenantId, filter.tenantId)
+        )
+      : eq(schema.fileAttachments.id, id);
+      
+    const attachment = await db.query.fileAttachments.findFirst({
+      where: query
     });
-    return result;
+    
+    if (!attachment) return undefined;
+    
+    // Additional security check: if tenant filtering is needed and there's a related entity,
+    // verify that the related entity also belongs to the same tenant
+    if (filter?.tenantId && attachment.relatedType && attachment.relatedId) {
+      // Get the related entity based on type to verify tenant ownership
+      const belongsToTenant = await this.verifyRelatedEntityBelongsToTenant(
+        attachment.relatedType,
+        attachment.relatedId,
+        filter.tenantId
+      );
+      
+      if (!belongsToTenant) return undefined; // Not belonging to tenant
+    }
+    
+    return attachment;
   }
 
-  async createFileAttachment(file: InsertFileAttachment): Promise<FileAttachment> {
-    const result = await db.insert(schema.fileAttachments).values({
+  async createFileAttachment(file: InsertFileAttachment, filter?: TenantFilter): Promise<FileAttachment> {
+    // Ensure tenant ID is set when creating a file attachment
+    const fileData = {
       ...file,
-      createdAt: new Date()
-    }).returning();
+      createdAt: new Date(),
+      // If tenant filter is provided, use it as the tenant ID
+      // This ensures every file has proper tenant association
+      ...(filter?.tenantId && { tenantId: filter.tenantId })
+    };
+    
+    const result = await db.insert(schema.fileAttachments)
+      .values(fileData)
+      .returning();
+      
     return result[0];
   }
 
-  async deleteFileAttachment(id: number): Promise<boolean> {
+  async deleteFileAttachment(id: number, filter?: TenantFilter): Promise<boolean> {
+    // First verify that the attachment belongs to the tenant
+    const attachment = await this.getFileAttachment(id, filter);
+    if (!attachment) return false; // Not found or doesn't belong to tenant
+    
     const result = await db.delete(schema.fileAttachments)
       .where(eq(schema.fileAttachments.id, id))
       .returning();
     return result.length > 0;
   }
 
-  async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number): Promise<FileAttachment[]> {
+  async getFileAttachmentsByRelatedEntity(relatedType: string, relatedId: number, filter?: TenantFilter): Promise<FileAttachment[]> {
+    // If tenant filtering is needed, first verify the related entity belongs to the tenant
+    if (filter?.tenantId) {
+      const belongsToTenant = await this.verifyRelatedEntityBelongsToTenant(
+        relatedType,
+        relatedId,
+        filter.tenantId
+      );
+      
+      if (!belongsToTenant) return []; // Not belonging to tenant
+      
+      // Filter by both relationship and tenant ID for increased security
+      return await db.query.fileAttachments.findMany({
+        where: and(
+          eq(schema.fileAttachments.relatedType, relatedType),
+          eq(schema.fileAttachments.relatedId, relatedId),
+          eq(schema.fileAttachments.tenantId, filter.tenantId)
+        )
+      });
+    }
+    
+    // No tenant filtering, return all matching files
     return await db.query.fileAttachments.findMany({
       where: and(
         eq(schema.fileAttachments.relatedType, relatedType),
         eq(schema.fileAttachments.relatedId, relatedId)
       )
     });
+  }
+  
+  // Helper method to verify if a related entity belongs to a tenant
+  async verifyRelatedEntityBelongsToTenant(
+    relatedType: string,
+    relatedId: number,
+    tenantId: number
+  ): Promise<boolean> {
+    switch (relatedType.toLowerCase()) {
+      case 'customer':
+        const customer = await this.getCustomer(relatedId, { tenantId });
+        return !!customer;
+        
+      case 'project':
+        const project = await this.getProject(relatedId, { tenantId });
+        return !!project;
+        
+      case 'quote':
+        const quote = await this.getQuote(relatedId, { tenantId });
+        return !!quote;
+        
+      case 'invoice':
+        const invoice = await this.getInvoice(relatedId, { tenantId });
+        return !!invoice;
+        
+      case 'employee':
+        const employee = await this.getEmployee(relatedId, { tenantId });
+        return !!employee;
+        
+      case 'timesheet':
+        const timesheet = await this.getTimesheet(relatedId, { tenantId });
+        return !!timesheet;
+        
+      case 'survey':
+        const survey = await this.getSurvey(relatedId, { tenantId });
+        return !!survey;
+        
+      case 'installation':
+        const installation = await this.getInstallation(relatedId, { tenantId });
+        return !!installation;
+        
+      case 'tasklist':
+        const taskList = await this.getTaskList(relatedId, { tenantId });
+        return !!taskList;
+        
+      case 'task':
+        const task = await this.getTask(relatedId, { tenantId });
+        return !!task;
+        
+      case 'catalogitem':
+        const catalogItem = await this.getCatalogItem(relatedId, { tenantId });
+        return !!catalogItem;
+        
+      case 'supplier':
+        const supplier = await this.getSupplier(relatedId, { tenantId });
+        return !!supplier;
+        
+      case 'expense':
+        const expense = await this.getExpense(relatedId, { tenantId });
+        return !!expense;
+        
+      case 'purchaseorder':
+        const purchaseOrder = await this.getPurchaseOrder(relatedId, { tenantId });
+        return !!purchaseOrder;
+        
+      case 'inventoryitem':
+        const inventoryItem = await this.getInventoryItem(relatedId, { tenantId });
+        return !!inventoryItem;
+        
+      default:
+        // For unknown entity types, return false as we can't verify ownership
+        console.warn(`Unknown related entity type: ${relatedType} for tenant verification`);
+        return false;
+    }
   }
 
   // User Invitation methods
