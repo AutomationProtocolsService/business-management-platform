@@ -15,6 +15,7 @@ import bcrypt from "bcrypt";
 import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
 import { User } from "@shared/types";
 import { registerDocumentRoutes } from "./routes/document-routes";
+import { registerReportingRoutes } from "./routes/reporting-routes";
 import { 
   insertCustomerSchema, 
   insertProjectSchema, 
@@ -293,6 +294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Register document routes for PDF generation and email sharing
   registerDocumentRoutes(app);
+  
+  // Register reporting routes for business analytics
+  registerReportingRoutes(app);
 
   // Customer routes
   app.get("/api/customers", requireAuth, async (req, res) => {
