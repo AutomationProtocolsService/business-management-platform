@@ -42,6 +42,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Apply tenant filter middleware for multi-tenant data isolation
   app.use(tenantMiddleware);
   
+  // Tenant information endpoint
+  app.get("/api/tenant", (req: Request, res: Response) => {
+    if (!req.isAuthenticated()) {
+      return res.status(401).json({ success: false, message: "Not authenticated" });
+    }
+    
+    if (!req.tenant) {
+      return res.status(404).json({ success: false, message: "Tenant not found" });
+    }
+    
+    return res.json({ success: true, tenant: req.tenant });
+  });
+  
   // Register document routes for PDF generation and email sharing
   registerDocumentRoutes(app);
 

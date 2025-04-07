@@ -30,7 +30,9 @@ export const registerDocumentRoutes = (app: Express) => {
       console.log(`[PDF Route] Starting PDF generation for quote ID: ${quoteId}`);
       
       // Fetch the quote with tenant filtering
-      const quote = await storage.getQuote(quoteId, req.tenantId);
+      // Get the tenant ID from the tenant filter middleware
+      const tenantId = req.tenantFilter?.tenantId;
+      const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
         console.log(`[PDF Route] Quote not found with ID: ${quoteId}`);
@@ -38,7 +40,7 @@ export const registerDocumentRoutes = (app: Express) => {
       }
       
       // Check if user has access to this resource (double-checking)
-      if (!req.isTenantResource(quote.tenantId)) {
+      if (req.isTenantResource && !req.isTenantResource(quote.tenantId)) {
         console.log(`[PDF Route] Access denied for user to Quote ID: ${quoteId}`);
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -62,7 +64,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${quote.customerId}`);
-          customer = await storage.getCustomer(quote.customerId, req.tenantId);
+          const tenantId = req.tenantFilter?.tenantId;
+          customer = await storage.getCustomer(quote.customerId, tenantId);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -79,7 +82,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${quote.projectId}`);
-          project = await storage.getProject(quote.projectId, req.tenantId);
+          const tenantId = req.tenantFilter?.tenantId;
+          project = await storage.getProject(quote.projectId, tenantId);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -137,15 +141,16 @@ export const registerDocumentRoutes = (app: Express) => {
         return res.status(400).json({ message: 'Recipient email is required' });
       }
       
-      // Get quote with items
-      const quote = await storage.getQuote(quoteId);
+      // Get quote with items - using tenant filtering
+      const tenantId = req.tenantFilter?.tenantId;
+      const quote = await storage.getQuote(quoteId, tenantId);
       if (!quote) {
         console.log(`[Email Route] Error: Quote not found with ID: ${quoteId}`);
         return res.status(404).json({ message: 'Quote not found' });
       }
       
       // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+      if (req.isTenantResource && !req.isTenantResource(quote.tenantId)) {
         console.log(`[Email Route] Error: Access denied for user to Quote ID: ${quoteId}`);
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -161,7 +166,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.customerId) {
         try {
           console.log(`[Email Route] Fetching customer with ID: ${quote.customerId}`);
-          customer = await storage.getCustomer(quote.customerId);
+          const tenantId = req.tenantFilter?.tenantId;
+          customer = await storage.getCustomer(quote.customerId, tenantId);
           if (customer) {
             console.log(`[Email Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -178,7 +184,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (quote.projectId) {
         try {
           console.log(`[Email Route] Fetching project with ID: ${quote.projectId}`);
-          project = await storage.getProject(quote.projectId);
+          const tenantId = req.tenantFilter?.tenantId;
+          project = await storage.getProject(quote.projectId, tenantId);
           if (project) {
             console.log(`[Email Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -246,8 +253,9 @@ export const registerDocumentRoutes = (app: Express) => {
       
       console.log(`[PDF Route] Starting PDF generation for invoice ID: ${invoiceId}`);
       
-      // Fetch the invoice
-      const invoice = await storage.getInvoice(invoiceId);
+      // Fetch the invoice - using tenant filtering
+      const tenantId = req.tenantFilter?.tenantId;
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       
       if (!invoice) {
         console.log(`[PDF Route] Invoice not found with ID: ${invoiceId}`);
@@ -255,7 +263,7 @@ export const registerDocumentRoutes = (app: Express) => {
       }
       
       // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+      if (req.isTenantResource && !req.isTenantResource(invoice.tenantId)) {
         console.log(`[PDF Route] Access denied for user to Invoice ID: ${invoiceId}`);
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -279,7 +287,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${invoice.customerId}`);
-          customer = await storage.getCustomer(invoice.customerId);
+          const tenantId = req.tenantFilter?.tenantId;
+          customer = await storage.getCustomer(invoice.customerId, tenantId);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -296,7 +305,8 @@ export const registerDocumentRoutes = (app: Express) => {
       if (invoice.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${invoice.projectId}`);
-          project = await storage.getProject(invoice.projectId);
+          const tenantId = req.tenantFilter?.tenantId;
+          project = await storage.getProject(invoice.projectId, tenantId);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -354,15 +364,16 @@ export const registerDocumentRoutes = (app: Express) => {
         return res.status(400).json({ message: 'Recipient email is required' });
       }
       
-      // Get invoice with items
-      const invoice = await storage.getInvoice(invoiceId);
+      // Get invoice with items - using tenant filtering
+      const tenantId = req.tenantFilter?.tenantId;
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
       if (!invoice) {
         console.log(`[Email Route] Error: Invoice not found with ID: ${invoiceId}`);
         return res.status(404).json({ message: 'Invoice not found' });
       }
       
       // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(invoice.createdBy)) {
+      if (req.isTenantResource && !req.isTenantResource(invoice.tenantId)) {
         console.log(`[Email Route] Error: Access denied for user to Invoice ID: ${invoiceId}`);
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -374,11 +385,12 @@ export const registerDocumentRoutes = (app: Express) => {
       let customer = null;
       let project = null;
       
-      // Fetch customer if we have a customer ID
+      // Fetch customer if we have a customer ID - using tenant filtering
       if (invoice.customerId) {
         try {
           console.log(`[Email Route] Fetching customer with ID: ${invoice.customerId}`);
-          customer = await storage.getCustomer(invoice.customerId);
+          const tenantId = req.tenantFilter?.tenantId;
+          customer = await storage.getCustomer(invoice.customerId, tenantId);
           if (customer) {
             console.log(`[Email Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -391,11 +403,12 @@ export const registerDocumentRoutes = (app: Express) => {
         console.log(`[Email Route] No customer ID on invoice`);
       }
       
-      // Fetch project if we have a project ID
+      // Fetch project if we have a project ID - using tenant filtering
       if (invoice.projectId) {
         try {
           console.log(`[Email Route] Fetching project with ID: ${invoice.projectId}`);
-          project = await storage.getProject(invoice.projectId);
+          const tenantId = req.tenantFilter?.tenantId;
+          project = await storage.getProject(invoice.projectId, tenantId);
           if (project) {
             console.log(`[Email Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
@@ -455,14 +468,15 @@ export const registerDocumentRoutes = (app: Express) => {
     try {
       const poId = Number(req.params.id);
       
-      // Get PO with items
-      const purchaseOrder = await storage.getPurchaseOrder(poId);
+      // Get PO with items - using tenant filtering
+      const tenantId = req.tenantFilter?.tenantId;
+      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantId);
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
       
       // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.createdBy)) {
+      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.tenantId)) {
         return res.status(403).json({ message: 'Access denied' });
       }
       
@@ -496,14 +510,15 @@ export const registerDocumentRoutes = (app: Express) => {
         return res.status(400).json({ message: 'Recipient email is required' });
       }
       
-      // Get PO with items
-      const purchaseOrder = await storage.getPurchaseOrder(poId);
+      // Get PO with items - using tenant filtering
+      const tenantId = req.tenantFilter?.tenantId;
+      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantId);
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
       
       // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.createdBy)) {
+      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.tenantId)) {
         return res.status(403).json({ message: 'Access denied' });
       }
       

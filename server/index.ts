@@ -49,13 +49,22 @@ app.use((req, res, next) => {
     // Continue starting the server even if migrations fail
   }
   
+  // Set up Vite first for development or static file serving
+  // This ensures all frontend routes work before any API middleware
+  const server = await registerRoutes(app);
+  
+  if (app.get("env") === "development") {
+    await setupVite(app, server);
+  } else {
+    serveStatic(app);
+  }
+  
   // Initialize authentication system
   setupAuth(app);
   
-  // Apply tenant middleware
-  app.use(tenantMiddleware);
-  
-  const server = await registerRoutes(app);
+  // Apply tenant middleware only to API routes
+  // This prevents the middleware from interfering with frontend resources
+  app.use('/api', tenantMiddleware);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -64,15 +73,6 @@ app.use((req, res, next) => {
     res.status(status).json({ message });
     throw err;
   });
-
-  // importantly only setup vite in development and after
-  // setting up all the other routes so the catch-all route
-  // doesn't interfere with the other routes
-  if (app.get("env") === "development") {
-    await setupVite(app, server);
-  } else {
-    serveStatic(app);
-  }
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.

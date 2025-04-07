@@ -30,6 +30,7 @@ import HelpPage from "@/pages/help-page";
 import EmailTestPage from "@/pages/email-test-page";
 import LoginTest from "@/pages/login-test";
 import { AuthProvider } from "@/hooks/use-auth";
+import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
 import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
@@ -119,14 +120,16 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <SettingsProvider>
-          <NotificationsProvider>
-            <AppLayout>
-              <Router />
-            </AppLayout>
-            <Toaster />
-          </NotificationsProvider>
-        </SettingsProvider>
+        <TenantProvider>
+          <SettingsProvider>
+            <NotificationsProvider>
+              <AppLayout>
+                <Router />
+              </AppLayout>
+              <Toaster />
+            </NotificationsProvider>
+          </SettingsProvider>
+        </TenantProvider>
       </AuthProvider>
     </QueryClientProvider>
   );
