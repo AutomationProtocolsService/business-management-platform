@@ -13,6 +13,24 @@ export interface User {
   lastLogin: Date | null;
 }
 
+export interface Customer {
+  id: number;
+  tenantId: number;
+  name: string;
+  email?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  country?: string;
+  notes?: string;
+  status?: string;
+  createdAt: Date;
+  createdBy?: number;
+  updatedAt?: Date;
+}
+
 export interface TenantFilter {
   tenantId: number;
 }

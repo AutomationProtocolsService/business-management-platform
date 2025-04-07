@@ -3297,6 +3297,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Test endpoint for execQuery method
+  app.get("/api/test/exec-query", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      // Execute a raw SQL query with proper tenant isolation
+      const result = await storage.execQuery(
+        'SELECT * FROM customers WHERE tenant_id = $1 ORDER BY name',
+        [tenantId]
+      );
+      
+      // Get all tenants
+      const tenants = await storage.execQuery('SELECT * FROM tenants');
+      
+      return res.json({
+        message: 'Raw SQL query executed successfully',
+        tenantId: tenantId,
+        customers: result,
+        tenants: tenants
+      });
+    } catch (error) {
+      console.error("Error in execQuery test:", error);
+      res.status(500).json({ message: "Failed to execute raw SQL query test" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // Initialize WebSocket server
