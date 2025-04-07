@@ -1,11 +1,29 @@
-import { createContext, ReactNode, useContext } from "react";
-import { useQuery, UseQueryOptions } from "@tanstack/react-query";
+import { createContext, ReactNode, useContext, useState, useEffect } from "react";
 import { Tenant as SelectTenant } from "@shared/schema";
-import { getQueryFn } from "../lib/queryClient";
-import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "../lib/queryClient";
+
+// Define the expected tenant type explicitly
+interface Tenant {
+  id: number;
+  name: string;
+  subdomain: string;
+  status: string | null;
+  active: boolean;
+  companyName: string | null;
+  contactEmail: string | null;
+  contactPhone: string | null;
+  logoUrl: string | null;
+  address: string | null;
+  city: string | null;
+  state: string | null;
+  postalCode: string | null;
+  country: string | null;
+  taxId: string | null;
+  settings: Record<string, any> | null;
+}
 
 interface TenantContextType {
-  tenant: SelectTenant | null;
+  tenant: Tenant | null;
   isLoading: boolean;
   error: Error | null;
 }
@@ -13,39 +31,52 @@ interface TenantContextType {
 export const TenantContext = createContext<TenantContextType | null>(null);
 
 export function TenantProvider({ children }: { children: ReactNode }) {
-  const { toast } = useToast();
-  
-  // Define query options separately to fix type issues
-  const queryOptions: UseQueryOptions<SelectTenant | null, Error> = {
-    queryKey: ["/api/tenant"],
-    queryFn: getQueryFn({ on401: "returnNull" }),
-  };
-  
-  const {
-    data: tenant,
-    error,
-    isLoading,
-  } = useQuery<SelectTenant | null, Error>(queryOptions);
+  const [tenant, setTenant] = useState<Tenant | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
 
-  // Handle errors from tenant query
-  if (error) {
-    console.error("Tenant query error:", error);
-    // Only show toast on network/server errors, not 401 unauthorized
-    if (!(error instanceof Response && error.status === 401)) {
-      toast({
-        title: "Error loading tenant information",
-        description: error.message || "Failed to load tenant data",
-        variant: "destructive",
-      });
+  useEffect(() => {
+    async function fetchTenant() {
+      try {
+        setIsLoading(true);
+        const response = await fetch("/api/tenant", { 
+          credentials: "include" 
+        });
+        
+        if (response.status === 401) {
+          setTenant(null);
+          setError(null);
+          return;
+        }
+        
+        if (!response.ok) {
+          throw new Error(`Failed to fetch tenant: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        if (data.success && data.tenant) {
+          setTenant(data.tenant as Tenant);
+        } else {
+          console.warn("Tenant data not found or invalid format", data);
+          setTenant(null);
+        }
+      } catch (err) {
+        console.error("Error fetching tenant:", err);
+        setError(err instanceof Error ? err : new Error(String(err)));
+      } finally {
+        setIsLoading(false);
+      }
     }
-  }
+    
+    fetchTenant();
+  }, []);
 
   return (
     <TenantContext.Provider
       value={{
-        tenant: tenant ?? null,
+        tenant,
         isLoading,
-        error,
+        error
       }}
     >
       {children}

@@ -97,16 +97,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
   
   // Tenant information endpoint
-  app.get("/api/tenant", (req: Request, res: Response) => {
+  app.get("/api/tenant", async (req: Request, res: Response) => {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ success: false, message: "Not authenticated" });
     }
     
-    if (!req.tenant) {
-      return res.status(404).json({ success: false, message: "Tenant not found" });
+    // Get tenant from user's tenantId if available
+    if (req.user && req.user.tenantId) {
+      const tenant = await storage.getTenant(req.user.tenantId);
+      if (tenant) {
+        return res.json({ success: true, tenant });
+      }
     }
     
-    return res.json({ success: true, tenant: req.tenant });
+    // Fallback to req.tenant if available
+    if (req.tenant) {
+      return res.json({ success: true, tenant: req.tenant });
+    }
+    
+    // If no tenant found, return 404
+    return res.status(404).json({ success: false, message: "Tenant not found" });
   });
   
   // Tenant management routes
