@@ -178,20 +178,20 @@ export interface IStorage {
   getInstallationsByDateRange(startDate: Date, endDate: Date): Promise<Installation[]>;
   
   // Task Lists
-  getTaskList(id: number): Promise<TaskList | undefined>;
+  getTaskList(id: number, tenantId?: number): Promise<TaskList | undefined>;
   createTaskList(taskList: InsertTaskList): Promise<TaskList>;
-  updateTaskList(id: number, taskList: Partial<TaskList>): Promise<TaskList | undefined>;
-  deleteTaskList(id: number): Promise<boolean>;
-  getAllTaskLists(): Promise<TaskList[]>;
-  getTaskListsByProject(projectId: number): Promise<TaskList[]>;
+  updateTaskList(id: number, taskList: Partial<TaskList>, tenantId?: number): Promise<TaskList | undefined>;
+  deleteTaskList(id: number, tenantId?: number): Promise<boolean>;
+  getAllTaskLists(filter?: TenantFilter): Promise<TaskList[]>;
+  getTaskListsByProject(projectId: number, filter?: TenantFilter): Promise<TaskList[]>;
   
   // Tasks
-  getTask(id: number): Promise<Task | undefined>;
+  getTask(id: number, tenantId?: number): Promise<Task | undefined>;
   createTask(task: InsertTask): Promise<Task>;
-  updateTask(id: number, task: Partial<Task>): Promise<Task | undefined>;
-  deleteTask(id: number): Promise<boolean>;
-  getTasksByTaskList(taskListId: number): Promise<Task[]>;
-  getTasksByAssignee(userId: number): Promise<Task[]>;
+  updateTask(id: number, task: Partial<Task>, tenantId?: number): Promise<Task | undefined>;
+  deleteTask(id: number, tenantId?: number): Promise<boolean>;
+  getTasksByTaskList(taskListId: number, filter?: TenantFilter): Promise<Task[]>;
+  getTasksByAssignee(userId: number, filter?: TenantFilter): Promise<Task[]>;
   
   // Catalog Items
   getCatalogItem(id: number, tenantId?: number): Promise<CatalogItem | undefined>;
@@ -2563,14 +2563,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Task List methods
-  async getTaskList(id: number): Promise<TaskList | undefined> {
+  async getTaskList(id: number, tenantId?: number): Promise<TaskList | undefined> {
+    let query = eq(schema.taskLists.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.taskLists.tenantId, tenantId));
+    }
+    
     const result = await db.query.taskLists.findFirst({
-      where: eq(schema.taskLists.id, id)
+      where: query
     });
     return result;
   }
 
   async createTaskList(taskList: InsertTaskList): Promise<TaskList> {
+    // Ensure tenantId is provided
+    if (!taskList.tenantId) {
+      throw new Error("Tenant ID is required when creating a task list");
+    }
+    
     const result = await db.insert(schema.taskLists).values({
       ...taskList,
       createdAt: new Date()
@@ -2578,40 +2590,82 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateTaskList(id: number, taskListData: Partial<TaskList>): Promise<TaskList | undefined> {
+  async updateTaskList(id: number, taskListData: Partial<TaskList>, tenantId?: number): Promise<TaskList | undefined> {
+    let query = eq(schema.taskLists.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.taskLists.tenantId, tenantId));
+    }
+    
     const result = await db.update(schema.taskLists)
       .set(taskListData)
-      .where(eq(schema.taskLists.id, id))
+      .where(query)
       .returning();
     return result[0];
   }
 
-  async deleteTaskList(id: number): Promise<boolean> {
+  async deleteTaskList(id: number, tenantId?: number): Promise<boolean> {
+    let query = eq(schema.taskLists.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.taskLists.tenantId, tenantId));
+    }
+    
     const result = await db.delete(schema.taskLists)
-      .where(eq(schema.taskLists.id, id))
+      .where(query)
       .returning();
     return result.length > 0;
   }
 
-  async getAllTaskLists(): Promise<TaskList[]> {
-    return await db.query.taskLists.findMany();
+  async getAllTaskLists(filter?: TenantFilter): Promise<TaskList[]> {
+    let query = undefined;
+    
+    // Apply tenant filter if provided
+    if (filter?.tenantId !== undefined) {
+      query = eq(schema.taskLists.tenantId, filter.tenantId);
+    }
+    
+    return await db.query.taskLists.findMany({
+      where: query
+    });
   }
 
-  async getTaskListsByProject(projectId: number): Promise<TaskList[]> {
+  async getTaskListsByProject(projectId: number, filter?: TenantFilter): Promise<TaskList[]> {
+    let query = eq(schema.taskLists.projectId, projectId);
+    
+    // Apply tenant filter if provided
+    if (filter?.tenantId !== undefined) {
+      query = and(query, eq(schema.taskLists.tenantId, filter.tenantId));
+    }
+    
     return await db.query.taskLists.findMany({
-      where: eq(schema.taskLists.projectId, projectId)
+      where: query
     });
   }
 
   // Task methods
-  async getTask(id: number): Promise<Task | undefined> {
+  async getTask(id: number, tenantId?: number): Promise<Task | undefined> {
+    let query = eq(schema.tasks.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.tasks.tenantId, tenantId));
+    }
+    
     const result = await db.query.tasks.findFirst({
-      where: eq(schema.tasks.id, id)
+      where: query
     });
     return result;
   }
 
   async createTask(task: InsertTask): Promise<Task> {
+    // Ensure tenantId is provided
+    if (!task.tenantId) {
+      throw new Error("Tenant ID is required when creating a task");
+    }
+    
     const result = await db.insert(schema.tasks).values({
       ...task,
       createdAt: new Date()
@@ -2619,30 +2673,58 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateTask(id: number, taskData: Partial<Task>): Promise<Task | undefined> {
+  async updateTask(id: number, taskData: Partial<Task>, tenantId?: number): Promise<Task | undefined> {
+    let query = eq(schema.tasks.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.tasks.tenantId, tenantId));
+    }
+    
     const result = await db.update(schema.tasks)
       .set(taskData)
-      .where(eq(schema.tasks.id, id))
+      .where(query)
       .returning();
     return result[0];
   }
 
-  async deleteTask(id: number): Promise<boolean> {
+  async deleteTask(id: number, tenantId?: number): Promise<boolean> {
+    let query = eq(schema.tasks.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.tasks.tenantId, tenantId));
+    }
+    
     const result = await db.delete(schema.tasks)
-      .where(eq(schema.tasks.id, id))
+      .where(query)
       .returning();
     return result.length > 0;
   }
 
-  async getTasksByTaskList(taskListId: number): Promise<Task[]> {
+  async getTasksByTaskList(taskListId: number, filter?: TenantFilter): Promise<Task[]> {
+    let query = eq(schema.tasks.taskListId, taskListId);
+    
+    // Apply tenant filter if provided
+    if (filter?.tenantId !== undefined) {
+      query = and(query, eq(schema.tasks.tenantId, filter.tenantId));
+    }
+    
     return await db.query.tasks.findMany({
-      where: eq(schema.tasks.taskListId, taskListId)
+      where: query
     });
   }
 
-  async getTasksByAssignee(userId: number): Promise<Task[]> {
+  async getTasksByAssignee(userId: number, filter?: TenantFilter): Promise<Task[]> {
+    let query = eq(schema.tasks.assignedTo, userId);
+    
+    // Apply tenant filter if provided
+    if (filter?.tenantId !== undefined) {
+      query = and(query, eq(schema.tasks.tenantId, filter.tenantId));
+    }
+    
     return await db.query.tasks.findMany({
-      where: eq(schema.tasks.assignedTo, userId)
+      where: query
     });
   }
 

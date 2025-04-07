@@ -205,6 +205,7 @@ export const timesheets = pgTable("timesheets", {
 // Surveys
 export const surveys = pgTable("surveys", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   projectId: integer("project_id").references(() => projects.id).notNull(),
   quoteId: integer("quote_id").references(() => quotes.id), // Link to the quote that led to this survey
   scheduledDate: date("scheduled_date").notNull(),
@@ -224,6 +225,7 @@ export const surveys = pgTable("surveys", {
 // Installations
 export const installations = pgTable("installations", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   projectId: integer("project_id").references(() => projects.id).notNull(),
   depositInvoiceId: integer("deposit_invoice_id").references(() => invoices.id), // Link to the deposit invoice that enabled scheduling this installation
   scheduledDate: date("scheduled_date").notNull(),
@@ -243,6 +245,7 @@ export const installations = pgTable("installations", {
 // Task Lists (for snagging items)
 export const taskLists = pgTable("task_lists", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   projectId: integer("project_id").references(() => projects.id).notNull(),
   installationId: integer("installation_id").references(() => installations.id), // Link to the installation that generated snagging
   name: text("name").notNull(),
@@ -260,6 +263,7 @@ export const taskLists = pgTable("task_lists", {
 // Tasks
 export const tasks = pgTable("tasks", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   taskListId: integer("task_list_id").references(() => taskLists.id).notNull(),
   description: text("description").notNull(),
   status: text("status").notNull().default("pending"), // pending, in_progress, completed, cancelled
@@ -623,12 +627,14 @@ export const insertInstallationSchema = createInsertSchema(installations).omit({
 export const insertTaskListSchema = createInsertSchema(taskLists).omit({
   id: true,
   createdAt: true,
+  tenantId: true, // Will be set by the API based on authenticated user
 });
 
 export const insertTaskSchema = createInsertSchema(tasks).omit({
   id: true,
   createdAt: true,
   completedAt: true,
+  tenantId: true, // Will be set by the API based on authenticated user
 });
 
 export const insertCatalogItemSchema = createInsertSchema(catalogItems).omit({

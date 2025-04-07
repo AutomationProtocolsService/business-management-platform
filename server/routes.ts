@@ -2266,12 +2266,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/task-lists", requireAuth, async (req, res) => {
     try {
       const { projectId } = req.query;
+      const tenantId = req.user?.tenantId;
       
       let taskLists;
       if (projectId) {
-        taskLists = await storage.getTaskListsByProject(Number(projectId));
+        taskLists = await storage.getTaskListsByProject(Number(projectId), { tenantId });
       } else {
-        taskLists = await storage.getAllTaskLists();
+        taskLists = await storage.getAllTaskLists({ tenantId });
       }
       
       res.json(taskLists);
@@ -2282,13 +2283,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/task-lists/:id", requireAuth, async (req, res) => {
     try {
-      const taskList = await storage.getTaskList(Number(req.params.id));
+      const tenantId = req.user?.tenantId;
+      const taskList = await storage.getTaskList(Number(req.params.id), tenantId);
       if (!taskList) {
         return res.status(404).json({ message: "Task list not found" });
       }
       
       // Get tasks for this task list
-      const tasks = await storage.getTasksByTaskList(taskList.id);
+      const tasks = await storage.getTasksByTaskList(taskList.id, { tenantId });
       
       res.json({ ...taskList, tasks });
     } catch (error) {
@@ -2298,8 +2300,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/task-lists", requireAuth, validateBody(insertTaskListSchema), async (req, res) => {
     try {
+      const tenantId = req.user?.tenantId;
       const taskList = await storage.createTaskList({
         ...req.body,
+        tenantId,
         createdBy: req.user?.id
       });
       res.status(201).json(taskList);
@@ -2311,13 +2315,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/task-lists/:id", requireAuth, async (req, res) => {
     try {
       const taskListId = Number(req.params.id);
-      const taskList = await storage.getTaskList(taskListId);
+      const tenantId = req.user?.tenantId;
+      const taskList = await storage.getTaskList(taskListId, tenantId);
       
       if (!taskList) {
         return res.status(404).json({ message: "Task list not found" });
       }
       
-      const updatedTaskList = await storage.updateTaskList(taskListId, req.body);
+      const updatedTaskList = await storage.updateTaskList(taskListId, req.body, { tenantId });
       res.json(updatedTaskList);
     } catch (error) {
       res.status(500).json({ message: "Failed to update task list" });
@@ -2327,19 +2332,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/task-lists/:id", requireAuth, async (req, res) => {
     try {
       const taskListId = Number(req.params.id);
-      const taskList = await storage.getTaskList(taskListId);
+      const tenantId = req.user?.tenantId;
+      const taskList = await storage.getTaskList(taskListId, tenantId);
       
       if (!taskList) {
         return res.status(404).json({ message: "Task list not found" });
       }
       
       // Delete all tasks in this list first
-      const tasks = await storage.getTasksByTaskList(taskListId);
+      const tasks = await storage.getTasksByTaskList(taskListId, { tenantId });
       for (const task of tasks) {
-        await storage.deleteTask(task.id);
+        await storage.deleteTask(task.id, { tenantId });
       }
       
-      const deleted = await storage.deleteTaskList(taskListId);
+      const deleted = await storage.deleteTaskList(taskListId, { tenantId });
       
       if (deleted) {
         res.status(204).send();
@@ -2355,12 +2361,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/tasks", requireAuth, async (req, res) => {
     try {
       const { taskListId, assignedTo } = req.query;
+      const tenantId = req.user?.tenantId;
+      const tenantFilter = tenantId ? { tenantId } : undefined;
       
       let tasks;
       if (taskListId) {
-        tasks = await storage.getTasksByTaskList(Number(taskListId));
+        tasks = await storage.getTasksByTaskList(Number(taskListId), tenantFilter);
       } else if (assignedTo) {
-        tasks = await storage.getTasksByAssignee(Number(assignedTo));
+        tasks = await storage.getTasksByAssignee(Number(assignedTo), tenantFilter);
       } else {
         // This is a placeholder as we don't have a getAllTasks method
         // but we could add one if needed
@@ -2375,7 +2383,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
-      const task = await storage.getTask(Number(req.params.id));
+      const taskId = Number(req.params.id);
+      const tenantId = req.user?.tenantId;
+      const task = await storage.getTask(taskId, { tenantId });
+      
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
@@ -2387,9 +2398,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/tasks", requireAuth, validateBody(insertTaskSchema), async (req, res) => {
     try {
-      const task = await storage.createTask(req.body);
+      const tenantId = req.user?.tenantId;
+
+      // Add tenant ID to the task creation
+      const task = await storage.createTask({
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      });
+      
       res.status(201).json(task);
     } catch (error) {
+      console.error('Error creating task:', error);
       res.status(500).json({ message: "Failed to create task" });
     }
   });
@@ -2397,15 +2417,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
       const taskId = Number(req.params.id);
-      const task = await storage.getTask(taskId);
+      const tenantId = req.user?.tenantId;
+      
+      // Get task with tenant check
+      const task = await storage.getTask(taskId, { tenantId });
       
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      const updatedTask = await storage.updateTask(taskId, req.body);
+      // Pass tenant ID explicitly to update method
+      const updatedTask = await storage.updateTask(taskId, req.body, { tenantId });
       res.json(updatedTask);
     } catch (error) {
+      console.error('Error updating task:', error);
       res.status(500).json({ message: "Failed to update task" });
     }
   });
@@ -2413,13 +2438,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/tasks/:id", requireAuth, async (req, res) => {
     try {
       const taskId = Number(req.params.id);
-      const task = await storage.getTask(taskId);
+      const tenantId = req.user?.tenantId;
+      
+      // Get task with tenant check
+      const task = await storage.getTask(taskId, { tenantId });
       
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
-      const deleted = await storage.deleteTask(taskId);
+      // Pass tenant ID explicitly to delete method
+      const deleted = await storage.deleteTask(taskId, { tenantId });
       
       if (deleted) {
         res.status(204).send();
@@ -2427,6 +2456,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: "Failed to delete task" });
       }
     } catch (error) {
+      console.error('Error deleting task:', error);
       res.status(500).json({ message: "Failed to delete task" });
     }
   });
@@ -2435,20 +2465,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/tasks/:id/complete", requireAuth, async (req, res) => {
     try {
       const taskId = Number(req.params.id);
-      const task = await storage.getTask(taskId);
+      const tenantId = req.user?.tenantId;
+      
+      // Get task with tenant check
+      const task = await storage.getTask(taskId, { tenantId });
       
       if (!task) {
         return res.status(404).json({ message: "Task not found" });
       }
       
+      // Pass tenant ID explicitly to update method
       const updatedTask = await storage.updateTask(taskId, { 
         status: "completed",
         completedBy: req.user?.id,
         completedAt: new Date()
-      });
+      }, { tenantId });
       
       res.json(updatedTask);
     } catch (error) {
+      console.error('Error completing task:', error);
       res.status(500).json({ message: "Failed to complete task" });
     }
   });
