@@ -57,6 +57,9 @@ export interface WebSocketPayload {
   data?: any;
   message?: string;
   timestamp?: string;
+  category?: string;
+  duration?: number;
+  url?: string;
 }
 
 // Class to manage WebSocket connections and events
