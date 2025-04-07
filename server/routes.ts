@@ -11,7 +11,7 @@ import multer from "multer";
 import { v4 as uuidv4 } from "uuid";
 import path from "path";
 import fs from "fs";
-import { tenantFilter } from "./middleware/tenant-filter";
+import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
 import { registerDocumentRoutes } from "./routes/document-routes";
 import { 
   insertCustomerSchema, 
@@ -40,7 +40,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   setupAuth(app);
   
   // Apply tenant filter middleware for multi-tenant data isolation
-  app.use(tenantFilter);
+  app.use(tenantMiddleware);
   
   // Register document routes for PDF generation and email sharing
   registerDocumentRoutes(app);

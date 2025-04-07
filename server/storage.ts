@@ -1397,6 +1397,48 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
+  // Tenant methods
+  async getTenant(id: number): Promise<Tenant | undefined> {
+    const result = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.id, id)
+    });
+    return result;
+  }
+
+  async getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined> {
+    const result = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.subdomain, subdomain)
+    });
+    return result;
+  }
+
+  async createTenant(tenant: InsertTenant): Promise<Tenant> {
+    const result = await db.insert(schema.tenants).values({
+      ...tenant,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateTenant(id: number, tenantData: Partial<Tenant>): Promise<Tenant | undefined> {
+    const result = await db.update(schema.tenants)
+      .set(tenantData)
+      .where(eq(schema.tenants.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteTenant(id: number): Promise<boolean> {
+    const result = await db.delete(schema.tenants)
+      .where(eq(schema.tenants.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getAllTenants(): Promise<Tenant[]> {
+    return await db.query.tenants.findMany();
+  }
+
   // User methods
   async getUser(id: number): Promise<User | undefined> {
     const result = await db.query.users.findFirst({
@@ -1405,9 +1447,16 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
+  async getUserByUsername(username: string, tenantId?: number): Promise<User | undefined> {
+    const query = tenantId
+      ? and(
+          eq(schema.users.username, username),
+          eq(schema.users.tenantId, tenantId)
+        )
+      : eq(schema.users.username, username);
+      
     const result = await db.query.users.findFirst({
-      where: eq(schema.users.username, username)
+      where: query
     });
     return result;
   }
@@ -1415,11 +1464,12 @@ export class DatabaseStorage implements IStorage {
   async createUser(user: InsertUser): Promise<User> {
     const result = await db.insert(schema.users).values({
       ...user,
-      createdAt: new Date()
+      createdAt: new Date(),
+      lastLogin: null
     }).returning();
     return result[0];
   }
-
+  
   async updateUser(id: number, userData: Partial<User>): Promise<User | undefined> {
     const result = await db.update(schema.users)
       .set(userData)

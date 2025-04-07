@@ -7,6 +7,10 @@ export const tenants = pgTable("tenants", {
   id: serial("id").primaryKey(),
   name: text("name").notNull(),
   subdomain: text("subdomain").notNull().unique(),
+  status: text("status").default("active"), // 'active', 'suspended', 'trial'
+  companyName: text("company_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
   logoUrl: text("logo_url"),
   customDomain: text("custom_domain").unique(),
   primaryColor: text("primary_color").default("#1E40AF"), // Default to blue
