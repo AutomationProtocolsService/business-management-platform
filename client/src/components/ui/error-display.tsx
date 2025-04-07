@@ -49,12 +49,12 @@ export function ErrorDisplay({
     : null;
   
   const alertVariant = getAlertVariant(severity);
-  const IconComponent = getIconForErrorType(type);
+  const Icon = getIconForErrorType(type);
   const errorTypeLabel = getErrorTypeLabel(type, severity);
   
   return (
     <Alert variant={alertVariant} className={cn('relative', className)}>
-      <IconComponent className="h-5 w-5" />
+      <Icon className="h-5 w-5" />
       <AlertTitle className="flex items-center space-x-2">
         <span>{errorTypeLabel}</span>
       </AlertTitle>
