@@ -1,0 +1,107 @@
+Introduction:
+Our strategic goal is to develop and launch a market-leading, multi-tenant SaaS platform designed to streamline operations for service-based businesses globally. Your role is critical in architecting and building this platform. Leverage your expertise in full-stack development, particularly with the specified tech stack and SaaS architectures.
+
+Project Vision:
+We are building a comprehensive, cloud-native business management solution. As a SaaS application, it must securely serve multiple distinct customer companies (tenants) from a single, scalable infrastructure. The platform will provide end-to-end workflow management – from CRM and quoting to project execution, resource tracking, and invoicing.
+
+Core Architecture: Multi-Tenancy (Mandatory)
+
+Model: Implement a Shared Database, Shared Schema multi-tenancy model. This is non-negotiable for scalability and manageability.
+Data Isolation: Strict data isolation between tenants is paramount. A tenant_id column must be added to all relevant PostgreSQL tables (customers, projects, quotes, users, settings, etc.).
+Querying: All database queries executed via Drizzle ORM must be filtered by the tenant_id of the currently authenticated tenant context to prevent data leakage. Implement robust mechanisms (e.g., repository patterns, middleware) to enforce this consistently.
+Tenant Identification: User authentication must resolve to a specific tenant_id. Associate users directly with a tenant.
+Core Functionality Modules:
+The platform revolves around managing:
+
+Project Lifecycles
+Customer Quotes/Proposals (including Taxes)
+Customer Surveys & Scheduling
+Installation Planning & Tracking
+Invoicing & Payment Status
+Employee Timesheets & Resource Allocation
+Detailed Feature Requirements (Tenant-Specific):
+
+Secure, Tenant-Aware Authentication:
+Tenant-specific user registration and login.
+Role-Based Access Control (RBAC) within each tenant (e.g., Tenant Admin, Manager, Staff). Permissions apply within the tenant context.
+Utilize Passport.js with session-based authentication, ensuring sessions are securely tied to both user and tenant.
+Tenant-Specific Dashboard:
+Display real-time KPIs and metrics relevant to the logged-in tenant's data.
+Show recent activity feeds within the tenant.
+Allow widget customization per user within their tenant.
+Customer Relationship Management (CRM):
+Manage customer contacts and history belonging to the specific tenant.
+Link customers to tenant-specific quotes, projects, etc.
+Quote Generation System:
+Create, send, and track quotes for the tenant.
+Support customizable quote templates per tenant.
+Include line items, subtotals, configurable Taxes (per tenant settings), and totals.
+Support multiple currencies (configurable at tenant level or per quote).
+Allow conversion of quotes to projects within the tenant.
+Project Management Module:
+Track tenant-specific projects, statuses, tasks, deadlines, and assigned personnel (users within the tenant).
+Survey Scheduling:
+Schedule and manage surveys for the tenant's customers.
+Calendar integration showing tenant-specific schedules.
+Installation Management:
+Schedule and track installation jobs for the tenant.
+Invoicing System:
+Generate professional invoices based on tenant's projects/quotes.
+Include tenant's branding, bank details, T&Cs.
+Track payment status for the tenant's invoices.
+Timesheet Tracking:
+Allow tenant's employees to log time against tenant's projects.
+Allow tenant's Admins/Managers to add or edit timesheet entries directly for their staff.
+Generate timesheet reports for the tenant.
+Product/Service Catalog:
+Maintain a catalog of services/products specific to each tenant.
+Include pricing, descriptions, categorization per tenant.
+Reporting & Analytics:
+Generate comprehensive reports filtered strictly by tenant_id covering: Projects, Finances (linked to invoices), Customer Activity, Resource Utilization (Timesheets), Expenses (new module needed), Purchase Orders (new module needed), Catalog Items.
+Provide data export options (CSV, PDF) for tenant's data.
+Terminology Customization (Per Tenant):
+Allow each tenant's administrator to customize key business terms (e.g., "Quote" -> "Proposal") used within their instance of the application interface. Store these preferences per tenant.
+Company Branding (Per Tenant):
+Allow each tenant to upload their logo.
+Configure company details (name, address, contact), Terms & Conditions, and Bank Details.
+Apply this branding consistently to tenant-specific documents (quotes, invoices).
+Allow adding certification logos per tenant.
+Real-time Updates (Tenant-Scoped):
+Use WebSockets (Socket.IO) for instant notifications (e.g., project updates), ensuring notifications are scoped and delivered only to relevant users within the correct tenant.
+Responsive Design:
+Ensure full functionality and usability across desktop, tablet, and mobile devices.
+Tenant Onboarding & Management (Basic):
+Include a basic mechanism for new companies (tenants) to sign up.
+A super-admin interface concept (even if not fully built initially) should be considered for managing tenants.
+Mandatory Technology Stack:
+
+Frontend: React, TypeScript, Tailwind CSS, Shadcn/UI
+Backend: Node.js, Express.js
+Database: PostgreSQL
+ORM: Drizzle ORM
+Authentication: Passport.js (Session-based, Tenant-Aware)
+API State Management: TanStack Query (React Query)
+Frontend Routing: Wouter
+Form Handling: React Hook Form
+Validation: Zod
+PDF Generation: Custom PDF service/library
+Real-time: Socket.IO
+Build Tool: Vite
+Critical Development Principles & Requirements:
+
+Security First: Prioritize tenant data isolation and general web security best practices (Input validation with Zod, protection against common vulnerabilities).
+Scalability: Architect for horizontal scaling (stateless backend where possible).
+Maintainability: Produce clean, well-documented, modular code. Use TypeScript effectively.
+Database Schema: Design an efficient PostgreSQL schema using Drizzle ORM. Crucially, incorporate tenant_id appropriately across tables. Provide clear migration scripts.
+API Design: Design clear, consistent RESTful or GraphQL APIs. Document endpoints thoroughly.
+Testing: While not explicitly listed in features, incorporate unit and integration testing practices.
+Setup & Deployment: Provide clear, runnable setup instructions and consider deployment strategies (e.g., Docker).
+Initial Action Request:
+
+Outline the proposed project structure (frontend/backend monorepo or separate repos, key directories).
+Scaffold the initial project using Vite (React/TS) and Node.js/Express/TS.
+Set up the PostgreSQL database connection using Drizzle ORM.
+Define and implement the core database models/schemas for Tenants and Users, ensuring the Users table includes a tenant_id foreign key. Include initial migration files.
+Implement the basic tenant-aware authentication flow using Passport.js: User registration (associated with a tenant), Login (identifying user and tenant), Session management.
+Provide the code for these initial steps with clear explanations of the structure, multi-tenancy implementation, and authentication flow.
+Execute this initial phase diligently, as it forms the foundation for the entire SaaS platform. Report back with the structure, code, and explanations.
