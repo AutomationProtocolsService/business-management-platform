@@ -24,18 +24,44 @@ import {
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FolderClosed, FileText, Receipt, Clipboard, Wrench } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 
+// Tenant interface for the public tenant list
+interface Tenant {
+  id: number;
+  name: string;
+  subdomain: string;
+  companyName: string;
+}
+
+// Add tenantId to login schema
 const loginSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
+  tenantId: z.number({
+    required_error: "Please select a tenant",
+    invalid_type_error: "Tenant must be a number",
+  }),
 });
 
+// Add tenantId to register schema
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   email: z.string().email("Please enter a valid email address"),
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
   role: z.string().default("employee"),
+  tenantId: z.number({
+    required_error: "Please select a tenant",
+    invalid_type_error: "Tenant must be a number",
+  }),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -45,6 +71,19 @@ export default function AuthPage() {
   const [activeTab, setActiveTab] = useState("login");
   const [_, navigate] = useLocation();
   const { user, loginMutation, registerMutation } = useAuth();
+  
+  // Fetch available tenants for selection
+  const { data: tenantsData, isLoading: tenantsLoading, error: tenantsError } = useQuery({
+    queryKey: ['/api/public/tenants'],
+    queryFn: async () => {
+      const response = await fetch('/api/public/tenants');
+      if (!response.ok) {
+        throw new Error('Failed to fetch tenants');
+      }
+      const data = await response.json();
+      return data.tenants as Tenant[];
+    }
+  });
 
   // Redirect if already logged in
   useEffect(() => {
@@ -162,6 +201,44 @@ export default function AuthPage() {
                     )}
                   />
                   
+                  {/* Tenant Selection */}
+                  <FormField
+                    control={loginForm.control}
+                    name="tenantId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          defaultValue={field.value?.toString()}
+                          disabled={tenantsLoading}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select your organization" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tenantsLoading ? (
+                              <div className="p-2 text-center">Loading organizations...</div>
+                            ) : tenantsError ? (
+                              <div className="p-2 text-center text-destructive">Failed to load organizations</div>
+                            ) : tenantsData && tenantsData.length > 0 ? (
+                              tenantsData.map((tenant) => (
+                                <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                                  {tenant.companyName || tenant.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-center">No organizations available</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
                   {/* Show root form errors */}
                   {loginForm.formState.errors.root && (
                     <div className="p-3 text-sm text-white bg-destructive rounded">
@@ -244,6 +321,45 @@ export default function AuthPage() {
                       </FormItem>
                     )}
                   />
+                  
+                  {/* Tenant Selection for Registration */}
+                  <FormField
+                    control={registerForm.control}
+                    name="tenantId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Organization</FormLabel>
+                        <Select
+                          onValueChange={(value) => field.onChange(parseInt(value))}
+                          defaultValue={field.value?.toString()}
+                          disabled={tenantsLoading}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select your organization" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {tenantsLoading ? (
+                              <div className="p-2 text-center">Loading organizations...</div>
+                            ) : tenantsError ? (
+                              <div className="p-2 text-center text-destructive">Failed to load organizations</div>
+                            ) : tenantsData && tenantsData.length > 0 ? (
+                              tenantsData.map((tenant) => (
+                                <SelectItem key={tenant.id} value={tenant.id.toString()}>
+                                  {tenant.companyName || tenant.name}
+                                </SelectItem>
+                              ))
+                            ) : (
+                              <div className="p-2 text-center">No organizations available</div>
+                            )}
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
                   {/* Show root form errors */}
                   {registerForm.formState.errors.root && (
                     <div className="p-3 text-sm text-white bg-destructive rounded">
