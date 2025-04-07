@@ -148,14 +148,14 @@ export interface IStorage {
   getAllEmployees(): Promise<Employee[]>;
   
   // Timesheets
-  getTimesheet(id: number): Promise<Timesheet | undefined>;
+  getTimesheet(id: number, tenantId?: number): Promise<Timesheet | undefined>;
   createTimesheet(timesheet: InsertTimesheet): Promise<Timesheet>;
-  updateTimesheet(id: number, timesheet: Partial<Timesheet>): Promise<Timesheet | undefined>;
-  deleteTimesheet(id: number): Promise<boolean>;
-  getAllTimesheets(): Promise<Timesheet[]>;
-  getTimesheetsByEmployee(employeeId: number): Promise<Timesheet[]>;
-  getTimesheetsByProject(projectId: number): Promise<Timesheet[]>;
-  getTimesheetsByDateRange(startDate: Date, endDate: Date): Promise<Timesheet[]>;
+  updateTimesheet(id: number, timesheet: Partial<Timesheet>, tenantId?: number): Promise<Timesheet | undefined>;
+  deleteTimesheet(id: number, tenantId?: number): Promise<boolean>;
+  getAllTimesheets(filter?: TenantFilter): Promise<Timesheet[]>;
+  getTimesheetsByEmployee(employeeId: number, tenantId?: number): Promise<Timesheet[]>;
+  getTimesheetsByProject(projectId: number, tenantId?: number): Promise<Timesheet[]>;
+  getTimesheetsByDateRange(startDate: Date, endDate: Date, tenantId?: number): Promise<Timesheet[]>;
   
   // Surveys
   getSurvey(id: number): Promise<Survey | undefined>;
@@ -716,8 +716,16 @@ export class MemStorage implements IStorage {
   }
 
   // Timesheet methods
-  async getTimesheet(id: number): Promise<Timesheet | undefined> {
-    return this.timesheets.get(id);
+  async getTimesheet(id: number, tenantId?: number): Promise<Timesheet | undefined> {
+    const timesheet = this.timesheets.get(id);
+    if (!timesheet) return undefined;
+    
+    // Filter by tenant if specified
+    if (tenantId !== undefined && timesheet.tenantId !== tenantId) {
+      return undefined;
+    }
+    
+    return timesheet;
   }
 
   async createTimesheet(timesheet: InsertTimesheet): Promise<Timesheet> {
@@ -727,36 +735,73 @@ export class MemStorage implements IStorage {
     return newTimesheet;
   }
 
-  async updateTimesheet(id: number, timesheetData: Partial<Timesheet>): Promise<Timesheet | undefined> {
+  async updateTimesheet(id: number, timesheetData: Partial<Timesheet>, tenantId?: number): Promise<Timesheet | undefined> {
     const timesheet = this.timesheets.get(id);
     if (!timesheet) return undefined;
+    
+    // Check tenant access
+    if (tenantId !== undefined && timesheet.tenantId !== tenantId) {
+      return undefined;
+    }
     
     const updatedTimesheet = { ...timesheet, ...timesheetData };
     this.timesheets.set(id, updatedTimesheet);
     return updatedTimesheet;
   }
 
-  async deleteTimesheet(id: number): Promise<boolean> {
+  async deleteTimesheet(id: number, tenantId?: number): Promise<boolean> {
+    const timesheet = this.timesheets.get(id);
+    if (!timesheet) return false;
+    
+    // Check tenant access
+    if (tenantId !== undefined && timesheet.tenantId !== tenantId) {
+      return false;
+    }
+    
     return this.timesheets.delete(id);
   }
 
-  async getAllTimesheets(): Promise<Timesheet[]> {
+  async getAllTimesheets(filter?: TenantFilter): Promise<Timesheet[]> {
+    const tenantId = filter?.tenantId;
+    
+    if (tenantId !== undefined) {
+      return Array.from(this.timesheets.values()).filter(timesheet => timesheet.tenantId === tenantId);
+    }
+    
     return Array.from(this.timesheets.values());
   }
 
-  async getTimesheetsByEmployee(employeeId: number): Promise<Timesheet[]> {
-    return Array.from(this.timesheets.values()).filter(timesheet => timesheet.employeeId === employeeId);
+  async getTimesheetsByEmployee(employeeId: number, tenantId?: number): Promise<Timesheet[]> {
+    const timesheets = Array.from(this.timesheets.values()).filter(timesheet => timesheet.employeeId === employeeId);
+    
+    if (tenantId !== undefined) {
+      return timesheets.filter(timesheet => timesheet.tenantId === tenantId);
+    }
+    
+    return timesheets;
   }
 
-  async getTimesheetsByProject(projectId: number): Promise<Timesheet[]> {
-    return Array.from(this.timesheets.values()).filter(timesheet => timesheet.projectId === projectId);
+  async getTimesheetsByProject(projectId: number, tenantId?: number): Promise<Timesheet[]> {
+    const timesheets = Array.from(this.timesheets.values()).filter(timesheet => timesheet.projectId === projectId);
+    
+    if (tenantId !== undefined) {
+      return timesheets.filter(timesheet => timesheet.tenantId === tenantId);
+    }
+    
+    return timesheets;
   }
 
-  async getTimesheetsByDateRange(startDate: Date, endDate: Date): Promise<Timesheet[]> {
-    return Array.from(this.timesheets.values()).filter(timesheet => {
+  async getTimesheetsByDateRange(startDate: Date, endDate: Date, tenantId?: number): Promise<Timesheet[]> {
+    const timesheets = Array.from(this.timesheets.values()).filter(timesheet => {
       const timesheetDate = new Date(timesheet.date);
       return timesheetDate >= startDate && timesheetDate <= endDate;
     });
+    
+    if (tenantId !== undefined) {
+      return timesheets.filter(timesheet => timesheet.tenantId === tenantId);
+    }
+    
+    return timesheets;
   }
 
   // Survey methods
@@ -1757,18 +1802,28 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateProject(id: number, projectData: Partial<Project>): Promise<Project | undefined> {
+  async updateProject(id: number, projectData: Partial<Project>, tenantId?: number): Promise<Project | undefined> {
+    let whereClause: any = eq(schema.projects.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereClause = and(
+        whereClause,
+        eq(schema.projects.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.update(schema.projects)
       .set(projectData)
-      .where(eq(schema.projects.id, id))
+      .where(whereClause)
       .returning();
     return result[0];
   }
 
-  async deleteProject(id: number): Promise<boolean> {
+  async deleteProject(id: number, tenantId?: number): Promise<boolean> {
     try {
       // First check if project exists
-      const project = await this.getProject(id);
+      const project = await this.getProject(id, tenantId);
       if (!project) {
         return false;
       }
@@ -1789,7 +1844,7 @@ export class DatabaseStorage implements IStorage {
         .where(eq(schema.installations.projectId, id));
       
       // Delete related quotes (and their items)
-      const quotes = await this.getQuotesByProject(id);
+      const quotes = await this.getQuotesByProject(id, { tenantId });
       for (const quote of quotes) {
         // Delete quote items first
         await db.delete(schema.quoteItems)
@@ -1862,8 +1917,18 @@ export class DatabaseStorage implements IStorage {
       }
       
       // Finally delete the project itself
+      let whereClause: any = eq(schema.projects.id, id);
+      
+      // Add tenant filtering if tenantId is provided
+      if (tenantId !== undefined) {
+        whereClause = and(
+          whereClause,
+          eq(schema.projects.tenantId, tenantId)
+        );
+      }
+      
       const result = await db.delete(schema.projects)
-        .where(eq(schema.projects.id, id))
+        .where(whereClause)
         .returning();
       
       return result.length > 0;
@@ -1873,19 +1938,45 @@ export class DatabaseStorage implements IStorage {
     }
   }
 
-  async getAllProjects(): Promise<Project[]> {
+  async getAllProjects(filter?: TenantFilter): Promise<Project[]> {
+    const tenantId = filter?.tenantId;
+    
+    if (tenantId !== undefined) {
+      return await db.query.projects.findMany({
+        where: eq(schema.projects.tenantId, tenantId)
+      });
+    }
+    
     return await db.query.projects.findMany();
   }
 
-  async getProjectsByCustomer(customerId: number): Promise<Project[]> {
+  async getProjectsByCustomer(customerId: number, tenantId?: number): Promise<Project[]> {
+    let whereClause: any = eq(schema.projects.customerId, customerId);
+    
+    if (tenantId !== undefined) {
+      whereClause = and(
+        whereClause,
+        eq(schema.projects.tenantId, tenantId)
+      );
+    }
+    
     return await db.query.projects.findMany({
-      where: eq(schema.projects.customerId, customerId)
+      where: whereClause
     });
   }
 
-  async getProjectsByStatus(status: string): Promise<Project[]> {
+  async getProjectsByStatus(status: string, tenantId?: number): Promise<Project[]> {
+    let whereClause: any = eq(schema.projects.status, status);
+    
+    if (tenantId !== undefined) {
+      whereClause = and(
+        whereClause,
+        eq(schema.projects.tenantId, tenantId)
+      );
+    }
+    
     return await db.query.projects.findMany({
-      where: eq(schema.projects.status, status)
+      where: whereClause
     });
   }
 
@@ -2195,14 +2286,29 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Timesheet methods
-  async getTimesheet(id: number): Promise<Timesheet | undefined> {
-    const result = await db.query.timesheets.findFirst({
-      where: eq(schema.timesheets.id, id)
-    });
-    return result;
+  async getTimesheet(id: number, tenantId?: number): Promise<Timesheet | undefined> {
+    if (tenantId !== undefined) {
+      const result = await db.query.timesheets.findFirst({
+        where: and(
+          eq(schema.timesheets.id, id),
+          eq(schema.timesheets.tenantId, tenantId)
+        )
+      });
+      return result;
+    } else {
+      const result = await db.query.timesheets.findFirst({
+        where: eq(schema.timesheets.id, id)
+      });
+      return result;
+    }
   }
 
   async createTimesheet(timesheet: InsertTimesheet): Promise<Timesheet> {
+    // Ensure tenantId is provided
+    if (!timesheet.tenantId) {
+      throw new Error("Tenant ID is required when creating a timesheet");
+    }
+    
     const result = await db.insert(schema.timesheets).values({
       ...timesheet,
       createdAt: new Date()
@@ -2210,38 +2316,85 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateTimesheet(id: number, timesheetData: Partial<Timesheet>): Promise<Timesheet | undefined> {
-    const result = await db.update(schema.timesheets)
-      .set(timesheetData)
-      .where(eq(schema.timesheets.id, id))
-      .returning();
-    return result[0];
+  async updateTimesheet(id: number, timesheetData: Partial<Timesheet>, tenantId?: number): Promise<Timesheet | undefined> {
+    if (tenantId !== undefined) {
+      const result = await db.update(schema.timesheets)
+        .set(timesheetData)
+        .where(and(
+          eq(schema.timesheets.id, id),
+          eq(schema.timesheets.tenantId, tenantId)
+        ))
+        .returning();
+      return result[0];
+    } else {
+      const result = await db.update(schema.timesheets)
+        .set(timesheetData)
+        .where(eq(schema.timesheets.id, id))
+        .returning();
+      return result[0];
+    }
   }
 
-  async deleteTimesheet(id: number): Promise<boolean> {
-    const result = await db.delete(schema.timesheets)
-      .where(eq(schema.timesheets.id, id))
-      .returning();
-    return result.length > 0;
+  async deleteTimesheet(id: number, tenantId?: number): Promise<boolean> {
+    if (tenantId !== undefined) {
+      const result = await db.delete(schema.timesheets)
+        .where(and(
+          eq(schema.timesheets.id, id),
+          eq(schema.timesheets.tenantId, tenantId)
+        ))
+        .returning();
+      return result.length > 0;
+    } else {
+      const result = await db.delete(schema.timesheets)
+        .where(eq(schema.timesheets.id, id))
+        .returning();
+      return result.length > 0;
+    }
   }
 
-  async getAllTimesheets(): Promise<Timesheet[]> {
-    return await db.query.timesheets.findMany();
+  async getAllTimesheets(filter?: TenantFilter): Promise<Timesheet[]> {
+    const tenantId = filter?.tenantId;
+    
+    if (tenantId !== undefined) {
+      return await db.query.timesheets.findMany({
+        where: eq(schema.timesheets.tenantId, tenantId)
+      });
+    } else {
+      return await db.query.timesheets.findMany();
+    }
   }
 
-  async getTimesheetsByEmployee(employeeId: number): Promise<Timesheet[]> {
-    return await db.query.timesheets.findMany({
-      where: eq(schema.timesheets.employeeId, employeeId)
-    });
+  async getTimesheetsByEmployee(employeeId: number, tenantId?: number): Promise<Timesheet[]> {
+    if (tenantId !== undefined) {
+      return await db.query.timesheets.findMany({
+        where: and(
+          eq(schema.timesheets.employeeId, employeeId),
+          eq(schema.timesheets.tenantId, tenantId)
+        )
+      });
+    } else {
+      return await db.query.timesheets.findMany({
+        where: eq(schema.timesheets.employeeId, employeeId)
+      });
+    }
   }
 
-  async getTimesheetsByProject(projectId: number): Promise<Timesheet[]> {
-    return await db.query.timesheets.findMany({
-      where: eq(schema.timesheets.projectId, projectId)
-    });
+  async getTimesheetsByProject(projectId: number, tenantId?: number): Promise<Timesheet[]> {
+    if (tenantId !== undefined) {
+      return await db.query.timesheets.findMany({
+        where: and(
+          eq(schema.timesheets.projectId, projectId),
+          eq(schema.timesheets.tenantId, tenantId)
+        )
+      });
+    } else {
+      return await db.query.timesheets.findMany({
+        where: eq(schema.timesheets.projectId, projectId)
+      });
+    }
   }
 
-  async getTimesheetsByDateRange(startDate: Date, endDate: Date): Promise<Timesheet[]> {
+  async getTimesheetsByDateRange(startDate: Date, endDate: Date, tenantId?: number): Promise<Timesheet[]> {
     // Convert dates to ISO strings to avoid Date object serialization issues
     const startDateStr = startDate.toISOString().split('T')[0];
     const endDateStr = endDate.toISOString().split('T')[0];
@@ -2250,11 +2403,22 @@ export class DatabaseStorage implements IStorage {
     
     try {
       // Safely construct the query with serialized dates
-      const result = await db.query.timesheets.findMany({
-        where: sql`${schema.timesheets.date} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
-      });
-      console.log(`Found ${result.length} timesheets in date range`);
-      return result;
+      if (tenantId !== undefined) {
+        const result = await db.query.timesheets.findMany({
+          where: and(
+            sql`${schema.timesheets.date} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`,
+            eq(schema.timesheets.tenantId, tenantId)
+          )
+        });
+        console.log(`Found ${result.length} timesheets in date range for tenant ${tenantId}`);
+        return result;
+      } else {
+        const result = await db.query.timesheets.findMany({
+          where: sql`${schema.timesheets.date} BETWEEN ${startDateStr}::date AND ${endDateStr}::date`
+        });
+        console.log(`Found ${result.length} timesheets in date range`);
+        return result;
+      }
     } catch (error) {
       console.error("Error in getTimesheetsByDateRange:", error);
       // Return empty array rather than failing

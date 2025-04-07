@@ -380,45 +380,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/projects", requireAuth, async (req, res) => {
     try {
       const { status, customerId } = req.query;
+      const tenantId = req.tenant?.id;
       
       let projects;
       if (status) {
-        projects = await storage.getProjectsByStatus(status as string);
+        projects = await storage.getProjectsByStatus(status as string, tenantId);
       } else if (customerId) {
-        projects = await storage.getProjectsByCustomer(Number(customerId));
+        projects = await storage.getProjectsByCustomer(Number(customerId), tenantId);
       } else {
-        projects = await storage.getAllProjects();
+        projects = await storage.getAllProjects({ tenantId });
       }
       
       res.json(projects);
     } catch (error) {
+      console.error('Error fetching projects:', error);
       res.status(500).json({ message: "Failed to fetch projects" });
     }
   });
 
   app.get("/api/projects/:id", requireAuth, async (req, res) => {
     try {
-      const project = await storage.getProject(Number(req.params.id));
+      const tenantId = req.tenant?.id;
+      const project = await storage.getProject(Number(req.params.id), tenantId);
+      
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
+      
       res.json(project);
     } catch (error) {
+      console.error('Error fetching project:', error);
       res.status(500).json({ message: "Failed to fetch project" });
     }
   });
 
   app.post("/api/projects", requireAuth, validateBody(insertProjectSchema), async (req, res) => {
     try {
+      const tenantId = req.tenant?.id;
+      
       const project = await storage.createProject({
         ...req.body,
+        tenantId,
         createdBy: req.user?.id
       });
       
-      // Send real-time update to all connected clients
+      // Send real-time update to all connected clients in this tenant
       const wsManager = getWebSocketManager();
       if (wsManager) {
-        wsManager.broadcast("project:created", {
+        wsManager.broadcastToTenant(tenantId, "project:created", {
           id: project.id,
           data: project,
           message: `New project created: ${project.name}`,
@@ -428,6 +437,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(project);
     } catch (error) {
+      console.error('Error creating project:', error);
       res.status(500).json({ message: "Failed to create project" });
     }
   });
@@ -435,15 +445,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/projects/:id", requireAuth, async (req, res) => {
     try {
       const projectId = Number(req.params.id);
-      const project = await storage.getProject(projectId);
+      const tenantId = req.tenant?.id;
+      const project = await storage.getProject(projectId, tenantId);
       
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
       
-      const updatedProject = await storage.updateProject(projectId, req.body);
+      const updatedProject = await storage.updateProject(projectId, req.body, tenantId);
       
-      // Send real-time update to all connected clients
+      // Send real-time update to all connected clients in this tenant
       const wsManager = getWebSocketManager();
       if (wsManager && updatedProject) {
         // Prepare status change message if status has changed
@@ -452,7 +463,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           message = `Project ${updatedProject.name} status changed to ${updatedProject.status}`;
         }
         
-        wsManager.broadcast("project:updated", {
+        wsManager.broadcastToTenant(tenantId, "project:updated", {
           id: updatedProject.id,
           data: updatedProject,
           message,
@@ -462,6 +473,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedProject);
     } catch (error) {
+      console.error('Error updating project:', error);
       res.status(500).json({ message: "Failed to update project" });
     }
   });
@@ -469,19 +481,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/projects/:id", requireAuth, async (req, res) => {
     try {
       const projectId = Number(req.params.id);
-      const project = await storage.getProject(projectId);
+      const tenantId = req.tenant?.id;
+      const project = await storage.getProject(projectId, tenantId);
       
       if (!project) {
         return res.status(404).json({ message: "Project not found" });
       }
       
-      const deleted = await storage.deleteProject(projectId);
+      const deleted = await storage.deleteProject(projectId, tenantId);
       
       if (deleted) {
-        // Send real-time update to all connected clients
+        // Send real-time update to all connected clients in this tenant
         const wsManager = getWebSocketManager();
         if (wsManager) {
-          wsManager.broadcast("project:deleted", {
+          wsManager.broadcastToTenant(tenantId, "project:deleted", {
             id: projectId,
             data: { id: projectId, name: project.name },
             message: `Project deleted: ${project.name}`,
@@ -1641,16 +1654,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/timesheets", requireAuth, async (req, res) => {
     try {
       const { employeeId, projectId, startDate, endDate } = req.query;
+      const tenantId = req.user?.tenantId;
       
       let timesheets;
       if (employeeId) {
-        timesheets = await storage.getTimesheetsByEmployee(Number(employeeId));
+        timesheets = await storage.getTimesheetsByEmployee(Number(employeeId), tenantId);
       } else if (projectId) {
-        timesheets = await storage.getTimesheetsByProject(Number(projectId));
+        timesheets = await storage.getTimesheetsByProject(Number(projectId), tenantId);
       } else if (startDate && endDate) {
-        timesheets = await storage.getTimesheetsByDateRange(new Date(startDate as string), new Date(endDate as string));
+        timesheets = await storage.getTimesheetsByDateRange(
+          new Date(startDate as string), 
+          new Date(endDate as string),
+          tenantId
+        );
       } else {
-        timesheets = await storage.getAllTimesheets();
+        timesheets = await storage.getAllTimesheets({ tenantId });
       }
       
       res.json(timesheets);
@@ -1661,7 +1679,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/timesheets/:id", requireAuth, async (req, res) => {
     try {
-      const timesheet = await storage.getTimesheet(Number(req.params.id));
+      const tenantId = req.user?.tenantId;
+      const timesheet = await storage.getTimesheet(Number(req.params.id), tenantId);
       if (!timesheet) {
         return res.status(404).json({ message: "Timesheet not found" });
       }
@@ -1695,6 +1714,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timesheetData = {
         employeeId: req.body.employeeId,
         date: req.body.date,
+        // Add tenant ID from the authenticated user
+        tenantId: req.user?.tenantId,
         // Only include these fields if they're provided and not empty
         startTime: req.body.startTime && req.body.startTime.trim() !== "" ? req.body.startTime : null,
         endTime: req.body.endTime && req.body.endTime.trim() !== "" ? req.body.endTime : null,
@@ -1722,7 +1743,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/timesheets/:id", requireAuth, async (req, res) => {
     try {
       const timesheetId = Number(req.params.id);
-      const timesheet = await storage.getTimesheet(timesheetId);
+      const tenantId = req.user?.tenantId;
+      const timesheet = await storage.getTimesheet(timesheetId, tenantId);
       
       if (!timesheet) {
         return res.status(404).json({ message: "Timesheet not found" });
@@ -1741,7 +1763,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Formatted timesheet update data to save:", timesheetData);
       
-      const updatedTimesheet = await storage.updateTimesheet(timesheetId, timesheetData);
+      const updatedTimesheet = await storage.updateTimesheet(timesheetId, timesheetData, tenantId);
       res.json(updatedTimesheet);
     } catch (error) {
       console.error("Error updating timesheet:", error);
@@ -1756,13 +1778,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/timesheets/:id", requireAuth, async (req, res) => {
     try {
       const timesheetId = Number(req.params.id);
-      const timesheet = await storage.getTimesheet(timesheetId);
+      const tenantId = req.user?.tenantId;
+      const timesheet = await storage.getTimesheet(timesheetId, tenantId);
       
       if (!timesheet) {
         return res.status(404).json({ message: "Timesheet not found" });
       }
       
-      const deleted = await storage.deleteTimesheet(timesheetId);
+      const deleted = await storage.deleteTimesheet(timesheetId, tenantId);
       
       if (deleted) {
         res.status(204).send();
@@ -1778,7 +1801,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/timesheets/:id/approve", requireAuth, async (req, res) => {
     try {
       const timesheetId = Number(req.params.id);
-      const timesheet = await storage.getTimesheet(timesheetId);
+      const tenantId = req.user?.tenantId;
+      const timesheet = await storage.getTimesheet(timesheetId, tenantId);
       
       if (!timesheet) {
         return res.status(404).json({ message: "Timesheet not found" });
@@ -1790,11 +1814,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Unauthorized: Only managers or admins can approve timesheets" });
       }
       
-      const updatedTimesheet = await storage.updateTimesheet(timesheetId, { 
-        status: "approved",
-        approvedBy: user.id,
-        approvedAt: new Date()
-      });
+      const updatedTimesheet = await storage.updateTimesheet(
+        timesheetId, 
+        { 
+          status: "approved",
+          approvedBy: user.id,
+          approvedAt: new Date()
+        },
+        tenantId
+      );
       
       res.json(updatedTimesheet);
     } catch (error) {
@@ -1806,17 +1834,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/surveys", requireAuth, async (req, res) => {
     try {
       const { projectId, status, startDate, endDate } = req.query;
+      const tenantId = req.user?.tenantId;
       
       let surveys;
       if (projectId) {
-        surveys = await storage.getSurveysByProject(Number(projectId));
+        surveys = await storage.getSurveysByProject(Number(projectId), tenantId);
       } else if (status) {
-        surveys = await storage.getSurveysByStatus(status as string);
+        surveys = await storage.getSurveysByStatus(status as string, tenantId);
       } else if (startDate && endDate) {
-        surveys = await storage.getSurveysByDateRange(new Date(startDate as string), new Date(endDate as string));
+        surveys = await storage.getSurveysByDateRange(
+          new Date(startDate as string),
+          new Date(endDate as string),
+          tenantId
+        );
       } else {
         console.log("Fetching all surveys");
-        surveys = await storage.getAllSurveys();
+        surveys = await storage.getAllSurveys({ tenantId });
       }
       
       console.log(`Successfully retrieved ${surveys.length} surveys`);
@@ -1832,7 +1865,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/surveys/:id", requireAuth, async (req, res) => {
     try {
-      const survey = await storage.getSurvey(Number(req.params.id));
+      const tenantId = req.user?.tenantId;
+      const survey = await storage.getSurvey(Number(req.params.id), tenantId);
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
@@ -1883,7 +1917,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedBody = {
         ...req.body,
         assignedTo: req.body.assignedTo === "unassigned" ? undefined : req.body.assignedTo,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        tenantId: req.user?.tenantId
       };
       
       console.log("Formatted survey data to save:", formattedBody);
@@ -1903,7 +1938,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/surveys/:id", requireAuth, async (req, res) => {
     try {
       const surveyId = Number(req.params.id);
-      const survey = await storage.getSurvey(surveyId);
+      const tenantId = req.user?.tenantId;
+      const survey = await storage.getSurvey(surveyId, tenantId);
       
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
@@ -1940,7 +1976,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Formatted survey update data to save:", formattedBody);
       
-      const updatedSurvey = await storage.updateSurvey(surveyId, formattedBody);
+      const updatedSurvey = await storage.updateSurvey(surveyId, formattedBody, tenantId);
       console.log("Survey updated successfully:", updatedSurvey);
       res.json(updatedSurvey);
     } catch (error) {
@@ -1955,13 +1991,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/surveys/:id", requireAuth, async (req, res) => {
     try {
       const surveyId = Number(req.params.id);
-      const survey = await storage.getSurvey(surveyId);
+      const tenantId = req.user?.tenantId;
+      const survey = await storage.getSurvey(surveyId, tenantId);
       
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       
-      const deleted = await storage.deleteSurvey(surveyId);
+      const deleted = await storage.deleteSurvey(surveyId, tenantId);
       
       if (deleted) {
         res.status(204).send();
@@ -1977,18 +2014,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/surveys/:id/complete", requireAuth, async (req, res) => {
     try {
       const surveyId = Number(req.params.id);
-      const survey = await storage.getSurvey(surveyId);
+      const tenantId = req.user?.tenantId;
+      const survey = await storage.getSurvey(surveyId, tenantId);
       
       if (!survey) {
         return res.status(404).json({ message: "Survey not found" });
       }
       
-      const updatedSurvey = await storage.updateSurvey(surveyId, { 
-        status: "completed",
-        completedBy: req.user?.id,
-        completedAt: new Date(),
-        ...req.body
-      });
+      const updatedSurvey = await storage.updateSurvey(
+        surveyId, 
+        { 
+          status: "completed",
+          completedBy: req.user?.id,
+          completedAt: new Date(),
+          ...req.body
+        },
+        tenantId
+      );
       
       res.json(updatedSurvey);
     } catch (error) {
@@ -2000,17 +2042,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/installations", requireAuth, async (req, res) => {
     try {
       const { projectId, status, startDate, endDate } = req.query;
+      const tenantId = req.user?.tenantId;
       
       let installations;
       if (projectId) {
-        installations = await storage.getInstallationsByProject(Number(projectId));
+        installations = await storage.getInstallationsByProject(Number(projectId), tenantId);
       } else if (status) {
-        installations = await storage.getInstallationsByStatus(status as string);
+        installations = await storage.getInstallationsByStatus(status as string, tenantId);
       } else if (startDate && endDate) {
-        installations = await storage.getInstallationsByDateRange(new Date(startDate as string), new Date(endDate as string));
+        installations = await storage.getInstallationsByDateRange(
+          new Date(startDate as string),
+          new Date(endDate as string),
+          tenantId
+        );
       } else {
         console.log("Fetching all installations");
-        installations = await storage.getAllInstallations();
+        installations = await storage.getAllInstallations({ tenantId });
       }
       
       console.log(`Successfully retrieved ${installations.length} installations`);
@@ -2026,7 +2073,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/installations/:id", requireAuth, async (req, res) => {
     try {
-      const installation = await storage.getInstallation(Number(req.params.id));
+      const tenantId = req.user?.tenantId;
+      const installation = await storage.getInstallation(Number(req.params.id), tenantId);
       if (!installation) {
         return res.status(404).json({ message: "Installation not found" });
       }
@@ -2085,7 +2133,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const formattedBody = {
         ...req.body,
         assignedTo,
-        createdBy: req.user?.id
+        createdBy: req.user?.id,
+        tenantId: req.user?.tenantId
       };
       
       console.log("Formatted installation data to save:", formattedBody);
@@ -2105,7 +2154,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/installations/:id", requireAuth, async (req, res) => {
     try {
       const installationId = Number(req.params.id);
-      const installation = await storage.getInstallation(installationId);
+      const tenantId = req.user?.tenantId;
+      const installation = await storage.getInstallation(installationId, tenantId);
       
       if (!installation) {
         return res.status(404).json({ message: "Installation not found" });
@@ -2143,7 +2193,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log("Formatted installation update data to save:", formattedBody);
       
-      const updatedInstallation = await storage.updateInstallation(installationId, formattedBody);
+      const updatedInstallation = await storage.updateInstallation(installationId, formattedBody, tenantId);
       console.log("Installation updated successfully:", updatedInstallation);
       res.json(updatedInstallation);
     } catch (error) {
@@ -2158,13 +2208,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/installations/:id", requireAuth, async (req, res) => {
     try {
       const installationId = Number(req.params.id);
-      const installation = await storage.getInstallation(installationId);
+      const tenantId = req.user?.tenantId;
+      const installation = await storage.getInstallation(installationId, tenantId);
       
       if (!installation) {
         return res.status(404).json({ message: "Installation not found" });
       }
       
-      const deleted = await storage.deleteInstallation(installationId);
+      const deleted = await storage.deleteInstallation(installationId, tenantId);
       
       if (deleted) {
         res.status(204).send();
@@ -2180,7 +2231,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/installations/:id/complete", requireAuth, async (req, res) => {
     try {
       const installationId = Number(req.params.id);
-      const installation = await storage.getInstallation(installationId);
+      const tenantId = req.user?.tenantId;
+      const installation = await storage.getInstallation(installationId, tenantId);
       
       if (!installation) {
         return res.status(404).json({ message: "Installation not found" });
@@ -2188,12 +2240,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       console.log(`Completing installation ${installationId} with data:`, req.body);
       
-      const updatedInstallation = await storage.updateInstallation(installationId, { 
-        status: "completed",
-        completedBy: req.user?.id,
-        completedAt: new Date(),
-        ...req.body
-      });
+      const updatedInstallation = await storage.updateInstallation(
+        installationId, 
+        { 
+          status: "completed",
+          completedBy: req.user?.id,
+          completedAt: new Date(),
+          ...req.body
+        },
+        tenantId
+      );
       
       console.log("Installation completed successfully:", updatedInstallation);
       res.json(updatedInstallation);
