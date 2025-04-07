@@ -194,13 +194,14 @@ export interface IStorage {
   getTasksByAssignee(userId: number): Promise<Task[]>;
   
   // Catalog Items
-  getCatalogItem(id: number): Promise<CatalogItem | undefined>;
+  getCatalogItem(id: number, tenantId?: number): Promise<CatalogItem | undefined>;
   createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem>;
-  updateCatalogItem(id: number, item: Partial<CatalogItem>): Promise<CatalogItem | undefined>;
-  deleteCatalogItem(id: number): Promise<boolean>;
-  getAllCatalogItems(): Promise<CatalogItem[]>;
-  getCatalogItemsByCategory(category: string): Promise<CatalogItem[]>;
-  getCatalogItemsByUser(userId: number): Promise<CatalogItem[]>;
+  updateCatalogItem(id: number, item: Partial<CatalogItem>, tenantId?: number): Promise<CatalogItem | undefined>;
+  deleteCatalogItem(id: number, tenantId?: number): Promise<boolean>;
+  getAllCatalogItems(tenantId?: number): Promise<CatalogItem[]>;
+  getCatalogItemsByCategory(category: string, tenantId?: number): Promise<CatalogItem[]>;
+  getCatalogItemsByType(type: string, tenantId?: number): Promise<CatalogItem[]>;
+  getCatalogItemsByUser(userId: number, tenantId?: number): Promise<CatalogItem[]>;
   
   // Company Settings
   getCompanySettings(): Promise<CompanySettings | undefined>;
@@ -915,11 +916,24 @@ export class MemStorage implements IStorage {
   // Catalog Items (reusable items for quotes and invoices)
   private catalogItems: Map<number, CatalogItem>;
 
-  async getCatalogItem(id: number): Promise<CatalogItem | undefined> {
-    return this.catalogItems.get(id);
+  async getCatalogItem(id: number, tenantId?: number): Promise<CatalogItem | undefined> {
+    const item = this.catalogItems.get(id);
+    if (!item) return undefined;
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined && item.tenantId !== tenantId) {
+      return undefined;
+    }
+    
+    return item;
   }
 
   async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    // Ensure tenantId is provided
+    if (!item.tenantId) {
+      throw new Error("Tenant ID is required when creating a catalog item");
+    }
+    
     const id = this.catalogItemId ? this.catalogItemId++ : 1;
     if (!this.catalogItemId) this.catalogItemId = 2;
     const newItem: CatalogItem = { ...item, id, createdAt: new Date() };
@@ -927,29 +941,75 @@ export class MemStorage implements IStorage {
     return newItem;
   }
 
-  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>): Promise<CatalogItem | undefined> {
+  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>, tenantId?: number): Promise<CatalogItem | undefined> {
     const item = this.catalogItems.get(id);
     if (!item) return undefined;
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined && item.tenantId !== tenantId) {
+      return undefined;
+    }
     
     const updatedItem = { ...item, ...itemData };
     this.catalogItems.set(id, updatedItem);
     return updatedItem;
   }
 
-  async deleteCatalogItem(id: number): Promise<boolean> {
+  async deleteCatalogItem(id: number, tenantId?: number): Promise<boolean> {
+    const item = this.catalogItems.get(id);
+    if (!item) return false;
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined && item.tenantId !== tenantId) {
+      return false;
+    }
+    
     return this.catalogItems.delete(id);
   }
 
-  async getAllCatalogItems(): Promise<CatalogItem[]> {
-    return Array.from(this.catalogItems.values());
+  async getAllCatalogItems(tenantId?: number): Promise<CatalogItem[]> {
+    if (tenantId === undefined) {
+      return Array.from(this.catalogItems.values());
+    }
+    
+    return Array.from(this.catalogItems.values())
+      .filter(item => item.tenantId === tenantId);
   }
 
-  async getCatalogItemsByCategory(category: string): Promise<CatalogItem[]> {
-    return Array.from(this.catalogItems.values()).filter(item => item.category === category);
+  async getCatalogItemsByCategory(category: string, tenantId?: number): Promise<CatalogItem[]> {
+    let items = Array.from(this.catalogItems.values())
+      .filter(item => item.category === category);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      items = items.filter(item => item.tenantId === tenantId);
+    }
+    
+    return items;
+  }
+  
+  async getCatalogItemsByType(type: string, tenantId?: number): Promise<CatalogItem[]> {
+    let items = Array.from(this.catalogItems.values())
+      .filter(item => item.type === type);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      items = items.filter(item => item.tenantId === tenantId);
+    }
+    
+    return items;
   }
 
-  async getCatalogItemsByUser(userId: number): Promise<CatalogItem[]> {
-    return Array.from(this.catalogItems.values()).filter(item => item.createdBy === userId);
+  async getCatalogItemsByUser(userId: number, tenantId?: number): Promise<CatalogItem[]> {
+    let items = Array.from(this.catalogItems.values())
+      .filter(item => item.createdBy === userId);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      items = items.filter(item => item.tenantId === tenantId);
+    }
+    
+    return items;
   }
 
   // Company Settings methods
@@ -2400,14 +2460,26 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Catalog Item methods
-  async getCatalogItem(id: number): Promise<CatalogItem | undefined> {
+  async getCatalogItem(id: number, tenantId?: number): Promise<CatalogItem | undefined> {
+    let query = eq(schema.catalogItems.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
     const result = await db.query.catalogItems.findFirst({
-      where: eq(schema.catalogItems.id, id)
+      where: query
     });
     return result;
   }
 
   async createCatalogItem(item: InsertCatalogItem): Promise<CatalogItem> {
+    // Ensure tenantId is provided
+    if (!item.tenantId) {
+      throw new Error("Tenant ID is required when creating a catalog item");
+    }
+    
     const result = await db.insert(schema.catalogItems).values({
       ...item,
       createdAt: new Date()
@@ -2415,34 +2487,80 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>): Promise<CatalogItem | undefined> {
+  async updateCatalogItem(id: number, itemData: Partial<CatalogItem>, tenantId?: number): Promise<CatalogItem | undefined> {
+    let query = eq(schema.catalogItems.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
     const result = await db.update(schema.catalogItems)
       .set(itemData)
-      .where(eq(schema.catalogItems.id, id))
+      .where(query)
       .returning();
     return result[0];
   }
 
-  async deleteCatalogItem(id: number): Promise<boolean> {
+  async deleteCatalogItem(id: number, tenantId?: number): Promise<boolean> {
+    let query = eq(schema.catalogItems.id, id);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
     const result = await db.delete(schema.catalogItems)
-      .where(eq(schema.catalogItems.id, id))
+      .where(query)
       .returning();
     return result.length > 0;
   }
 
-  async getAllCatalogItems(): Promise<CatalogItem[]> {
+  async getAllCatalogItems(tenantId?: number): Promise<CatalogItem[]> {
+    if (tenantId !== undefined) {
+      return await db.query.catalogItems.findMany({
+        where: eq(schema.catalogItems.tenantId, tenantId)
+      });
+    }
     return await db.query.catalogItems.findMany();
   }
 
-  async getCatalogItemsByCategory(category: string): Promise<CatalogItem[]> {
+  async getCatalogItemsByCategory(category: string, tenantId?: number): Promise<CatalogItem[]> {
+    let query = eq(schema.catalogItems.category, category);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
     return await db.query.catalogItems.findMany({
-      where: eq(schema.catalogItems.category, category)
+      where: query
     });
   }
 
-  async getCatalogItemsByUser(userId: number): Promise<CatalogItem[]> {
+  async getCatalogItemsByType(type: string, tenantId?: number): Promise<CatalogItem[]> {
+    let query = eq(schema.catalogItems.type, type);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
     return await db.query.catalogItems.findMany({
-      where: eq(schema.catalogItems.createdBy, userId)
+      where: query
+    });
+  }
+
+  async getCatalogItemsByUser(userId: number, tenantId?: number): Promise<CatalogItem[]> {
+    let query = eq(schema.catalogItems.createdBy, userId);
+    
+    // Apply tenant filter if provided
+    if (tenantId !== undefined) {
+      query = and(query, eq(schema.catalogItems.tenantId, tenantId));
+    }
+    
+    return await db.query.catalogItems.findMany({
+      where: query
     });
   }
 

@@ -49,6 +49,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!req.isAuthenticated()) {
       return res.status(401).json({ message: "Unauthorized" });
     }
+    
+    // Set tenant ID from the authenticated user for use in routes
+    if (req.user && (req.user as User).tenantId) {
+      (req as any).tenantId = (req.user as User).tenantId;
+    }
+    
     next();
   };
 
@@ -2429,16 +2435,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantId = req.tenantId;
       
       // Get item with tenant check
-      const catalogItem = await storage.getCatalogItem(itemId, tenantFilter);
+      const catalogItem = await storage.getCatalogItem(itemId, tenantId);
       
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
       }
       
-      const updatedItem = await storage.updateCatalogItem(itemId, req.body);
+      // Pass tenant ID explicitly to update method
+      const updatedItem = await storage.updateCatalogItem(itemId, req.body, tenantId);
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
@@ -2453,6 +2460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json(updatedItem);
     } catch (error) {
+      console.error("Error updating catalog item:", error);
       res.status(500).json({ message: "Failed to update catalog item" });
     }
   });
@@ -2460,16 +2468,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/catalog-items/:id", requireAuth, async (req, res) => {
     try {
       const itemId = Number(req.params.id);
-      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const tenantId = req.tenantId;
       
       // Get item with tenant check
-      const catalogItem = await storage.getCatalogItem(itemId, tenantFilter);
+      const catalogItem = await storage.getCatalogItem(itemId, tenantId);
       
       if (!catalogItem) {
         return res.status(404).json({ message: "Catalog item not found" });
       }
       
-      const deleted = await storage.deleteCatalogItem(itemId);
+      // Pass tenant ID explicitly to delete method
+      const deleted = await storage.deleteCatalogItem(itemId, tenantId);
       
       if (deleted) {
         // Send real-time update to all connected clients
@@ -2488,6 +2497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.status(500).json({ message: "Failed to delete catalog item" });
       }
     } catch (error) {
+      console.error("Error deleting catalog item:", error);
       res.status(500).json({ message: "Failed to delete catalog item" });
     }
   });
