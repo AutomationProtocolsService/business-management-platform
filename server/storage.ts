@@ -50,7 +50,9 @@ import {
   type InventoryTransaction,
   type UserInvitation,
   type InsertUserInvitation,
-  type InsertInventoryTransaction
+  type InsertInventoryTransaction,
+  type PasswordResetToken,
+  type InsertPasswordResetToken
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -288,6 +290,14 @@ export interface IStorage {
   updateUserInvitation(id: number, invitation: Partial<UserInvitation>): Promise<UserInvitation | undefined>;
   deleteUserInvitation(id: number): Promise<boolean>;
   
+  // Password Reset Token methods
+  getPasswordResetToken(id: number): Promise<PasswordResetToken | undefined>;
+  getPasswordResetTokenByToken(token: string): Promise<PasswordResetToken | undefined>;
+  createPasswordResetToken(resetToken: InsertPasswordResetToken): Promise<PasswordResetToken>;
+  updatePasswordResetToken(id: number, tokenData: Partial<PasswordResetToken>): Promise<PasswordResetToken | undefined>;
+  deletePasswordResetToken(id: number): Promise<boolean>;
+  invalidatePasswordResetToken(token: string): Promise<boolean>;
+  
   // Session store
   sessionStore: any; // Using any to fix Express session store type issue
 }
@@ -319,6 +329,7 @@ export class MemStorage implements IStorage {
   private fileAttachments: Map<number, FileAttachment>;
   private tenants: Map<number, Tenant>;
   private userInvitations: Map<number, UserInvitation>;
+  private passwordResetTokens: Map<number, PasswordResetToken>;
   
   // Auto-incrementing IDs
   private userId: number;
@@ -346,6 +357,7 @@ export class MemStorage implements IStorage {
   private fileAttachmentId: number;
   private tenantId: number;
   private userInvitationId: number;
+  private passwordResetTokenId: number;
   
   // Session store
   sessionStore: any; // Using any for Express session store type issue
@@ -376,6 +388,7 @@ export class MemStorage implements IStorage {
     this.fileAttachments = new Map();
     this.tenants = new Map();
     this.userInvitations = new Map();
+    this.passwordResetTokens = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -402,6 +415,7 @@ export class MemStorage implements IStorage {
     this.fileAttachmentId = 1;
     this.tenantId = 1;
     this.userInvitationId = 1;
+    this.passwordResetTokenId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -1533,6 +1547,45 @@ export class MemStorage implements IStorage {
 
   async deleteUserInvitation(id: number): Promise<boolean> {
     return this.userInvitations.delete(id);
+  }
+
+  // Password Reset Token methods
+  async getPasswordResetToken(id: number): Promise<PasswordResetToken | undefined> {
+    return this.passwordResetTokens.get(id);
+  }
+
+  async getPasswordResetTokenByToken(token: string): Promise<PasswordResetToken | undefined> {
+    return Array.from(this.passwordResetTokens.values()).find(resetToken => resetToken.token === token);
+  }
+
+  async createPasswordResetToken(resetToken: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const id = this.passwordResetTokenId++;
+    const newResetToken: PasswordResetToken = { ...resetToken, id, createdAt: new Date() };
+    this.passwordResetTokens.set(id, newResetToken);
+    return newResetToken;
+  }
+
+  async updatePasswordResetToken(id: number, tokenData: Partial<PasswordResetToken>): Promise<PasswordResetToken | undefined> {
+    const resetToken = this.passwordResetTokens.get(id);
+    if (!resetToken) return undefined;
+    
+    const updatedToken = { ...resetToken, ...tokenData };
+    this.passwordResetTokens.set(id, updatedToken);
+    return updatedToken;
+  }
+
+  async deletePasswordResetToken(id: number): Promise<boolean> {
+    return this.passwordResetTokens.delete(id);
+  }
+
+  async invalidatePasswordResetToken(token: string): Promise<boolean> {
+    const resetToken = Array.from(this.passwordResetTokens.values()).find(rt => rt.token === token);
+    if (!resetToken) return false;
+    
+    // Mark the token as used
+    const updatedToken = { ...resetToken, used: true };
+    this.passwordResetTokens.set(resetToken.id, updatedToken);
+    return true;
   }
 }
 
@@ -3718,6 +3771,56 @@ export class DatabaseStorage implements IStorage {
   async deleteUserInvitation(id: number): Promise<boolean> {
     const result = await db.delete(schema.userInvitations)
       .where(eq(schema.userInvitations.id, id))
+      .returning();
+    
+    return result.length > 0;
+  }
+
+  // Password Reset Token methods
+  async getPasswordResetToken(id: number): Promise<PasswordResetToken | undefined> {
+    return await db.query.passwordResetTokens.findFirst({
+      where: eq(schema.passwordResetTokens.id, id)
+    });
+  }
+
+  async getPasswordResetTokenByToken(token: string): Promise<PasswordResetToken | undefined> {
+    return await db.query.passwordResetTokens.findFirst({
+      where: eq(schema.passwordResetTokens.token, token)
+    });
+  }
+
+  async createPasswordResetToken(passwordResetToken: InsertPasswordResetToken): Promise<PasswordResetToken> {
+    const result = await db.insert(schema.passwordResetTokens)
+      .values({
+        ...passwordResetToken,
+        createdAt: new Date()
+      })
+      .returning();
+    return result[0];
+  }
+
+  async updatePasswordResetToken(id: number, tokenData: Partial<PasswordResetToken>): Promise<PasswordResetToken | undefined> {
+    const result = await db.update(schema.passwordResetTokens)
+      .set(tokenData)
+      .where(eq(schema.passwordResetTokens.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deletePasswordResetToken(id: number): Promise<boolean> {
+    const result = await db.delete(schema.passwordResetTokens)
+      .where(eq(schema.passwordResetTokens.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async invalidatePasswordResetToken(token: string): Promise<boolean> {
+    const resetToken = await this.getPasswordResetTokenByToken(token);
+    if (!resetToken) return false;
+    
+    const result = await db.update(schema.passwordResetTokens)
+      .set({ used: true })
+      .where(eq(schema.passwordResetTokens.token, token))
       .returning();
     
     return result.length > 0;

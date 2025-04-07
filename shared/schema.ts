@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex, numeric, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -844,3 +844,36 @@ export const insertUserInvitationSchema = createInsertSchema(userInvitations)
     createdAt: true
   });
 export type UserInvitationInsert = z.infer<typeof insertUserInvitationSchema>;
+
+// Password Reset Tokens
+export const passwordResetTokens = pgTable("password_reset_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").references(() => users.id).notNull(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(),
+  token: uuid("token").notNull().unique(), // Secure random UUID token
+  expiresAt: timestamp("expires_at").notNull(), // Expiration timestamp
+  used: boolean("used").default(false), // Flag to mark if token was used
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+// Establish relations for password reset tokens
+export const passwordResetTokensRelations = relations(passwordResetTokens, ({ one }) => ({
+  user: one(users, {
+    fields: [passwordResetTokens.userId],
+    references: [users.id]
+  }),
+  tenant: one(tenants, {
+    fields: [passwordResetTokens.tenantId],
+    references: [tenants.id]
+  })
+}));
+
+// Export types for password reset tokens
+export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
+export type InsertPasswordResetToken = typeof passwordResetTokens.$inferInsert;
+export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTokens)
+  .omit({
+    id: true,
+    createdAt: true
+  });
+export type PasswordResetTokenInsert = z.infer<typeof insertPasswordResetTokenSchema>;
