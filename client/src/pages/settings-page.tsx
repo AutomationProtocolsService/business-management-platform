@@ -489,192 +489,344 @@ export default function SettingsPage() {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Project</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.project}</span>
-                      </p>
+                  <div className="border rounded-md p-4">
+                    <h3 className="font-medium mb-3">Core Business Terms</h3>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <h4 className="text-sm font-medium">Project</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.project}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'project', value: terminology.project })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Customer</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.customer}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'customer', value: terminology.customer })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Quote</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.quote}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'quote', value: terminology.quote })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Invoice</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.invoice}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'invoice', value: terminology.invoice })}
+                        >
+                          Change
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'project', value: terminology.project })}
-                    >
-                      Change
-                    </Button>
                   </div>
                   
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Quote</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.quote}</span>
-                      </p>
+                  <div className="border rounded-md p-4">
+                    <h3 className="font-medium mb-3">Operations</h3>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <h4 className="text-sm font-medium">Employee</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.employee}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'employee', value: terminology.employee })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Survey</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.survey}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'survey', value: terminology.survey })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Installation</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.installation}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'installation', value: terminology.installation })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Timesheet</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.timesheet}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'timesheet', value: terminology.timesheet })}
+                        >
+                          Change
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'quote', value: terminology.quote })}
-                    >
-                      Change
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Survey</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.survey}</span>
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'survey', value: terminology.survey })}
-                    >
-                      Change
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Employee</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.employee}</span>
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'employee', value: terminology.employee })}
-                    >
-                      Change
-                    </Button>
                   </div>
                 </div>
-
+                
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Invoice</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.invoice}</span>
-                      </p>
+                  <div className="border rounded-md p-4">
+                    <h3 className="font-medium mb-3">Products & Services</h3>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <h4 className="text-sm font-medium">Product</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.product}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'product', value: terminology.product })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Service</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.service}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'service', value: terminology.service })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Task</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.task}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'task', value: terminology.task })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Inventory</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.inventory}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'inventory', value: terminology.inventory })}
+                        >
+                          Change
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'invoice', value: terminology.invoice })}
-                    >
-                      Change
-                    </Button>
-                  </div>
-
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Customer</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.customer}</span>
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'customer', value: terminology.customer })}
-                    >
-                      Change
-                    </Button>
                   </div>
                   
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Installation</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.installation}</span>
-                      </p>
+                  <div className="border rounded-md p-4">
+                    <h3 className="font-medium mb-3">CRM & Advanced</h3>
+                    
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between py-2">
+                        <div>
+                          <h4 className="text-sm font-medium">Lead</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.lead}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'lead', value: terminology.lead })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Opportunity</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.opportunity}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'opportunity', value: terminology.opportunity })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Contract</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.contract}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'contract', value: terminology.contract })}
+                        >
+                          Change
+                        </Button>
+                      </div>
+                      
+                      <div className="flex items-center justify-between py-2 border-t">
+                        <div>
+                          <h4 className="text-sm font-medium">Milestone</h4>
+                          <p className="text-xs text-muted-foreground">
+                            Current: <span className="font-medium">{terminology.milestone}</span>
+                          </p>
+                        </div>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => setSelectedTerm({ key: 'milestone', value: terminology.milestone })}
+                        >
+                          Change
+                        </Button>
+                      </div>
                     </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'installation', value: terminology.installation })}
-                    >
-                      Change
-                    </Button>
-                  </div>
-                  
-                  <div className="flex items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <h4 className="text-base font-medium">Timesheet</h4>
-                      <p className="text-sm text-muted-foreground">
-                        Current term: <span className="font-medium">{terminology.timesheet}</span>
-                      </p>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      onClick={() => setSelectedTerm({ key: 'timesheet', value: terminology.timesheet })}
-                    >
-                      Change
-                    </Button>
                   </div>
                 </div>
               </div>
             </CardContent>
           </Card>
-          
-          {/* Term editing dialog */}
-          <Dialog open={!!selectedTerm} onOpenChange={(open) => !open && setSelectedTerm(null)}>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>Edit Term: {selectedTerm?.key}</DialogTitle>
-              </DialogHeader>
-              <div className="py-4">
-                <div className="space-y-4">
-                  <div className="grid w-full gap-1.5">
-                    <label htmlFor="term" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                      New term
-                    </label>
-                    <Input
-                      id="term"
-                      placeholder="Enter new term"
-                      value={selectedTerm?.value || ""}
-                      onChange={(e) => setSelectedTerm(prev => prev ? { ...prev, value: e.target.value } : null)}
-                      className="col-span-3"
-                    />
-                    <p className="text-sm text-muted-foreground">
-                      This will replace all instances of "{selectedTerm?.key}" with your custom term.
-                    </p>
-                  </div>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setSelectedTerm(null)}>
-                  Cancel
-                </Button>
-                <Button 
-                  onClick={() => {
-                    if (selectedTerm) {
-                      // Create an object with just the one terminology change
-                      const data = { [selectedTerm.key]: selectedTerm.value };
-                      updateTerminologyMutation.mutate(data);
-                    }
-                  }}
-                  disabled={updateTerminologyMutation.isPending}
-                >
-                  {updateTerminologyMutation.isPending ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-                    </>
-                  ) : (
-                    "Save Change"
-                  )}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </TabsContent>
       </Tabs>
+      
+      {/* Term editing dialog */}
+      <Dialog open={!!selectedTerm} onOpenChange={(open) => !open && setSelectedTerm(null)}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Term: {selectedTerm?.key}</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <div className="space-y-4">
+              <div className="grid w-full gap-1.5">
+                <label htmlFor="term" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  New term
+                </label>
+                <Input
+                  id="term"
+                  placeholder="Enter new term"
+                  value={selectedTerm?.value || ""}
+                  onChange={(e) => setSelectedTerm(prev => prev ? { ...prev, value: e.target.value } : null)}
+                  className="col-span-3"
+                />
+                <p className="text-sm text-muted-foreground">
+                  This will replace all instances of "{selectedTerm?.key}" with your custom term.
+                </p>
+              </div>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setSelectedTerm(null)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={() => {
+                if (selectedTerm) {
+                  // Create an object with just the one terminology change
+                  const data = { [selectedTerm.key]: selectedTerm.value };
+                  updateTerminologyMutation.mutate(data);
+                }
+              }}
+              disabled={updateTerminologyMutation.isPending}
+            >
+              {updateTerminologyMutation.isPending ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+                </>
+              ) : (
+                "Save Change"
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
