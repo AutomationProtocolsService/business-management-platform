@@ -712,7 +712,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (projectId) {
         invoices = await storage.getInvoicesByProject(Number(projectId));
       } else {
-        invoices = await storage.getAllInvoices();
+        invoices = await storage.getAllInvoices(req.tenantId ? { tenantId: req.tenantId } : undefined);
       }
       
       res.json(invoices);
@@ -1987,11 +1987,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Dashboard summary route
   app.get("/api/dashboard", requireAuth, async (req, res) => {
     try {
-      // Get counts and summaries for dashboard widgets
-      const projects = await storage.getAllProjects();
-      const quotes = await storage.getAllQuotes();
-      const invoices = await storage.getAllInvoices();
-      const surveys = await storage.getAllSurveys();
+      // Get counts and summaries for dashboard widgets, filtering by tenant if available
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      const projects = await storage.getAllProjects(tenantFilter);
+      const quotes = await storage.getAllQuotes(tenantFilter);
+      const invoices = await storage.getAllInvoices(tenantFilter);
+      const surveys = await storage.getAllSurveys(tenantFilter);
       
       // Project stats
       const totalProjects = projects.length;
@@ -2025,7 +2026,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ).slice(0, 5);
       
       // Get upcoming schedule (combine surveys and installations)
-      const installations = await storage.getAllInstallations();
+      const installations = await storage.getAllInstallations(tenantFilter);
       
       const upcomingEvents = [
         ...surveys.map(s => ({
@@ -2148,12 +2149,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { category, userId } = req.query;
       
       let catalogItems;
+      const tenantFilter = req.tenantId ? { tenantId: req.tenantId } : undefined;
+      
       if (category) {
-        catalogItems = await storage.getCatalogItemsByCategory(category as string);
+        catalogItems = await storage.getCatalogItemsByCategory(category as string, tenantFilter);
       } else if (userId) {
-        catalogItems = await storage.getCatalogItemsByUser(Number(userId));
+        catalogItems = await storage.getCatalogItemsByUser(Number(userId), tenantFilter);
       } else {
-        catalogItems = await storage.getAllCatalogItems();
+        catalogItems = await storage.getAllCatalogItems(tenantFilter);
       }
       
       res.json(catalogItems);

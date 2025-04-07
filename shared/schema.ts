@@ -2,21 +2,44 @@ import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecisi
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Tenants 
+export const tenants = pgTable("tenants", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  subdomain: text("subdomain").notNull().unique(),
+  logoUrl: text("logo_url"),
+  customDomain: text("custom_domain").unique(),
+  primaryColor: text("primary_color").default("#1E40AF"), // Default to blue
+  active: boolean("active").notNull().default(true),
+  plan: text("plan").notNull().default("basic"), // basic, professional, enterprise
+  trialEnds: timestamp("trial_ends"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at"),
+  customTerminology: jsonb("custom_terminology").$type<Record<string, string>>(), // For custom term mapping
+  settings: jsonb("settings").$type<Record<string, any>>(), // For tenant-specific settings
+});
+
 // Users and Authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
-  username: text("username").notNull().unique(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
+  username: text("username").notNull(),
   password: text("password").notNull(),
   email: text("email").notNull(),
   fullName: text("full_name").notNull(),
-  role: text("role").notNull().default("employee"),
+  role: text("role").notNull().default("employee"), // admin, manager, employee - within tenant context
   active: boolean("active").notNull().default(true),
   createdAt: timestamp("created_at").notNull().defaultNow(),
-});
+  lastLogin: timestamp("last_login"),
+}, (users) => ({
+  // Create a unique constraint for username within each tenant
+  uniqueUsername: uniqueIndex("username_tenant_unique").on(users.username, users.tenantId),
+}));
 
 // Customers
 export const customers = pgTable("customers", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   name: text("name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
@@ -33,6 +56,7 @@ export const customers = pgTable("customers", {
 // Projects
 export const projects = pgTable("projects", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   name: text("name").notNull(),
   description: text("description"),
   customerId: integer("customer_id").references(() => customers.id),
@@ -54,7 +78,8 @@ export const projects = pgTable("projects", {
 // Quotes
 export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
-  quoteNumber: text("quote_number").notNull().unique(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
+  quoteNumber: text("quote_number").notNull(),
   reference: text("reference"),
   projectId: integer("project_id").references(() => projects.id),
   customerId: integer("customer_id").references(() => customers.id),
@@ -75,7 +100,10 @@ export const quotes = pgTable("quotes", {
   terms: text("terms"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => users.id),
-});
+}, (quotes) => ({
+  // Create a unique constraint for quote number within each tenant
+  uniqueQuoteNumber: uniqueIndex("quote_number_tenant_unique").on(quotes.quoteNumber, quotes.tenantId),
+}));
 
 // Quote Items
 export const quoteItems = pgTable("quote_items", {
@@ -91,7 +119,8 @@ export const quoteItems = pgTable("quote_items", {
 // Invoices
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
-  invoiceNumber: text("invoice_number").notNull().unique(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
+  invoiceNumber: text("invoice_number").notNull(),
   reference: text("reference"),
   projectId: integer("project_id").references(() => projects.id),
   customerId: integer("customer_id").references(() => customers.id),
@@ -115,7 +144,10 @@ export const invoices = pgTable("invoices", {
   terms: text("terms"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => users.id),
-});
+}, (invoices) => ({
+  // Create a unique constraint for invoice number within each tenant
+  uniqueInvoiceNumber: uniqueIndex("invoice_number_tenant_unique").on(invoices.invoiceNumber, invoices.tenantId),
+}));
 
 // Invoice Items
 export const invoiceItems = pgTable("invoice_items", {
@@ -451,19 +483,32 @@ export const systemSettings = pgTable("system_settings", {
 });
 
 // Schema for inserts
+export const insertTenantSchema = createInsertSchema(tenants).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  customTerminology: true,
+  settings: true,
+});
+
 export const insertUserSchema = createInsertSchema(users).omit({
   id: true,
   createdAt: true,
+  lastLogin: true,
 });
 
 export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 });
 
 export const insertProjectSchema = createInsertSchema(projects).omit({
   id: true,
   createdAt: true,
+}).extend({
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 });
 
 export const insertQuoteSchema = createInsertSchema(quotes, {
@@ -477,6 +522,7 @@ export const insertQuoteSchema = createInsertSchema(quotes, {
   discount: z.number().optional().default(0), // Default to 0
   notes: z.string().nullable().optional(),
   terms: z.string().nullable().optional(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
   // Items will be handled separately
   items: z.array(z.object({
@@ -504,6 +550,7 @@ export const insertInvoiceSchema = createInsertSchema(invoices, {
   discount: z.number().optional().default(0), // Default to 0
   notes: z.string().nullable().optional(),
   terms: z.string().nullable().optional(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
   // Items will be handled separately
   items: z.array(z.object({
@@ -633,6 +680,9 @@ export const insertSystemSettingsSchema = createInsertSchema(systemSettings).omi
 });
 
 // Types
+export type InsertTenant = z.infer<typeof insertTenantSchema>;
+export type Tenant = typeof tenants.$inferSelect;
+
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type User = typeof users.$inferSelect;
 

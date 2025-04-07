@@ -1,6 +1,8 @@
 import * as schema from "@shared/schema";
 import EmailService from './services/email-service';
 import { 
+  type Tenant,
+  type InsertTenant,
   type User, 
   type InsertUser, 
   type Customer, 
@@ -58,43 +60,56 @@ import { eq, and, asc, desc, between, isNotNull, sql } from "drizzle-orm";
 const MemoryStore = createMemoryStore(session);
 const PostgresSessionStore = connectPg(session);
 
+// Common interface for tenant-specific filters
+export interface TenantFilter {
+  tenantId?: number;
+}
+
 // Interface for storage operations
 export interface IStorage {
+  // Tenants
+  getTenant(id: number): Promise<Tenant | undefined>;
+  getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined>;
+  createTenant(tenant: InsertTenant): Promise<Tenant>;
+  updateTenant(id: number, tenant: Partial<Tenant>): Promise<Tenant | undefined>;
+  deleteTenant(id: number): Promise<boolean>;
+  getAllTenants(): Promise<Tenant[]>;
+  
   // Users
   getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByUsername(username: string, tenantId?: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
   deleteUser(id: number): Promise<boolean>;
-  getAllUsers(): Promise<User[]>;
+  getAllUsers(filter?: TenantFilter): Promise<User[]>;
   
   // Customers
-  getCustomer(id: number): Promise<Customer | undefined>;
-  getCustomerByName(name: string): Promise<Customer | undefined>;
+  getCustomer(id: number, tenantId?: number): Promise<Customer | undefined>;
+  getCustomerByName(name: string, tenantId?: number): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
-  updateCustomer(id: number, customer: Partial<Customer>): Promise<Customer | undefined>;
-  deleteCustomer(id: number): Promise<boolean>;
-  getAllCustomers(): Promise<Customer[]>;
+  updateCustomer(id: number, customer: Partial<Customer>, tenantId?: number): Promise<Customer | undefined>;
+  deleteCustomer(id: number, tenantId?: number): Promise<boolean>;
+  getAllCustomers(filter?: TenantFilter): Promise<Customer[]>;
   
   // Projects
-  getProject(id: number): Promise<Project | undefined>;
+  getProject(id: number, tenantId?: number): Promise<Project | undefined>;
   createProject(project: InsertProject): Promise<Project>;
-  updateProject(id: number, project: Partial<Project>): Promise<Project | undefined>;
-  deleteProject(id: number): Promise<boolean>;
-  getAllProjects(): Promise<Project[]>;
-  getProjectsByCustomer(customerId: number): Promise<Project[]>;
-  getProjectsByStatus(status: string): Promise<Project[]>;
+  updateProject(id: number, project: Partial<Project>, tenantId?: number): Promise<Project | undefined>;
+  deleteProject(id: number, tenantId?: number): Promise<boolean>;
+  getAllProjects(filter?: TenantFilter): Promise<Project[]>;
+  getProjectsByCustomer(customerId: number, tenantId?: number): Promise<Project[]>;
+  getProjectsByStatus(status: string, tenantId?: number): Promise<Project[]>;
   
   // Quotes
-  getQuote(id: number): Promise<Quote | undefined>;
-  getQuoteByNumber(quoteNumber: string): Promise<Quote | undefined>;
+  getQuote(id: number, tenantId?: number): Promise<Quote | undefined>;
+  getQuoteByNumber(quoteNumber: string, tenantId?: number): Promise<Quote | undefined>;
   createQuote(quote: InsertQuote): Promise<Quote>;
-  updateQuote(id: number, quote: Partial<Quote>): Promise<Quote | undefined>;
-  deleteQuote(id: number): Promise<boolean>;
-  getAllQuotes(): Promise<Quote[]>;
-  getQuotesByProject(projectId: number): Promise<Quote[]>;
-  getQuotesByCustomer(customerId: number): Promise<Quote[]>;
-  getQuotesByStatus(status: string): Promise<Quote[]>;
+  updateQuote(id: number, quote: Partial<Quote>, tenantId?: number): Promise<Quote | undefined>;
+  deleteQuote(id: number, tenantId?: number): Promise<boolean>;
+  getAllQuotes(filter?: TenantFilter): Promise<Quote[]>;
+  getQuotesByProject(projectId: number, tenantId?: number): Promise<Quote[]>;
+  getQuotesByCustomer(customerId: number, tenantId?: number): Promise<Quote[]>;
+  getQuotesByStatus(status: string, tenantId?: number): Promise<Quote[]>;
   
   // Quote Items
   getQuoteItem(id: number): Promise<QuoteItem | undefined>;
@@ -104,15 +119,15 @@ export interface IStorage {
   getQuoteItemsByQuote(quoteId: number): Promise<QuoteItem[]>;
   
   // Invoices
-  getInvoice(id: number): Promise<Invoice | undefined>;
-  getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined>;
+  getInvoice(id: number, tenantId?: number): Promise<Invoice | undefined>;
+  getInvoiceByNumber(invoiceNumber: string, tenantId?: number): Promise<Invoice | undefined>;
   createInvoice(invoice: InsertInvoice): Promise<Invoice>;
-  updateInvoice(id: number, invoice: Partial<Invoice>): Promise<Invoice | undefined>;
-  deleteInvoice(id: number): Promise<boolean>;
-  getAllInvoices(): Promise<Invoice[]>;
-  getInvoicesByProject(projectId: number): Promise<Invoice[]>;
-  getInvoicesByCustomer(customerId: number): Promise<Invoice[]>;
-  getInvoicesByStatus(status: string): Promise<Invoice[]>;
+  updateInvoice(id: number, invoice: Partial<Invoice>, tenantId?: number): Promise<Invoice | undefined>;
+  deleteInvoice(id: number, tenantId?: number): Promise<boolean>;
+  getAllInvoices(filter?: TenantFilter): Promise<Invoice[]>;
+  getInvoicesByProject(projectId: number, tenantId?: number): Promise<Invoice[]>;
+  getInvoicesByCustomer(customerId: number, tenantId?: number): Promise<Invoice[]>;
+  getInvoicesByStatus(status: string, tenantId?: number): Promise<Invoice[]>;
   
   // Invoice Items
   getInvoiceItem(id: number): Promise<InvoiceItem | undefined>;
@@ -476,12 +491,22 @@ export class MemStorage implements IStorage {
   }
 
   // Quote methods
-  async getQuote(id: number): Promise<Quote | undefined> {
-    return this.quotes.get(id);
+  async getQuote(id: number, tenantId?: number): Promise<Quote | undefined> {
+    const quote = this.quotes.get(id);
+    // If tenantId is provided, filter by tenant
+    if (tenantId !== undefined && quote) {
+      return quote.tenantId === tenantId ? quote : undefined;
+    }
+    return quote;
   }
 
-  async getQuoteByNumber(quoteNumber: string): Promise<Quote | undefined> {
-    return Array.from(this.quotes.values()).find(quote => quote.quoteNumber === quoteNumber);
+  async getQuoteByNumber(quoteNumber: string, tenantId?: number): Promise<Quote | undefined> {
+    const quote = Array.from(this.quotes.values()).find(quote => quote.quoteNumber === quoteNumber);
+    // If tenantId is provided, filter by tenant
+    if (tenantId !== undefined && quote) {
+      return quote.tenantId === tenantId ? quote : undefined;
+    }
+    return quote;
   }
 
   async createQuote(quote: InsertQuote): Promise<Quote> {
@@ -578,8 +603,12 @@ export class MemStorage implements IStorage {
     return this.invoices.delete(id);
   }
 
-  async getAllInvoices(): Promise<Invoice[]> {
-    return Array.from(this.invoices.values());
+  async getAllInvoices(filter?: TenantFilter): Promise<Invoice[]> {
+    const invoices = Array.from(this.invoices.values());
+    if (filter && 'tenantId' in filter) {
+      return invoices.filter(invoice => invoice.tenantId === filter.tenantId);
+    }
+    return invoices;
   }
 
   async getInvoicesByProject(projectId: number): Promise<Invoice[]> {
@@ -1394,16 +1423,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Customer methods
-  async getCustomer(id: number): Promise<Customer | undefined> {
+  async getCustomer(id: number, tenantId?: number): Promise<Customer | undefined> {
+    let whereCondition: any = eq(schema.customers.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.customers.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.customers.findFirst({
-      where: eq(schema.customers.id, id)
+      where: whereCondition
     });
     return result;
   }
 
-  async getCustomerByName(name: string): Promise<Customer | undefined> {
+  async getCustomerByName(name: string, tenantId?: number): Promise<Customer | undefined> {
+    let whereCondition: any = eq(schema.customers.name, name);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.customers.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.customers.findFirst({
-      where: eq(schema.customers.name, name)
+      where: whereCondition
     });
     return result;
   }
@@ -1431,14 +1480,29 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllCustomers(): Promise<Customer[]> {
+  async getAllCustomers(tenantId?: number): Promise<Customer[]> {
+    if (tenantId !== undefined) {
+      return await db.query.customers.findMany({
+        where: eq(schema.customers.tenantId, tenantId)
+      });
+    }
     return await db.query.customers.findMany();
   }
 
   // Project methods
-  async getProject(id: number): Promise<Project | undefined> {
+  async getProject(id: number, tenantId?: number): Promise<Project | undefined> {
+    let whereCondition: any = eq(schema.projects.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.projects.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.projects.findFirst({
-      where: eq(schema.projects.id, id)
+      where: whereCondition
     });
     return result;
   }
@@ -1584,16 +1648,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Quote methods
-  async getQuote(id: number): Promise<Quote | undefined> {
+  async getQuote(id: number, tenantId?: number): Promise<Quote | undefined> {
+    let whereCondition: any = eq(schema.quotes.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.quotes.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.quotes.findFirst({
-      where: eq(schema.quotes.id, id)
+      where: whereCondition
     });
     return result;
   }
 
-  async getQuoteByNumber(quoteNumber: string): Promise<Quote | undefined> {
+  async getQuoteByNumber(quoteNumber: string, tenantId?: number): Promise<Quote | undefined> {
+    let whereCondition: any = eq(schema.quotes.quoteNumber, quoteNumber);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.quotes.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.quotes.findFirst({
-      where: eq(schema.quotes.quoteNumber, quoteNumber)
+      where: whereCondition
     });
     return result;
   }
@@ -1685,16 +1769,36 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Invoice methods
-  async getInvoice(id: number): Promise<Invoice | undefined> {
+  async getInvoice(id: number, tenantId?: number): Promise<Invoice | undefined> {
+    let whereCondition: any = eq(schema.invoices.id, id);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.invoices.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.invoices.findFirst({
-      where: eq(schema.invoices.id, id)
+      where: whereCondition
     });
     return result;
   }
 
-  async getInvoiceByNumber(invoiceNumber: string): Promise<Invoice | undefined> {
+  async getInvoiceByNumber(invoiceNumber: string, tenantId?: number): Promise<Invoice | undefined> {
+    let whereCondition: any = eq(schema.invoices.invoiceNumber, invoiceNumber);
+    
+    // Add tenant filtering if tenantId is provided
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.invoices.tenantId, tenantId)
+      );
+    }
+    
     const result = await db.query.invoices.findFirst({
-      where: eq(schema.invoices.invoiceNumber, invoiceNumber)
+      where: whereCondition
     });
     return result;
   }
@@ -1722,7 +1826,12 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllInvoices(): Promise<Invoice[]> {
+  async getAllInvoices(filter?: TenantFilter): Promise<Invoice[]> {
+    if (filter && filter.tenantId !== undefined) {
+      return await db.query.invoices.findMany({
+        where: eq(schema.invoices.tenantId, filter.tenantId)
+      });
+    }
     return await db.query.invoices.findMany();
   }
 

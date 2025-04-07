@@ -29,16 +29,16 @@ export const registerDocumentRoutes = (app: Express) => {
       
       console.log(`[PDF Route] Starting PDF generation for quote ID: ${quoteId}`);
       
-      // Fetch the quote
-      const quote = await storage.getQuote(quoteId);
+      // Fetch the quote with tenant filtering
+      const quote = await storage.getQuote(quoteId, req.tenantId);
       
       if (!quote) {
         console.log(`[PDF Route] Quote not found with ID: ${quoteId}`);
         return res.status(404).json({ message: 'Quote not found' });
       }
       
-      // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(quote.createdBy)) {
+      // Check if user has access to this resource (double-checking)
+      if (!req.isTenantResource(quote.tenantId)) {
         console.log(`[PDF Route] Access denied for user to Quote ID: ${quoteId}`);
         return res.status(403).json({ message: 'Access denied' });
       }
@@ -58,11 +58,11 @@ export const registerDocumentRoutes = (app: Express) => {
       let customer = null;
       let project = null;
       
-      // Fetch customer if we have a customer ID
+      // Fetch customer if we have a customer ID, using tenant filtering
       if (quote.customerId) {
         try {
           console.log(`[PDF Route] Fetching customer with ID: ${quote.customerId}`);
-          customer = await storage.getCustomer(quote.customerId);
+          customer = await storage.getCustomer(quote.customerId, req.tenantId);
           if (customer) {
             console.log(`[PDF Route] Customer found: ${customer.name} (ID: ${customer.id})`);
           } else {
@@ -75,11 +75,11 @@ export const registerDocumentRoutes = (app: Express) => {
         console.log(`[PDF Route] No customer ID on quote`);
       }
       
-      // Fetch project if we have a project ID
+      // Fetch project if we have a project ID, using tenant filtering
       if (quote.projectId) {
         try {
           console.log(`[PDF Route] Fetching project with ID: ${quote.projectId}`);
-          project = await storage.getProject(quote.projectId);
+          project = await storage.getProject(quote.projectId, req.tenantId);
           if (project) {
             console.log(`[PDF Route] Project found: ${project.name} (ID: ${project.id})`);
           } else {
