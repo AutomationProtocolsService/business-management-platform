@@ -11,6 +11,16 @@ import { Request, Response, NextFunction } from "express";
 import { User } from "@shared/schema";
 import logger from "../logger";
 
+// Extend the Express Request interface to include tenant-specific methods and properties
+declare global {
+  namespace Express {
+    interface Request {
+      tenantFilter?: { tenantId: number };
+      isTenantResource?: (resourceTenantId: number | null) => boolean;
+    }
+  }
+}
+
 /**
  * Check if tenant information is available in the request
  * Either via authenticated user or explicit tenantId in request
@@ -67,6 +77,7 @@ function getTenantId(req: Request): number | undefined {
 export function requireTenant(req: Request, res: Response, next: NextFunction) {
   // Skip tenant check for public routes and authentication endpoints
   const publicPaths = [
+    '/',
     '/api/login', 
     '/api/register', 
     '/api/public',
@@ -74,12 +85,30 @@ export function requireTenant(req: Request, res: Response, next: NextFunction) {
     '/api/auth/reset-password'
   ];
   
+  // Skip tenant check for static assets and client-side resources
+  const staticPaths = [
+    '/assets/',
+    '/favicon.ico',
+    '/node_modules/',
+    '/__vite_ping',
+    '/@vite/',
+    '/public/',
+    '/@id/',
+    '/@fs/',
+    '/.vite/'
+  ];
+  
   // Check if path starts with any of the public paths
   const isPublicPath = publicPaths.some(prefix => 
     req.path.startsWith(prefix) || req.path === prefix
   );
   
-  if (isPublicPath) {
+  // Check if path is a static asset
+  const isStaticAsset = staticPaths.some(prefix => 
+    req.path.startsWith(prefix)
+  );
+  
+  if (isPublicPath || isStaticAsset) {
     return next();
   }
   
@@ -106,6 +135,17 @@ export function addTenantFilter(req: Request, res: Response, next: NextFunction)
   if (tenantId) {
     // Create a tenantFilter property that route handlers can use
     (req as any).tenantFilter = { tenantId };
+    
+    // Add a helper function to check if a resource belongs to the current tenant
+    (req as any).isTenantResource = (resourceTenantId: number | null) => {
+      // If resource doesn't have a tenant ID, default to false for security
+      if (resourceTenantId === null || resourceTenantId === undefined) {
+        return false;
+      }
+      
+      // Compare the resource's tenant ID with the current request's tenant ID
+      return resourceTenantId === tenantId;
+    };
     
     // Log the tenant context for debugging
     logger.debug({ 
