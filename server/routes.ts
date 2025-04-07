@@ -13,7 +13,7 @@ import path from "path";
 import fs from "fs";
 import bcrypt from "bcrypt";
 import { addTenantFilter, tenantMiddleware } from "./middleware/tenant-filter";
-import { User } from "@shared/types";
+import { User, Customer } from "@shared/types";
 
 // Helper functions for tenant context
 // Get tenant filter object for operations that expect a TenantFilter object
@@ -358,36 +358,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customer routes
   app.get("/api/customers", requireAuth, async (req, res) => {
     try {
-      const customers = await storage.getAllCustomers();
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      const customers = await storage.getAllCustomers(tenantId);
       res.json(customers);
     } catch (error) {
+      console.error("Error fetching customers:", error);
       res.status(500).json({ message: "Failed to fetch customers" });
+    }
+  });
+
+  app.get("/api/customers/search", requireAuth, async (req, res) => {
+    try {
+      const query = req.query.query as string;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      // Get all customers for this tenant
+      const allCustomers = await storage.getAllCustomers(tenantId);
+      
+      // Filter customers based on search query
+      const filteredCustomers = allCustomers.filter(customer => 
+        customer.name.toLowerCase().includes(query.toLowerCase()) ||
+        (customer.email && customer.email.toLowerCase().includes(query.toLowerCase())) ||
+        (customer.phone && customer.phone.includes(query)) ||
+        (customer.city && customer.city.toLowerCase().includes(query.toLowerCase())) ||
+        (customer.state && customer.state.toLowerCase().includes(query.toLowerCase()))
+      );
+      
+      res.json(filteredCustomers);
+    } catch (error) {
+      console.error("Error searching customers:", error);
+      res.status(500).json({ message: "Failed to fetch customer" });
     }
   });
 
   app.get("/api/customers/:id", requireAuth, async (req, res) => {
     try {
-      const customer = await storage.getCustomer(Number(req.params.id));
+      const customerId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      const customer = await storage.getCustomer(customerId, tenantId);
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
       res.json(customer);
     } catch (error) {
+      console.error("Error fetching customer:", error);
       res.status(500).json({ message: "Failed to fetch customer" });
     }
   });
 
   app.post("/api/customers", requireAuth, validateBody(insertCustomerSchema), async (req, res) => {
     try {
+      // Get tenant ID from request
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
       const customer = await storage.createCustomer({
         ...req.body,
+        tenantId,
         createdBy: req.user?.id
       });
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
-      if (wsManager) {
-        wsManager.broadcast("customer:created", {
+      if (wsManager && tenantId) {
+        wsManager.broadcastToTenant(tenantId, "customer:created", {
           id: customer.id,
           data: customer,
           message: `New customer added: ${customer.name}`
@@ -396,6 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(customer);
     } catch (error) {
+      console.error("Error creating customer:", error);
       res.status(500).json({ message: "Failed to create customer" });
     }
   });
@@ -403,15 +455,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/customers/:id", requireAuth, async (req, res) => {
     try {
       const customerId = Number(req.params.id);
-      const customer = await storage.getCustomer(customerId);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      // First verify this customer belongs to the tenant
+      const customer = await storage.getCustomer(customerId, tenantId);
       
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
       
-      const updatedCustomer = await storage.updateCustomer(customerId, req.body);
+      // Make sure the update includes the tenant ID to maintain data isolation
+      const customerData = { ...req.body, tenantId };
+      const updatedCustomer = await storage.updateCustomer(customerId, customerData);
+      
+      // Send real-time update to all connected clients in this tenant
+      const wsManager = getWebSocketManager();
+      if (wsManager && tenantId) {
+        wsManager.broadcastToTenant(tenantId, "customer:updated", {
+          id: customerId,
+          data: updatedCustomer,
+          message: `Customer updated: ${updatedCustomer?.name}`
+        });
+      }
+      
       res.json(updatedCustomer);
     } catch (error) {
+      console.error("Error updating customer:", error);
       res.status(500).json({ message: "Failed to update customer" });
     }
   });
@@ -419,20 +492,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.delete("/api/customers/:id", requireAuth, async (req, res) => {
     try {
       const customerId = Number(req.params.id);
-      const customer = await storage.getCustomer(customerId);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      // First verify this customer belongs to the tenant
+      const customer = await storage.getCustomer(customerId, tenantId);
       
       if (!customer) {
         return res.status(404).json({ message: "Customer not found" });
       }
       
+      // Storage method doesn't accept tenantId
       const deleted = await storage.deleteCustomer(customerId);
       
       if (deleted) {
+        // Send real-time update to all connected clients in this tenant
+        const wsManager = getWebSocketManager();
+        if (wsManager && tenantId) {
+          wsManager.broadcastToTenant(tenantId, "customer:deleted", {
+            id: customerId,
+            message: `Customer deleted: ${customer.name}`
+          });
+        }
+        
         res.status(204).send();
       } else {
         res.status(500).json({ message: "Failed to delete customer" });
       }
     } catch (error) {
+      console.error("Error deleting customer:", error);
       res.status(500).json({ message: "Failed to delete customer" });
     }
   });
@@ -487,7 +578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send real-time update to all connected clients in this tenant
       const wsManager = getWebSocketManager();
-      if (wsManager) {
+      if (wsManager && tenantId) {
         wsManager.broadcastToTenant(tenantId, "project:created", {
           id: project.id,
           data: project,
@@ -517,7 +608,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send real-time update to all connected clients in this tenant
       const wsManager = getWebSocketManager();
-      if (wsManager && updatedProject) {
+      if (wsManager && updatedProject && tenantId) {
         // Prepare status change message if status has changed
         let message = `Project updated: ${updatedProject.name}`;
         if (project.status !== updatedProject.status) {
@@ -554,7 +645,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (deleted) {
         // Send real-time update to all connected clients in this tenant
         const wsManager = getWebSocketManager();
-        if (wsManager) {
+        if (wsManager && tenantId) {
           wsManager.broadcastToTenant(tenantId, "project:deleted", {
             id: projectId,
             data: { id: projectId, name: project.name },
@@ -3166,6 +3257,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error creating database backup:', error);
       res.status(500).json({ message: 'Failed to create database backup' });
+    }
+  });
+
+  // Test endpoint for demonstrating tenant isolation
+  app.get("/api/test/tenant-isolation", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+      
+      // Get customers only for the current tenant
+      const myTenantCustomers = await storage.getAllCustomers(tenantId);
+      
+      // Get all tenant 1 customers (if different from current tenant)
+      let tenant1Customers: Customer[] = [];
+      if (tenantId !== 1) {
+        tenant1Customers = await storage.getAllCustomers(1);
+      }
+      
+      // Get all tenant 2 customers (if different from current tenant)
+      let tenant2Customers: Customer[] = [];
+      if (tenantId !== 2) {
+        tenant2Customers = await storage.getAllCustomers(2);
+      }
+      
+      // Return both sets of data to demonstrate the isolation
+      res.json({
+        currentTenantId: tenantId,
+        myTenantCustomers,
+        tenant1Customers,
+        tenant2Customers
+      });
+    } catch (error) {
+      console.error("Error in tenant isolation test:", error);
+      res.status(500).json({ message: "Failed to execute tenant isolation test" });
     }
   });
 
