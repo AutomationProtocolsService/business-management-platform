@@ -1,216 +1,285 @@
 /**
- * Error Handling Utilities
+ * Error Utilities
  * 
- * A collection of utilities for handling, parsing, and logging errors
- * in a consistent way across the application.
+ * This module provides consistent error handling types, helpers, and utilities
+ * for use throughout the application.
  */
 
-interface ApiError {
-  message: string;
-  code?: string;
-  status?: number;
-  errors?: Record<string, string>;
-  details?: string | Record<string, any>;
+/**
+ * Types of errors that can occur in the application.
+ * Corresponds to the ErrorType enum on the server-side.
+ */
+export enum ErrorType {
+  AUTHENTICATION = 'authentication',
+  AUTHORIZATION = 'authorization',
+  VALIDATION = 'validation',
+  SERVER = 'server',
+  DATABASE = 'database',
+  TENANT = 'tenant', 
+  NOT_FOUND = 'not_found',
+  NETWORK = 'network',
+  UNKNOWN = 'unknown'
 }
 
 /**
- * Parse an error into a user-friendly message
- * 
- * @param error The error to parse
- * @returns A user-friendly error message
+ * Severity levels for errors, used to control display and notification behavior
  */
-export function parseError(error: unknown): string {
-  if (error instanceof Error) {
-    return error.message;
+export enum ErrorSeverity {
+  INFO = 'info',
+  WARNING = 'warning',
+  ERROR = 'error',
+  CRITICAL = 'critical'
+}
+
+/**
+ * Standardized error response format from the API
+ */
+export interface ErrorResponse {
+  success: false;
+  message: string;
+  type: ErrorType;
+  status: number;
+  details?: any;
+  timestamp: string;
+}
+
+/**
+ * Standardized application error structure
+ */
+export class AppError extends Error {
+  type: ErrorType;
+  severity: ErrorSeverity;
+  details?: any;
+  status?: number;
+  source?: string;
+  timestamp: string;
+
+  constructor(
+    message: string = 'An error occurred',
+    type: ErrorType = ErrorType.UNKNOWN,
+    severity: ErrorSeverity = ErrorSeverity.ERROR,
+    details?: any,
+    status?: number,
+    source?: string
+  ) {
+    super(message);
+    
+    // Ensure the name property is set for better logging
+    this.name = this.constructor.name;
+    
+    this.type = type;
+    this.severity = severity;
+    this.details = details;
+    this.status = status;
+    this.source = source;
+    this.timestamp = new Date().toISOString();
+    
+    // Ensures proper prototype chain for instanceof checks
+    Object.setPrototypeOf(this, new.target.prototype);
+  }
+
+  /**
+   * Format the error for logging or display
+   */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      type: this.type,
+      severity: this.severity,
+      details: this.details,
+      status: this.status,
+      source: this.source,
+      timestamp: this.timestamp,
+      stack: this.stack
+    };
+  }
+}
+
+/**
+ * Specialized error for authentication failures
+ */
+export class AuthenticationError extends AppError {
+  constructor(message: string = 'Authentication required', details?: any) {
+    super(
+      message,
+      ErrorType.AUTHENTICATION,
+      ErrorSeverity.ERROR,
+      details
+    );
+  }
+}
+
+/**
+ * Specialized error for authorization failures
+ */
+export class AuthorizationError extends AppError {
+  constructor(message: string = 'Permission denied', details?: any) {
+    super(
+      message,
+      ErrorType.AUTHORIZATION,
+      ErrorSeverity.ERROR,
+      details
+    );
+  }
+}
+
+/**
+ * Specialized error for validation failures
+ */
+export class ValidationError extends AppError {
+  constructor(message: string = 'Validation failed', details?: any) {
+    super(
+      message,
+      ErrorType.VALIDATION,
+      ErrorSeverity.WARNING,
+      details
+    );
+  }
+}
+
+/**
+ * Specialized error for not found errors
+ */
+export class NotFoundError extends AppError {
+  constructor(message: string = 'Resource not found', details?: any) {
+    super(
+      message,
+      ErrorType.NOT_FOUND,
+      ErrorSeverity.WARNING,
+      details,
+      404
+    );
+  }
+}
+
+/**
+ * Specialized error for network failures
+ */
+export class NetworkError extends AppError {
+  constructor(message: string = 'Network error', details?: any) {
+    super(
+      message,
+      ErrorType.NETWORK,
+      ErrorSeverity.ERROR,
+      details
+    );
+  }
+}
+
+/**
+ * Convert an API error response into an AppError
+ */
+export function createErrorFromResponse(response: ErrorResponse): AppError {
+  let error: AppError;
+  
+  switch (response.type) {
+    case ErrorType.AUTHENTICATION:
+      error = new AuthenticationError(response.message, response.details);
+      break;
+    case ErrorType.AUTHORIZATION:
+      error = new AuthorizationError(response.message, response.details);
+      break;
+    case ErrorType.VALIDATION:
+      error = new ValidationError(response.message, response.details);
+      break;
+    case ErrorType.NOT_FOUND:
+      error = new NotFoundError(response.message, response.details);
+      break;
+    case ErrorType.NETWORK:
+      error = new NetworkError(response.message, response.details);
+      break;
+    default:
+      error = new AppError(
+        response.message,
+        response.type,
+        response.type === ErrorType.SERVER || response.type === ErrorType.DATABASE 
+          ? ErrorSeverity.ERROR 
+          : ErrorSeverity.WARNING,
+        response.details,
+        response.status
+      );
   }
   
-  if (typeof error === 'string') {
+  error.timestamp = response.timestamp;
+  return error;
+}
+
+/**
+ * Convert any error into an AppError
+ */
+export function normalizeError(error: any): AppError {
+  // If it's already an AppError, return it
+  if (error instanceof AppError) {
     return error;
   }
   
-  if (typeof error === 'object' && error !== null) {
-    const apiError = error as ApiError;
-    
-    if (apiError.message) {
-      return formatApiError(apiError);
-    }
+  // If it's a standard API error response, convert it
+  if (error && error.success === false && error.type) {
+    return createErrorFromResponse(error as ErrorResponse);
   }
   
-  return 'An unknown error occurred';
+  // If it's a network or fetch error
+  if (error?.name === 'TypeError' && error?.message?.includes('fetch')) {
+    return new NetworkError(
+      'Network connection error',
+      { originalError: error }
+    );
+  }
+  
+  // If it's a regular Error object
+  if (error instanceof Error) {
+    return new AppError(
+      error.message,
+      ErrorType.UNKNOWN,
+      ErrorSeverity.ERROR,
+      {
+        originalError: error,
+        stack: error.stack
+      }
+    );
+  }
+  
+  // If it's a string, create a simple error
+  if (typeof error === 'string') {
+    return new AppError(error);
+  }
+  
+  // If it's some other object or value, create a generic error
+  return new AppError(
+    'An unknown error occurred',
+    ErrorType.UNKNOWN,
+    ErrorSeverity.ERROR,
+    {
+      originalError: error,
+      valueType: typeof error,
+      value: error
+    }
+  );
 }
 
 /**
- * Format an API error into a user-friendly message
- * 
- * @param error The API error to format
- * @returns A user-friendly error message
+ * Format validation errors from form libraries like Zod or react-hook-form
+ * Returns an object with field names as keys and error messages as values
  */
-function formatApiError(error: ApiError): string {
-  // If we have validation errors, format them nicely
-  if (error.errors && Object.keys(error.errors).length > 0) {
-    const errorMessages = Object.entries(error.errors)
-      .map(([field, message]) => `${field}: ${message}`)
-      .join(', ');
-    
-    return `Validation error: ${errorMessages}`;
-  }
+export function formatValidationErrors(errors: Record<string, any>): Record<string, string> {
+  const formatted: Record<string, string> = {};
   
-  // If we have detailed error information, include it
-  if (error.details) {
-    if (typeof error.details === 'string') {
-      return `${error.message}: ${error.details}`;
+  Object.keys(errors).forEach(key => {
+    const error = errors[key];
+    
+    if (typeof error === 'string') {
+      formatted[key] = error;
+    } else if (error?.message) {
+      formatted[key] = error.message;
+    } else if (error?.type === 'required') {
+      formatted[key] = `${key} is required`;
+    } else if (Array.isArray(error)) {
+      formatted[key] = error.map(e => e.message || String(e)).join(', ');
     } else {
-      const details = Object.entries(error.details)
-        .map(([key, value]) => `${key}: ${value}`)
-        .join(', ');
-      
-      return `${error.message}: ${details}`;
+      formatted[key] = 'Invalid value';
     }
-  }
+  });
   
-  // Otherwise, just return the message
-  return error.message;
-}
-
-/**
- * Format field-specific validation errors for form display
- * 
- * @param error The API error containing validation errors
- * @returns An object mapping field names to error messages
- */
-export function formatFormErrors(error: unknown): Record<string, string> {
-  if (typeof error === 'object' && error !== null && 'errors' in error) {
-    const apiError = error as ApiError;
-    
-    if (apiError.errors) {
-      return apiError.errors;
-    }
-  }
-  
-  return {};
-}
-
-/**
- * Determine if an error is a network connectivity issue
- * 
- * @param error The error to check
- * @returns Whether the error is due to network connectivity
- */
-export function isNetworkError(error: unknown): boolean {
-  if (error instanceof Error) {
-    return (
-      error.message.includes('network') ||
-      error.message.includes('Network Error') ||
-      error.message.includes('Failed to fetch') ||
-      error.message.includes('NetworkError') ||
-      error.message.includes('Network request failed')
-    );
-  }
-  
-  return false;
-}
-
-/**
- * Determine if an error is an authentication error
- * 
- * @param error The error to check
- * @returns Whether the error is due to authentication
- */
-export function isAuthError(error: unknown): boolean {
-  // Check for status code 401 (Unauthorized)
-  if (typeof error === 'object' && error !== null) {
-    const apiError = error as ApiError;
-    
-    if (apiError.status === 401) {
-      return true;
-    }
-    
-    // Check for "Unauthorized" message
-    if (apiError.message) {
-      return (
-        apiError.message.includes('Unauthorized') ||
-        apiError.message.includes('Not authenticated') ||
-        apiError.message.includes('Authentication required') ||
-        apiError.message.includes('Session expired')
-      );
-    }
-  }
-  
-  // Check error message for auth-related phrases
-  if (error instanceof Error) {
-    return (
-      error.message.includes('Unauthorized') ||
-      error.message.includes('Not authenticated') ||
-      error.message.includes('Authentication required') ||
-      error.message.includes('Session expired')
-    );
-  }
-  
-  return false;
-}
-
-/**
- * Determine if an error is a permission error
- * 
- * @param error The error to check
- * @returns Whether the error is due to permissions
- */
-export function isPermissionError(error: unknown): boolean {
-  // Check for status code 403 (Forbidden)
-  if (typeof error === 'object' && error !== null) {
-    const apiError = error as ApiError;
-    
-    if (apiError.status === 403) {
-      return true;
-    }
-    
-    // Check for "Forbidden" message
-    if (apiError.message) {
-      return (
-        apiError.message.includes('Forbidden') ||
-        apiError.message.includes('Permission denied') ||
-        apiError.message.includes('Not authorized') ||
-        apiError.message.includes('Access denied')
-      );
-    }
-  }
-  
-  // Check error message for permission-related phrases
-  if (error instanceof Error) {
-    return (
-      error.message.includes('Forbidden') ||
-      error.message.includes('Permission denied') ||
-      error.message.includes('Not authorized') ||
-      error.message.includes('Access denied')
-    );
-  }
-  
-  return false;
-}
-
-/**
- * Log an error to the console with additional context
- * 
- * @param error The error to log
- * @param context Additional context about where the error occurred
- */
-export function logError(error: unknown, context: string): void {
-  console.error(`[${context}] Error:`, error);
-  
-  // Log additional details if available
-  if (error instanceof Error && error.stack) {
-    console.error(`[${context}] Stack trace:`, error.stack);
-  }
-  
-  if (typeof error === 'object' && error !== null) {
-    const apiError = error as ApiError;
-    
-    if (apiError.details) {
-      console.error(`[${context}] Error details:`, apiError.details);
-    }
-    
-    if (apiError.errors) {
-      console.error(`[${context}] Validation errors:`, apiError.errors);
-    }
-  }
+  return formatted;
 }

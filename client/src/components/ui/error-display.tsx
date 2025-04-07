@@ -1,172 +1,180 @@
 /**
- * Error Display Components
+ * Error Display Component
  * 
- * A collection of flexible, standardized components for displaying errors in different contexts:
- * - Inline for form field validation
- * - Alert boxes for operation feedback
- * - Full-page for critical errors
+ * A standardized component for displaying various types of errors
+ * throughout the application with appropriate styling based on error type.
  */
 
 import React from 'react';
-import { AlertCircle, XCircle, AlertTriangle, Info, RefreshCw, Wifi, WifiOff } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Separator } from '@/components/ui/separator';
+import { cn } from '@/lib/utils';
+import { ErrorType, ErrorSeverity } from '@/lib/errorUtils';
+import { Alert, AlertDescription, AlertTitle } from './alert';
+import { AlertCircle, AlertTriangle, Ban, ExclamationTriangle, Info, ServerCrash, ShieldAlert, WifiOff } from 'lucide-react';
+import { Button } from './button';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './collapsible';
 
-interface ErrorProps {
-  title?: string;
+export interface ErrorDisplayProps {
+  /** The error type determines the icon and styling */
+  type?: ErrorType;
+  /** The error severity influences the visual prominence */
+  severity?: ErrorSeverity;
+  /** Main error message to display */
   message: string;
-  onRetry?: () => void;
-  variant?: 'error' | 'warning' | 'info';
+  /** Optional additional details about the error */
+  details?: string | Record<string, any>;
+  /** Whether the error can be dismissed */
+  dismissible?: boolean;
+  /** Callback when error is dismissed */
+  onDismiss?: () => void;
+  /** Additional CSS classes to apply */
+  className?: string;
 }
 
 /**
- * InlineError component for displaying field-level validation errors
+ * A standardized way to display errors throughout the application
  */
-export function InlineError({ message }: { message: string }) {
-  if (!message) return null;
+export function ErrorDisplay({
+  type = ErrorType.UNKNOWN,
+  severity = ErrorSeverity.ERROR,
+  message,
+  details,
+  dismissible = false,
+  onDismiss,
+  className
+}: ErrorDisplayProps) {
+  const [showDetails, setShowDetails] = React.useState(false);
+  
+  const formattedDetails = details ? 
+    (typeof details === 'string' ? details : JSON.stringify(details, null, 2)) 
+    : null;
+  
+  const alertVariant = getAlertVariant(severity);
+  const Icon = getIconForErrorType(type);
+  const errorTypeLabel = getErrorTypeLabel(type, severity);
   
   return (
-    <div className="flex items-center gap-x-2 text-destructive text-sm mt-1">
-      <XCircle className="h-4 w-4" />
-      <span>{message}</span>
-    </div>
-  );
-}
-
-/**
- * ErrorAlert component for displaying operation-level errors
- */
-export function ErrorAlert({ title, message, onRetry, variant = 'error' }: ErrorProps) {
-  let icon;
-  let variantClass = '';
-  
-  switch (variant) {
-    case 'warning':
-      icon = <AlertTriangle className="h-5 w-5" />;
-      variantClass = 'bg-warning/20 text-warning border-warning/50';
-      break;
-    case 'info':
-      icon = <Info className="h-5 w-5" />;
-      variantClass = 'bg-info/20 text-info border-info/50';
-      break;
-    case 'error':
-    default:
-      icon = <AlertCircle className="h-5 w-5" />;
-      variantClass = 'bg-destructive/20 text-destructive border-destructive/50';
-      break;
-  }
-  
-  return (
-    <Alert className={`${variantClass} border`}>
-      <div className="flex items-start">
-        <div className="flex-shrink-0 mt-0.5">{icon}</div>
-        <div className="ml-3 w-full">
-          {title && <AlertTitle className="font-semibold">{title}</AlertTitle>}
-          <AlertDescription className="mt-1 text-sm">{message}</AlertDescription>
-          
-          {onRetry && (
-            <div className="mt-2">
+    <Alert variant={alertVariant} className={cn('relative', className)}>
+      <Icon className="h-5 w-5" />
+      <AlertTitle className="flex items-center space-x-2">
+        <span>{errorTypeLabel}</span>
+      </AlertTitle>
+      <AlertDescription className="mt-2">
+        <p className="text-sm">{message}</p>
+        
+        {formattedDetails && (
+          <Collapsible 
+            open={showDetails} 
+            onOpenChange={setShowDetails} 
+            className="mt-2"
+          >
+            <CollapsibleTrigger asChild>
               <Button 
-                variant="outline"
-                size="sm"
-                className="gap-x-2"
-                onClick={onRetry}
+                variant="ghost" 
+                size="sm" 
+                className="p-0 text-xs underline hover:no-underline"
               >
-                <RefreshCw className="h-4 w-4" />
-                Try Again
+                {showDetails ? 'Hide details' : 'Show details'}
               </Button>
-            </div>
-          )}
-        </div>
-      </div>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2">
+              <pre className="max-h-60 overflow-auto rounded bg-secondary/50 p-2 text-xs">
+                {formattedDetails}
+              </pre>
+            </CollapsibleContent>
+          </Collapsible>
+        )}
+        
+        {dismissible && onDismiss && (
+          <div className="mt-3">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onDismiss}
+            >
+              Dismiss
+            </Button>
+          </div>
+        )}
+      </AlertDescription>
+      
+      {dismissible && onDismiss && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="absolute right-2 top-2 h-6 w-6 rounded-full p-0"
+          onClick={onDismiss}
+        >
+          <span className="sr-only">Dismiss</span>
+          <span aria-hidden="true">&times;</span>
+        </Button>
+      )}
     </Alert>
   );
 }
 
 /**
- * FullPageError component for displaying critical or application-level errors
+ * Helper function to get the appropriate icon for each error type
  */
-export function FullPageError({ title = 'Something went wrong', message, onRetry }: ErrorProps) {
-  return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
-      <div className="max-w-md mx-auto text-center">
-        <div className="bg-destructive/10 rounded-full p-4 inline-flex mx-auto mb-4">
-          <AlertCircle className="h-10 w-10 text-destructive" />
-        </div>
-        
-        <h1 className="text-xl font-bold">{title}</h1>
-        <Separator className="my-3" />
-        <p className="text-muted-foreground mb-6">{message}</p>
-        
-        {onRetry && (
-          <Button 
-            variant="default" 
-            onClick={onRetry} 
-            className="gap-x-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+function getIconForErrorType(type: ErrorType): React.ComponentType<{ className?: string }> {
+  switch (type) {
+    case ErrorType.AUTHENTICATION:
+      return ShieldAlert;
+    case ErrorType.AUTHORIZATION:
+      return Ban;
+    case ErrorType.VALIDATION:
+      return AlertTriangle;
+    case ErrorType.SERVER:
+      return ServerCrash;
+    case ErrorType.DATABASE:
+      return ExclamationTriangle;
+    case ErrorType.TENANT:
+      return AlertCircle;
+    case ErrorType.NOT_FOUND:
+      return AlertCircle;
+    case ErrorType.NETWORK:
+      return WifiOff;
+    case ErrorType.UNKNOWN:
+    default:
+      return Info;
+  }
 }
 
-/**
- * NetworkError component specifically for handling connection issues
- */
-export function NetworkError({ onRetry }: { onRetry?: () => void }) {
-  return (
-    <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
-      <div className="max-w-md mx-auto text-center">
-        <div className="bg-warning/10 rounded-full p-4 inline-flex mx-auto mb-4">
-          <WifiOff className="h-10 w-10 text-warning" />
-        </div>
-        
-        <h1 className="text-xl font-bold">Network Connection Error</h1>
-        <Separator className="my-3" />
-        <p className="text-muted-foreground mb-2">
-          Unable to connect to the server. Please check your internet connection and try again.
-        </p>
-        <p className="text-muted-foreground mb-6">
-          <span className="flex items-center justify-center gap-x-2 text-sm">
-            <Wifi className="h-4 w-4" />
-            Waiting for connection...
-          </span>
-        </p>
-        
-        {onRetry && (
-          <Button 
-            variant="default" 
-            onClick={onRetry} 
-            className="gap-x-2"
-          >
-            <RefreshCw className="h-4 w-4" />
-            Retry Connection
-          </Button>
-        )}
-      </div>
-    </div>
-  );
+function getAlertVariant(severity: ErrorSeverity): 'default' | 'destructive' {
+  switch (severity) {
+    case ErrorSeverity.CRITICAL:
+    case ErrorSeverity.ERROR:
+      return 'destructive';
+    case ErrorSeverity.WARNING:
+    case ErrorSeverity.INFO:
+    default:
+      return 'default';
+  }
 }
 
-/**
- * FormError component for displaying form-level validation errors
- */
-export function FormError({ error }: { error: string | null }) {
-  if (!error) return null;
+function getErrorTypeLabel(type: ErrorType, severity: ErrorSeverity): string {
+  if (severity === ErrorSeverity.INFO) {
+    return 'Information';
+  }
   
-  return (
-    <div className="p-3 border border-destructive/50 bg-destructive/10 rounded-md text-sm text-destructive mb-4">
-      <div className="flex items-start gap-x-2">
-        <XCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
-        <div>
-          <p className="font-semibold">Form submission error</p>
-          <p>{error}</p>
-        </div>
-      </div>
-    </div>
-  );
+  switch (type) {
+    case ErrorType.AUTHENTICATION:
+      return 'Authentication Error';
+    case ErrorType.AUTHORIZATION:
+      return 'Authorization Error';
+    case ErrorType.VALIDATION:
+      return 'Validation Error';
+    case ErrorType.SERVER:
+      return 'Server Error';
+    case ErrorType.DATABASE:
+      return 'Database Error';
+    case ErrorType.TENANT:
+      return 'Tenant Error';
+    case ErrorType.NOT_FOUND:
+      return 'Not Found';
+    case ErrorType.NETWORK:
+      return 'Network Error';
+    case ErrorType.UNKNOWN:
+    default:
+      return severity === ErrorSeverity.ERROR ? 'Error' : 'Warning';
+  }
 }

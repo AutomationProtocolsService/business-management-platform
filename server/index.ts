@@ -4,8 +4,9 @@ import { setupVite, serveStatic, log } from "./vite";
 import { initializeDatabaseAndMigrations } from "./utils/run-migrations";
 import { setupAuth } from "./auth";
 import tenantMiddleware from "./middleware/tenant-filter";
-import { errorHandler, setupUnhandledRejectionHandler } from "./middleware/error-handler";
+import { setupUnhandledRejectionHandler } from "./middleware/error-handler";
 import { logger } from "./logger";
+import { applyErrorHandling } from "./middleware/apply-error-handling";
 
 // Set up global handler for uncaught promise rejections
 setupUnhandledRejectionHandler();
@@ -89,17 +90,9 @@ app.use((req, res, next) => {
   // Apply tenant middleware only to API routes
   // This prevents the middleware from interfering with frontend resources
   app.use('/api', tenantMiddleware);
-
-  // 404 handler for API routes
-  app.use('/api/*', (req, res) => {
-    return res.status(404).json({
-      message: `API endpoint not found: ${req.originalUrl}`,
-      code: 'NOT_FOUND'
-    });
-  });
-
-  // Global error handler middleware
-  app.use(errorHandler);
+  
+  // Apply the centralized error handling
+  applyErrorHandling(app);
 
   // ALWAYS serve the app on port 5000
   // this serves both the API and the client.
