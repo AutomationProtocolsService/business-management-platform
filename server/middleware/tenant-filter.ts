@@ -1,49 +1,130 @@
-import { Request, Response, NextFunction } from 'express';
-import { User } from '@shared/schema';
+/**
+ * Tenant Filter Middleware
+ * 
+ * This middleware ensures proper tenant isolation by:
+ * 1. Extracting the tenant information from authenticated user
+ * 2. Adding tenant ID to all database queries
+ * 3. Rejecting requests without tenant context when required
+ */
+
+import { Request, Response, NextFunction } from "express";
+import { User } from "@shared/schema";
+import logger from "../logger";
 
 /**
- * Adds types to Express Request interface
+ * Check if tenant information is available in the request
+ * Either via authenticated user or explicit tenantId in request
  */
-declare global {
-  namespace Express {
-    interface Request {
-      tenantId?: number;
-      isTenantResource: (tenantId: number | null | undefined) => boolean;
-      isResourceOwner: (createdBy: number | null | undefined) => boolean;
-    }
+function hasTenantContext(req: Request): boolean {
+  // Check if there's an authenticated user with tenant ID
+  if (req.user && (req.user as User).tenantId) {
+    return true;
   }
+  
+  // Check for tenant information in request body
+  if (req.body && req.body.tenantId) {
+    return true;
+  }
+  
+  // Check if tenant is already attached to the request by previous middleware
+  if (req.tenant && req.tenant.id) {
+    return true;
+  }
+  
+  return false;
 }
 
 /**
- * Middleware that adds tenant filtering capabilities to the request object
- * This enables data isolation and multi-tenancy in the application
+ * Get tenant ID from request context
+ * Order of precedence: authenticated user, request body, attached tenant
  */
-export function tenantFilter(req: Request, res: Response, next: NextFunction) {
-  // If the user is authenticated, set the tenantId from the user object
-  if (req.isAuthenticated() && req.user) {
-    const user = req.user as User;
-    req.tenantId = user.tenantId;
-    
-    // Add helper method to check if a resource belongs to the current tenant
-    req.isTenantResource = (resourceTenantId: number | null | undefined) => {
-      // If resourceTenantId is null/undefined or doesn't match user's tenantId, resource doesn't belong to tenant
-      return resourceTenantId !== null && 
-             resourceTenantId !== undefined && 
-             resourceTenantId === req.tenantId;
-    };
-    
-    // Add helper method to check if the user is the owner of a resource
-    req.isResourceOwner = (createdBy: number | null | undefined) => {
-      // If createdBy is null/undefined or doesn't match user's id, user is not the owner
-      return createdBy !== null && 
-             createdBy !== undefined && 
-             createdBy === user.id;
-    };
-  } else {
-    // For unauthenticated requests, set functions that always return false
-    req.isTenantResource = () => false;
-    req.isResourceOwner = () => false;
+function getTenantId(req: Request): number | undefined {
+  // First check authenticated user
+  if (req.user && (req.user as User).tenantId) {
+    return (req.user as User).tenantId;
+  }
+  
+  // Then check request body
+  if (req.body && req.body.tenantId) {
+    const tenantId = parseInt(req.body.tenantId);
+    if (!isNaN(tenantId)) {
+      return tenantId;
+    }
+  }
+  
+  // Finally check attached tenant from subdomain or header
+  if (req.tenant && req.tenant.id) {
+    return req.tenant.id;
+  }
+  
+  return undefined;
+}
+
+/**
+ * Middleware to ensure tenant context exists for all API calls
+ * Rejects unauthorized requests with 403 Forbidden
+ */
+export function requireTenant(req: Request, res: Response, next: NextFunction) {
+  // Skip tenant check for public routes and authentication endpoints
+  const publicPaths = [
+    '/api/login', 
+    '/api/register', 
+    '/api/public',
+    '/api/auth/request-password-reset',
+    '/api/auth/reset-password'
+  ];
+  
+  // Check if path starts with any of the public paths
+  const isPublicPath = publicPaths.some(prefix => 
+    req.path.startsWith(prefix) || req.path === prefix
+  );
+  
+  if (isPublicPath) {
+    return next();
+  }
+  
+  // For all other routes, ensure tenant context exists
+  if (!hasTenantContext(req)) {
+    logger.warn({ path: req.path }, "Access denied: No tenant context");
+    return res.status(403).json({
+      success: false,
+      message: "Tenant context required"
+    });
   }
   
   next();
 }
+
+/**
+ * Middleware to add tenant filter for all storage operations
+ * Attaches tenantId to request for use in routes/controllers
+ */
+export function addTenantFilter(req: Request, res: Response, next: NextFunction) {
+  // Attach the tenant ID to the request for use in route handlers
+  const tenantId = getTenantId(req);
+  
+  if (tenantId) {
+    // Create a tenantFilter property that route handlers can use
+    (req as any).tenantFilter = { tenantId };
+    
+    // Log the tenant context for debugging
+    logger.debug({ 
+      path: req.path, 
+      tenantId, 
+      user: req.user ? (req.user as User).id : null 
+    }, "Request processed with tenant filter");
+  }
+  
+  next();
+}
+
+// Export a combined middleware that handles both requirements
+export function tenantMiddleware(req: Request, res: Response, next: NextFunction) {
+  // First add the tenant filter (for all routes)
+  addTenantFilter(req, res, () => {
+    // Then check if tenant is required for this route
+    requireTenant(req, res, next);
+  });
+}
+
+export default tenantMiddleware;

@@ -1,0 +1,25 @@
+Prompt 2: Tenant-Aware Authentication (Revised)
+
+"Goal: Implement the core user authentication system, ensuring it's strictly tenant-aware, secure, and includes basic error handling/logging.
+
+Prerequisites: Completion of Prompt 1 (Project Init, Logging, Core Models, Env Vars).
+
+Tasks:
+
+Backend (api):
+Implement password hashing using bcrypt, taking the salt rounds from environment variables. Never store plain text passwords.
+Set up Passport.js with a local strategy and session-based authentication (using SESSION_SECRET from env vars). Configure session storage (e.g., connect-pg-simple for storing sessions in PostgreSQL is recommended for production readiness, but file store might be okay for initial dev).
+Create API endpoints for:
+User Registration: Accepts details, hashes password, links user to a tenant_id (handle tenant association logic - assume tenant exists for now). Log successful registration events.
+User Login: Authenticates user, verifies tenant, establishes session. Log successful and failed login attempts (do not log passwords).
+User Logout: Destroys session. Log logout events.
+Get Current User (/api/auth/me): Returns logged-in user/tenant info.
+Implement middleware to protect API routes (require authentication).
+Error Handling: Return standardized JSON error responses (e.g., { success: false, message: '...' }) for failures (invalid login, user exists, etc.). Ensure detailed errors are logged (using Pino) but not exposed to the client.
+(Placeholder): Add stub endpoints for password reset request (/api/auth/request-password-reset) and password reset execution (/api/auth/reset-password), logging their invocation. We will add email sending later.
+Frontend (web):
+Create Login/Registration pages/components (React Hook Form, Zod, Shadcn/UI).
+Implement API calling functions for auth endpoints. Handle API errors gracefully, displaying user-friendly messages (e.g., using Shadcn Toast).
+Implement ProtectedRoute mechanism (checking /api/auth/me) and routing (Wouter).
+Store user/session state globally (React Context or Zustand + TanStack Query).
+Provide backend auth code (Passport, routes, controllers, session setup), frontend components/hooks, API logic. Explain session storage choice, error handling strategy, and logging points."
