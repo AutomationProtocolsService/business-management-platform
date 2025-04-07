@@ -1180,6 +1180,122 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.sendFile("direct-pdf-test.html", { root: "." });
   });
   
+  // Test endpoint for Quote PDF generation with test data
+  app.get("/api/test-quote-pdf", async (req, res) => {
+    try {
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      console.log(`Test Quote PDF endpoint called - using hardcoded test data${tenantId ? ` for tenant ID ${tenantId}` : ''}`);
+      
+      // Generate PDF directly using the PDFService with test data
+      const testQuote = {
+        id: 9999,
+        quoteNumber: 'TEST-QUOTE-123',
+        items: [
+          {
+            id: 1,
+            description: 'Test Item 1',
+            unitPrice: 150.00,
+            quantity: 2
+          },
+          {
+            id: 2,
+            description: 'Test Item 2',
+            unitPrice: 75.50,
+            quantity: 1
+          }
+        ],
+        subtotal: 375.50,
+        tax: 37.55,
+        total: 413.05,
+        notes: 'This is a test quote generated for PDF validation.',
+        terms: 'Test terms and conditions for quotes.',
+        customer: {
+          id: 1001,
+          name: 'Test Customer',
+          email: 'test@example.com',
+          phone: '555-123-4567',
+          address: '123 Test Street'
+        },
+        project: {
+          id: 2001,
+          name: 'Test Project',
+          description: 'A test project for PDF generation'
+        },
+        tenantId
+      };
+      
+      const pdfBuffer = await PDFService.generateQuotePDF(testQuote as any);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename=TestQuote.pdf');
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating quote PDF:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to generate Quote PDF",
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  });
+  
+  // Test endpoint for Quote PDF generation with real data
+  app.get("/api/test-quote-pdf/:id", async (req, res) => {
+    try {
+      const quoteId = Number(req.params.id);
+      const tenantId = req.query.tenantId ? Number(req.query.tenantId) : undefined;
+      
+      console.log(`Test specific quote PDF endpoint called for quote ID ${quoteId}${tenantId ? ` and tenant ID ${tenantId}` : ''}`);
+      
+      const quote = await storage.getQuote(quoteId, tenantId);
+      
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      // Get quote items
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log(`Found ${quoteItems.length} quote items for PDF generation`);
+      
+      // Get customer data
+      let customer = null;
+      if (quote.customerId) {
+        customer = await storage.getCustomer(quote.customerId, tenantId);
+        console.log(`Retrieved customer data: ${customer ? 'Success' : 'Not found'}`);
+      }
+      
+      // Get project data
+      let project = null;
+      if (quote.projectId) {
+        project = await storage.getProject(quote.projectId, tenantId);
+        console.log(`Retrieved project data: ${project ? 'Success' : 'Not found'}`);
+      }
+      
+      const completeQuoteData = {
+        ...quote,
+        items: quoteItems,
+        customer,
+        project,
+        tenantId
+      };
+      
+      // Generate PDF using the PDFService with full context
+      const pdfBuffer = await PDFService.generateQuotePDF(completeQuoteData);
+      
+      // Force the download with proper headers
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename=Quote_${quote.quoteNumber}.pdf`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating test quote PDF:', error);
+      console.error('Error details:', error instanceof Error ? error.message : 'Unknown error');
+      res.status(500).json({ 
+        message: "Failed to generate Quote PDF", 
+        details: error instanceof Error ? error.message : 'Unknown error' 
+      });
+    }
+  });
+  
   // Unprotected route for testing invoice PDF display - allows easy testing without auth
   app.get("/api/test-invoice-pdf/:id", async (req, res) => {
     try {
