@@ -69,7 +69,8 @@ export class WebSocketManager {
     this.io = new Server(httpServer, {
       cors: {
         origin: "*",
-        methods: ["GET", "POST"]
+        methods: ["GET", "POST"],
+        credentials: true
       }
     });
 
