@@ -12,6 +12,7 @@ import {
   Phone,
   Folder,
   FileText, 
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,10 +47,15 @@ import {
 } from "@/components/ui/dialog";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useTerminology, getPlural } from "@/hooks/use-terminology";
+import { usePageTitle } from "@/hooks/use-page-title";
+import { PageLayout } from "@/components/layout/page-layout";
 import CustomerForm from "@/components/forms/customer-form";
 
 export default function CustomersPage() {
   const { toast } = useToast();
+  const terminology = useTerminology();
+  const { title, subtitle } = usePageTitle('customer', { isPlural: true });
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | null>(null);
@@ -82,8 +88,8 @@ export default function CustomersPage() {
     },
     onSuccess: () => {
       toast({
-        title: "Customer deleted",
-        description: "Customer has been deleted successfully.",
+        title: `${terminology.customer} deleted`,
+        description: `${terminology.customer} has been deleted successfully.`,
       });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
       setIsDeleteDialogOpen(false);
@@ -101,8 +107,8 @@ export default function CustomersPage() {
   const handleCustomerCreated = () => {
     setIsCreateDialogOpen(false);
     toast({
-      title: "Customer created",
-      description: "Customer has been created successfully."
+      title: `${terminology.customer} created`,
+      description: `${terminology.customer} has been created successfully.`
     });
   };
 
@@ -152,46 +158,50 @@ export default function CustomersPage() {
     return parts.join(', ');
   };
 
-  return (
-    <div className="h-full">
-      <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
-        <h2 className="text-2xl font-bold text-gray-800">Customers</h2>
-        <div className="mt-4 md:mt-0 flex space-x-3">
-          <div className="relative">
-            <Input 
-              type="text" 
-              placeholder="Search customers..." 
-              className="pl-10 pr-4 py-2"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-            />
-            <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
-          </div>
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button className="flex items-center">
-                <Plus className="h-4 w-4 mr-2" />
-                New Customer
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Add New Customer</DialogTitle>
-                <DialogDescription>
-                  Fill in the details to add a new customer.
-                </DialogDescription>
-              </DialogHeader>
-              <CustomerForm onSuccess={handleCustomerCreated} />
-            </DialogContent>
-          </Dialog>
-        </div>
+  // Search and create actions for the page header
+  const pageActions = (
+    <>
+      <div className="relative">
+        <Input 
+          type="text" 
+          placeholder={`Search ${title.toLowerCase()}...`} 
+          className="pl-10 pr-4 py-2 w-full"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+        <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
       </div>
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogTrigger asChild>
+          <Button className="flex items-center whitespace-nowrap">
+            <Plus className="h-4 w-4 mr-2" />
+            New {terminology.customer}
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add New {terminology.customer}</DialogTitle>
+            <DialogDescription>
+              Fill in the details to add a new {terminology.customer.toLowerCase()}.
+            </DialogDescription>
+          </DialogHeader>
+          <CustomerForm onSuccess={handleCustomerCreated} />
+        </DialogContent>
+      </Dialog>
+    </>
+  );
 
+  return (
+    <PageLayout 
+      title={title}
+      subtitle={subtitle}
+      actions={pageActions}
+    >
       <Card>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
-              <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
+              <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -200,8 +210,8 @@ export default function CustomersPage() {
                   <TableRow>
                     <TableHead className="font-medium text-xs uppercase tracking-wider">Name</TableHead>
                     <TableHead className="font-medium text-xs uppercase tracking-wider">Contact</TableHead>
-                    <TableHead className="font-medium text-xs uppercase tracking-wider">Location</TableHead>
-                    <TableHead className="font-medium text-xs uppercase tracking-wider">Stats</TableHead>
+                    <TableHead className="font-medium text-xs uppercase tracking-wider hidden md:table-cell">Location</TableHead>
+                    <TableHead className="font-medium text-xs uppercase tracking-wider hidden lg:table-cell">Stats</TableHead>
                     <TableHead className="text-right font-medium text-xs uppercase tracking-wider">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -209,7 +219,7 @@ export default function CustomersPage() {
                   {filteredCustomers.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="h-24 text-center">
-                        No customers found.
+                        No {getPlural(terminology.customer).toLowerCase()} found.
                       </TableCell>
                     </TableRow>
                   ) : (
@@ -234,20 +244,20 @@ export default function CustomersPage() {
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden md:table-cell">
                           <div className="text-sm text-gray-500">
                             {formatAddress(customer)}
                           </div>
                         </TableCell>
-                        <TableCell>
+                        <TableCell className="hidden lg:table-cell">
                           <div className="flex space-x-3 text-xs">
                             <div className="flex items-center">
                               <Folder className="h-3.5 w-3.5 mr-1 text-gray-400" />
-                              <span className="text-gray-600">{getProjectCount(customer.id)} projects</span>
+                              <span className="text-gray-600">{getProjectCount(customer.id)} {getProjectCount(customer.id) === 1 ? terminology.project.toLowerCase() : getPlural(terminology.project).toLowerCase()}</span>
                             </div>
                             <div className="flex items-center">
                               <FileText className="h-3.5 w-3.5 mr-1 text-gray-400" />
-                              <span className="text-gray-600">{getQuoteCount(customer.id)} quotes</span>
+                              <span className="text-gray-600">{getQuoteCount(customer.id)} {getQuoteCount(customer.id) === 1 ? terminology.quote.toLowerCase() : getPlural(terminology.quote).toLowerCase()}</span>
                             </div>
                           </div>
                         </TableCell>
@@ -277,14 +287,14 @@ export default function CustomersPage() {
                               <DropdownMenuItem asChild>
                                 <Link href={`/projects?customerId=${customer.id}`}>
                                   <div className="w-full flex items-center">
-                                    <Folder className="h-4 w-4 mr-2" /> View Projects
+                                    <Folder className="h-4 w-4 mr-2" /> View {getPlural(terminology.project)}
                                   </div>
                                 </Link>
                               </DropdownMenuItem>
                               <DropdownMenuItem asChild>
                                 <Link href={`/quotes?customerId=${customer.id}`}>
                                   <div className="w-full flex items-center">
-                                    <FileText className="h-4 w-4 mr-2" /> View Quotes
+                                    <FileText className="h-4 w-4 mr-2" /> View {getPlural(terminology.quote)}
                                   </div>
                                 </Link>
                               </DropdownMenuItem>
@@ -317,14 +327,15 @@ export default function CustomersPage() {
           <DialogHeader>
             <DialogTitle>Confirm Deletion</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this customer? This action cannot be undone.
-              Any associated projects, quotes, and invoices will remain but will no longer be linked to this customer.
+              Are you sure you want to delete this {terminology.customer.toLowerCase()}? This action cannot be undone.
+              Any associated {getPlural(terminology.project).toLowerCase()}, {getPlural(terminology.quote).toLowerCase()}, and {getPlural(terminology.invoice).toLowerCase()} will remain but will no longer be linked to this {terminology.customer.toLowerCase()}.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter>
+          <DialogFooter className="flex flex-col sm:flex-row gap-2">
             <Button 
               variant="outline" 
               onClick={() => setIsDeleteDialogOpen(false)}
+              className="sm:order-1"
             >
               Cancel
             </Button>
@@ -332,12 +343,13 @@ export default function CustomersPage() {
               variant="destructive" 
               onClick={() => selectedCustomerId && deleteCustomer.mutate(selectedCustomerId)}
               disabled={deleteCustomer.isPending}
+              className="sm:order-2"
             >
               {deleteCustomer.isPending ? "Deleting..." : "Delete"}
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageLayout>
   );
 }
