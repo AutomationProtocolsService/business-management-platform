@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex, numeric } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 import { relations } from "drizzle-orm";
@@ -185,6 +185,7 @@ export const employees = pgTable("employees", {
 // Timesheets
 export const timesheets = pgTable("timesheets", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // For multi-tenant isolation
   employeeId: integer("employee_id").references(() => employees.id).notNull(),
   projectId: integer("project_id").references(() => projects.id),
   date: date("date").notNull(),
@@ -196,6 +197,9 @@ export const timesheets = pgTable("timesheets", {
   approvedBy: integer("approved_by").references(() => users.id),
   approvedAt: timestamp("approved_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  hours: numeric("hours"), // Calculated or manually entered hours
+  billable: boolean("billable").default(true), // Whether the time is billable
+  taskDescription: text("task_description"), // Description of the task performed
 });
 
 // Surveys
@@ -595,6 +599,7 @@ export const insertTimesheetSchema = createInsertSchema(timesheets).omit({
   id: true,
   createdAt: true,
   approvedAt: true,
+  tenantId: true, // Will be set by the API based on authenticated user
 });
 
 export const insertSurveySchema = createInsertSchema(surveys).omit({
