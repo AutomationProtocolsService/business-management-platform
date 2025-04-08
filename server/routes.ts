@@ -569,6 +569,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update quote status only - no schema validation for status-only updates
+  app.patch("/api/quotes/:id/status", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const quoteId = Number(req.params.id);
+      const { status } = req.body;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      // Validate status
+      const validStatuses = ["draft", "sent", "accepted", "rejected", "converted"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: "Invalid status",
+          validValues: validStatuses
+        });
+      }
+      
+      const quote = await storage.getQuote(quoteId, tenantId);
+      
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(quote.tenantId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Update just the status field
+      const updatedQuote = await storage.updateQuote(quoteId, { status }, tenantId);
+      console.log(`Updated quote ${quoteId} status to ${status}`);
+      
+      res.json(updatedQuote);
+    } catch (error) {
+      console.error('Error updating quote status:', error);
+      res.status(500).json({ message: "Failed to update quote status" });
+    }
+  });
+
   app.put("/api/quotes/:id", requireAuth, validateBody(insertQuoteSchema), async (req: Request, res: Response) => {
     try {
       const quoteId = Number(req.params.id);

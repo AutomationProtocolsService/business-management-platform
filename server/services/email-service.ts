@@ -32,15 +32,40 @@ class EmailServiceImpl {
     try {
       const { subject, message, includePdf = true } = options;
       
+      // Validate inputs
+      if (!recipientEmail) {
+        logger.error('Email sending failed: Recipient email is missing');
+        return false;
+      }
+      
+      if (!process.env.SENDGRID_API_KEY) {
+        logger.error('Email sending failed: SendGrid API key is not configured');
+        return false;
+      }
+      
+      // Log quote data summary for debugging
+      logger.info({
+        quoteNumber: quoteData.quoteNumber,
+        hasCustomer: !!quoteData.customer,
+        hasItems: Array.isArray(quoteData.items) && quoteData.items.length > 0,
+        recipient: recipientEmail,
+        sender: senderEmail,
+      }, 'Preparing to send quote email');
+      
       // Generate a PDF buffer if needed
       let pdfBuffer: Buffer | null = null;
       if (includePdf) {
-        pdfBuffer = await PDFService.generateQuotePDF(quoteData);
+        try {
+          pdfBuffer = await PDFService.generateQuotePDF(quoteData);
+          logger.info(`PDF generated successfully for quote #${quoteData.quoteNumber}`);
+        } catch (pdfError) {
+          logger.error({ err: pdfError }, `Failed to generate PDF for quote #${quoteData.quoteNumber}`);
+        }
       }
       
       // Always use the verified sender email from env variables
       const verifiedSenderEmail = process.env.SENDGRID_SENDER_EMAIL || senderEmail;
-      console.log(`Using verified sender email: ${verifiedSenderEmail}`);
+      logger.info(`Using verified sender email: ${verifiedSenderEmail}`);
       
       // Construct the email
       const emailData: any = {
@@ -65,10 +90,18 @@ class EmailServiceImpl {
       
       // Send the email
       await sgMail.send(emailData);
-      logger.info(`Quote email sent to ${recipientEmail}`);
+      logger.info(`Quote email sent successfully to ${recipientEmail}`);
       return true;
-    } catch (error) {
-      logger.error(`Error sending quote email: ${error}`);
+    } catch (error: any) {
+      // Enhanced error logging with more details
+      logger.error({
+        err: error,
+        recipientEmail,
+        senderEmail: process.env.SENDGRID_SENDER_EMAIL || senderEmail,
+        quoteNumber: quoteData?.quoteNumber,
+        errorResponse: error.response?.body?.errors || [],
+      }, 'Error sending quote email');
+      
       return false;
     }
   }
