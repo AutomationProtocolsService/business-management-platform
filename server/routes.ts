@@ -541,6 +541,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get quote items for a specific quote
+  app.get("/api/quotes/:id/items", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const quoteId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      // First check if the quote exists and the user has access
+      const quote = await storage.getQuote(quoteId, tenantId);
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+      
+      // Check if user has access to this resource
+      if (req.isTenantResource && !req.isTenantResource(quote.tenantId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Get quote items
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log(`Fetched ${quoteItems.length} items for quote ${quoteId}`);
+      
+      res.json(quoteItems);
+    } catch (error) {
+      console.error('Error fetching quote items:', error);
+      res.status(500).json({ message: 'Failed to fetch quote items' });
+    }
+  });
+
   app.put("/api/quotes/:id", requireAuth, validateBody(insertQuoteSchema), async (req: Request, res: Response) => {
     try {
       const quoteId = Number(req.params.id);

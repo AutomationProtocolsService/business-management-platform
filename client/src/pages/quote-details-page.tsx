@@ -159,18 +159,27 @@ export default function QuoteDetailsPage() {
     enabled: !!quoteId
   });
 
-  // Fetch quote items
+  // Get quote items from the items property in the quote response
+  // or use the items API endpoint if needed
   const { data: quoteItems = [] } = useQuery({
     queryKey: [`/api/quotes/${quoteId}/items`],
     queryFn: async () => {
       if (!quoteId) return [];
+      // First try to use the items property from the quote (which is added by the server)
+      if (quote && quote.items) {
+        console.log(`Using ${quote.items.length} quote items from quote object`);
+        return quote.items;
+      }
+      
+      // Fallback to the dedicated endpoint for items
+      console.log(`Fetching quote items from dedicated endpoint`);
       const res = await fetch(`/api/quotes/${quoteId}/items`);
       if (!res.ok) {
         throw new Error(`Failed to fetch quote items: ${res.statusText}`);
       }
       return res.json();
     },
-    enabled: !!quoteId
+    enabled: !!quoteId && quote !== undefined
   });
 
   // Fetch customer
