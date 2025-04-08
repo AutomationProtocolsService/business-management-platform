@@ -14,15 +14,15 @@ class PDFServiceImpl {
   async generateQuotePDF(quoteData: any): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
-        // Create a PDF document with larger margins
+        // Create a PDF document with optimized margins
         const doc = new PDFDocument({ 
-          margin: 50,
+          margin: 40, // Reduce margins to allow more space for content
           size: 'letter',
           bufferPages: true
         });
         
         // Set maximum width for text wrapping
-        const maxWidth = 500;
+        const maxWidth = 520; // Increased to provide more space for text
         
         // Create a buffer to store the PDF
         const buffers: Buffer[] = [];
