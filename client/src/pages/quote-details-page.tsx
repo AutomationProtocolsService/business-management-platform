@@ -12,7 +12,9 @@ import {
   FileText,
   CheckCircle,
   XCircle,
-  Check
+  Check,
+  Calendar,
+  MapPin
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,6 +43,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import SurveyForm from "@/components/forms/survey-form";
+import InstallationForm from "@/components/forms/installation-form";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -53,7 +57,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { apiRequest, queryClient } from "@/lib/queryClient";
-import { formatDate } from "@/lib/date-utils";
+import { formatDate, getInputDateString } from "@/lib/date-utils";
 import { useToast } from "@/hooks/use-toast";
 import { useNotifications } from "@/components/notifications/notifications-provider";
 import { useSettings } from "@/hooks/use-settings";
@@ -143,6 +147,8 @@ export default function QuoteDetailsPage() {
   const [isConvertDialogOpen, setIsConvertDialogOpen] = useState(false);
   const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+  const [isSurveyDialogOpen, setIsSurveyDialogOpen] = useState(false);
+  const [isInstallationDialogOpen, setIsInstallationDialogOpen] = useState(false);
   const [newStatus, setNewStatus] = useState("");
 
   // Fetch quote details
@@ -484,7 +490,7 @@ export default function QuoteDetailsPage() {
             </p>
           </div>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap">
           <Button 
             variant="outline" 
             size="sm"
@@ -511,6 +517,26 @@ export default function QuoteDetailsPage() {
           >
             <Download className="h-4 w-4 mr-2" />
             PDF
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsSurveyDialogOpen(true)}
+            disabled={quote.status !== 'accepted'}
+          >
+            <Calendar className="h-4 w-4 mr-2" />
+            Schedule Survey
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setIsInstallationDialogOpen(true)}
+            disabled={quote.status !== 'accepted'}
+          >
+            <MapPin className="h-4 w-4 mr-2" />
+            Schedule Installation
           </Button>
           
           <Button 
@@ -711,6 +737,28 @@ export default function QuoteDetailsPage() {
                 <Receipt className="h-4 w-4 mr-2" />
                 Convert to Invoice
               </Button>
+              
+              {quote.status === 'accepted' && (
+                <>
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => setIsSurveyDialogOpen(true)}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" /> 
+                    Schedule Survey
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start"
+                    onClick={() => setIsInstallationDialogOpen(true)}
+                  >
+                    <MapPin className="h-4 w-4 mr-2" /> 
+                    Schedule Installation
+                  </Button>
+                </>
+              )}
               
               <Separator />
               
@@ -927,6 +975,62 @@ export default function QuoteDetailsPage() {
               {updateQuoteStatus.isPending ? "Updating..." : "Update Status"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Survey Dialog */}
+      <Dialog open={isSurveyDialogOpen} onOpenChange={setIsSurveyDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Survey</DialogTitle>
+            <DialogDescription>
+              Set up a survey for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <SurveyForm 
+            defaultValues={{ 
+              projectId: quote.projectId,
+              scheduledDate: getInputDateString(new Date()),
+              status: "scheduled",
+              notes: ""
+            }}
+            onSuccess={() => {
+              setIsSurveyDialogOpen(false);
+              toast({
+                title: "Survey scheduled",
+                description: "The survey has been scheduled successfully."
+              });
+              queryClient.invalidateQueries({ queryKey: ["/api/surveys"] });
+            }}
+          />
+        </DialogContent>
+      </Dialog>
+
+      {/* Schedule Installation Dialog */}
+      <Dialog open={isInstallationDialogOpen} onOpenChange={setIsInstallationDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Schedule Installation</DialogTitle>
+            <DialogDescription>
+              Set up an installation for this project.
+            </DialogDescription>
+          </DialogHeader>
+          <InstallationForm 
+            defaultValues={{
+              projectId: quote.projectId,
+              scheduledDate: getInputDateString(new Date()),
+              status: "scheduled",
+              notes: ""
+            }}
+            onSuccess={() => {
+              setIsInstallationDialogOpen(false);
+              toast({
+                title: "Installation scheduled",
+                description: "The installation has been scheduled successfully."
+              });
+              queryClient.invalidateQueries({ queryKey: ["/api/installations"] });
+            }}
+          />
         </DialogContent>
       </Dialog>
     </div>
