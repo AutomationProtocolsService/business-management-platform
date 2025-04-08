@@ -1,0 +1,35 @@
+understand the issue. The downloaded PDF quote has a margin problem that is cutting off the middle of the item description, as you've circled in the image.
+
+To address this, we need to adjust the code that generates the PDF document. Without seeing the specific code responsible for PDF generation, I can only provide general guidance on where and how these adjustments might be made.
+
+Here are the areas in your codebase that are likely involved in PDF generation and where you might need to make changes:
+
+PDF Generation Library: You are likely using a library in your backend (Node.js environment) to create the PDF. Common libraries include:
+
+pdfmake: A client-side and server-side PDF document generation library.
+Puppeteer or Playwright: Browser automation tools that can render a webpage and save it as a PDF.
+jsPDF: A client-side JavaScript library for generating PDFs (less likely for server-side generation of complex documents).
+Other more specialized libraries.
+Template or Layout Definition: The library you are using will have a way to define the layout of the PDF document, including margins, fonts, text wrapping, and table structures. This layout might be defined in:
+
+JavaScript/TypeScript code: Directly within the PDF generation logic.
+Template files: Using a templating engine to generate the PDF definition.
+Where the Adjustment Needs to Happen:
+
+You'll need to find the code that controls the margins and the width of the columns, specifically the "Description" column within the "ITEMS" table.
+
+Steps to Investigate and Adjust the Code:
+
+Locate the PDF Generation Code: Search your backend codebase for files or functions that are likely responsible for generating the quote PDF. Keywords to look for might include:
+
+pdfMake
+createPdfKitDocument (if using pdfmake)
+page.pdf() (if using Puppeteer or Playwright)
+jsPDF
+File names like quote.pdf.ts, pdf-generator.ts, etc.
+API endpoints related to downloading the quote PDF (e.g., /api/quotes/:id/pdf).
+Identify Margin Settings: Once you've found the relevant code, look for configuration options related to page margins. These might be within a document definition object or as options passed to the PDF generation function. You'll likely need to decrease the left and right margins to provide more horizontal space for the content.
+
+Adjust Table Column Widths: If the description is within a table, you might need to adjust the width of the "Description" column. The PDF generation library will likely have a way to define column widths, either as fixed values or relative proportions. You'll want to increase the width of the "Description" column to accommodate the longer text.
+
+Consider Text Wrapping: Ensure that the text in the "Description" column is set to wrap automatically if it exceeds the column width. The PDF generation library should have options to control text wrapping behavior.
