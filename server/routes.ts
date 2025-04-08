@@ -1386,6 +1386,244 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Survey routes
+  app.get("/api/surveys", requireAuth, async (req, res) => {
+    try {
+      const { status, projectId } = req.query;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      let surveys;
+      if (status) {
+        surveys = await storage.getSurveysByStatus(status as string);
+      } else if (projectId) {
+        surveys = await storage.getSurveysByProject(Number(projectId));
+      } else {
+        surveys = await storage.getAllSurveys();
+      }
+      
+      // Filter surveys by tenant ID for security
+      surveys = surveys.filter(survey => survey.tenantId === tenantId);
+      
+      res.json(surveys);
+    } catch (error) {
+      console.error('Error fetching surveys:', error);
+      res.status(500).json({ message: "Failed to fetch surveys" });
+    }
+  });
+
+  app.post("/api/surveys", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log("Creating survey with data:", req.body);
+      
+      const survey = await storage.createSurvey({
+        ...req.body,
+        tenantId: tenantId,
+        createdBy: req.user?.id
+      });
+      
+      res.status(201).json(survey);
+    } catch (error) {
+      console.error('Error creating survey:', error);
+      res.status(500).json({ message: "Failed to create survey" });
+    }
+  });
+
+  app.get("/api/surveys/:id", requireAuth, async (req, res) => {
+    try {
+      const surveyId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const survey = await storage.getSurvey(surveyId);
+      
+      if (!survey) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      
+      // Security check - ensure survey belongs to the tenant
+      if (survey.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(survey);
+    } catch (error) {
+      console.error('Error fetching survey:', error);
+      res.status(500).json({ message: "Failed to fetch survey" });
+    }
+  });
+
+  app.put("/api/surveys/:id", requireAuth, async (req, res) => {
+    try {
+      const surveyId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const survey = await storage.getSurvey(surveyId);
+      
+      if (!survey) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      
+      // Security check - ensure survey belongs to the tenant
+      if (survey.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedSurvey = await storage.updateSurvey(surveyId, req.body);
+      res.json(updatedSurvey);
+    } catch (error) {
+      console.error('Error updating survey:', error);
+      res.status(500).json({ message: "Failed to update survey" });
+    }
+  });
+
+  app.delete("/api/surveys/:id", requireAuth, async (req, res) => {
+    try {
+      const surveyId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const survey = await storage.getSurvey(surveyId);
+      
+      if (!survey) {
+        return res.status(404).json({ message: "Survey not found" });
+      }
+      
+      // Security check - ensure survey belongs to the tenant
+      if (survey.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteSurvey(surveyId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete survey" });
+      }
+    } catch (error) {
+      console.error('Error deleting survey:', error);
+      res.status(500).json({ message: "Failed to delete survey" });
+    }
+  });
+
+  // Installation routes
+  app.get("/api/installations", requireAuth, async (req, res) => {
+    try {
+      const { status, projectId } = req.query;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      let installations;
+      if (status) {
+        installations = await storage.getInstallationsByStatus(status as string);
+      } else if (projectId) {
+        installations = await storage.getInstallationsByProject(Number(projectId));
+      } else {
+        installations = await storage.getAllInstallations();
+      }
+      
+      // Filter installations by tenant ID for security
+      installations = installations.filter(installation => installation.tenantId === tenantId);
+      
+      res.json(installations);
+    } catch (error) {
+      console.error('Error fetching installations:', error);
+      res.status(500).json({ message: "Failed to fetch installations" });
+    }
+  });
+
+  app.post("/api/installations", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log("Creating installation with data:", req.body);
+      
+      const installation = await storage.createInstallation({
+        ...req.body,
+        tenantId: tenantId,
+        createdBy: req.user?.id
+      });
+      
+      res.status(201).json(installation);
+    } catch (error) {
+      console.error('Error creating installation:', error);
+      res.status(500).json({ message: "Failed to create installation" });
+    }
+  });
+
+  app.get("/api/installations/:id", requireAuth, async (req, res) => {
+    try {
+      const installationId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const installation = await storage.getInstallation(installationId);
+      
+      if (!installation) {
+        return res.status(404).json({ message: "Installation not found" });
+      }
+      
+      // Security check - ensure installation belongs to the tenant
+      if (installation.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(installation);
+    } catch (error) {
+      console.error('Error fetching installation:', error);
+      res.status(500).json({ message: "Failed to fetch installation" });
+    }
+  });
+
+  app.put("/api/installations/:id", requireAuth, async (req, res) => {
+    try {
+      const installationId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const installation = await storage.getInstallation(installationId);
+      
+      if (!installation) {
+        return res.status(404).json({ message: "Installation not found" });
+      }
+      
+      // Security check - ensure installation belongs to the tenant
+      if (installation.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedInstallation = await storage.updateInstallation(installationId, req.body);
+      res.json(updatedInstallation);
+    } catch (error) {
+      console.error('Error updating installation:', error);
+      res.status(500).json({ message: "Failed to update installation" });
+    }
+  });
+
+  app.delete("/api/installations/:id", requireAuth, async (req, res) => {
+    try {
+      const installationId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const installation = await storage.getInstallation(installationId);
+      
+      if (!installation) {
+        return res.status(404).json({ message: "Installation not found" });
+      }
+      
+      // Security check - ensure installation belongs to the tenant
+      if (installation.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteInstallation(installationId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete installation" });
+      }
+    } catch (error) {
+      console.error('Error deleting installation:', error);
+      res.status(500).json({ message: "Failed to delete installation" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts
