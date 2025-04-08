@@ -81,6 +81,7 @@ export interface IStorage {
   updateTenant(id: number, tenant: Partial<Tenant>): Promise<Tenant | undefined>;
   deleteTenant(id: number): Promise<boolean>;
   getAllTenants(): Promise<Tenant[]>;
+  getActiveTenants(): Promise<Tenant[]>;
   
   // Users
   getUser(id: number): Promise<User | undefined>;
@@ -1517,6 +1518,11 @@ export class MemStorage implements IStorage {
   async getAllTenants(): Promise<Tenant[]> {
     return Array.from(this.tenants.values());
   }
+  
+  async getActiveTenants(): Promise<Tenant[]> {
+    // For MemStorage, return all tenants that are active
+    return Array.from(this.tenants.values()).filter(tenant => tenant.status === 'active');
+  }
 
   // User Invitation methods
   async getUserInvitation(id: number): Promise<UserInvitation | undefined> {
@@ -1716,6 +1722,12 @@ export class DatabaseStorage implements IStorage {
 
   async getAllTenants(): Promise<Tenant[]> {
     return await db.query.tenants.findMany();
+  }
+  
+  async getActiveTenants(): Promise<Tenant[]> {
+    return await db.query.tenants.findMany({
+      where: eq(schema.tenants.active, true)
+    });
   }
 
   // User methods
