@@ -379,11 +379,11 @@ export default function QuoteDetailsPage() {
     },
   });
 
-  // Update quote status mutation
+  // Update quote status mutation using dedicated status endpoint
   const updateQuoteStatus = useMutation({
     mutationFn: async () => {
       if (!quoteId || !newStatus) return;
-      await apiRequest("PUT", `/api/quotes/${quoteId}`, { status: newStatus });
+      await apiRequest("PATCH", `/api/quotes/${quoteId}/status`, { status: newStatus });
     },
     onSuccess: () => {
       toast({
