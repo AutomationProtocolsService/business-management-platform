@@ -322,6 +322,7 @@ export default function QuoteDetailsPage() {
   });
 
   // Email states
+  const [emailRecipient, setEmailRecipient] = useState("");
   const [emailSubject, setEmailSubject] = useState("");
   const [emailMessage, setEmailMessage] = useState("");
   const [includePdf, setIncludePdf] = useState(true);
@@ -329,6 +330,9 @@ export default function QuoteDetailsPage() {
   // Set up email defaults when customer data is available
   useEffect(() => {
     if (customer && quote) {
+      if (customer.email) {
+        setEmailRecipient(customer.email);
+      }
       setEmailSubject(`Quote #${quote.quoteNumber} from ${getCompanyName()}`);
       setEmailMessage(`Dear ${customer.name},\n\nPlease find attached our quote #${quote.quoteNumber}.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${getCompanyName()}`);
     }
@@ -342,9 +346,9 @@ export default function QuoteDetailsPage() {
   // Email quote mutation
   const emailQuote = useMutation({
     mutationFn: async () => {
-      if (!quoteId || !customer?.email) return;
+      if (!quoteId || !emailRecipient) return;
       await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
-        recipientEmail: customer.email,
+        recipientEmail: emailRecipient,
         subject: emailSubject,
         message: emailMessage,
         includePdf: includePdf
@@ -353,7 +357,7 @@ export default function QuoteDetailsPage() {
     onSuccess: () => {
       toast({
         title: "Quote emailed",
-        description: "Quote has been emailed successfully to " + customer?.email,
+        description: "Quote has been emailed successfully to " + emailRecipient,
       });
       setIsEmailDialogOpen(false);
     },
@@ -769,9 +773,9 @@ export default function QuoteDetailsPage() {
               </Label>
               <Input
                 id="recipient"
-                value={customer?.email || ""}
+                value={emailRecipient}
+                onChange={(e) => setEmailRecipient(e.target.value)}
                 className="col-span-3"
-                disabled
               />
             </div>
             

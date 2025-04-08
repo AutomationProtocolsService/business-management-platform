@@ -1,0 +1,239 @@
+Quote Email Recipient Field Fix
+Issue Analysis
+After examining the code in the GitHub repository, I've identified the issue with the email functionality on the quote page. The problem is in the quote-details-page.tsx file, specifically in the email dialog component.
+Root Cause
+The recipient input field is set to disabled in the code, which prevents users from editing or adding email recipients:
+tsx
+<Input
+  id="recipient"
+  value={customer?.email || ""}
+  className="col-span-3"
+  disabled  // This is preventing users from editing the field
+/>
+This explains why users are unable to add email recipients when trying to send a quote to a client, as shown in your screenshot.
+Proposed Solution
+The solution is to make the recipient field editable while still pre-filling it with the customer's email if available. Here's how to fix it:
+1. Add State for Email Recipient
+First, add a state variable to track the email recipient, initialized with the customer's email:
+tsx
+// Add this with other state variables
+const [emailRecipient, setEmailRecipient] = useState("");
+
+// Add this effect to update the recipient when customer data changes
+useEffect(() => {
+  if (customer?.email) {
+    setEmailRecipient(customer.email);
+  }
+}, [customer]);
+2. Update the Input Field
+Remove the disabled attribute and bind the field to the new state variable:
+tsx
+<Input
+  id="recipient"
+  value={emailRecipient}
+  onChange={(e) => setEmailRecipient(e.target.value)}
+  className="col-span-3"
+  placeholder="Enter recipient email address"
+/>
+3. Update the Email Mutation
+Ensure the email mutation uses the recipient from state rather than directly from the customer:
+tsx
+// Email quote mutation
+const emailQuote = useMutation({
+  mutationFn: async () => {
+    if (!quoteId) return;
+    await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
+      recipient: emailRecipient,  // Use the state variable here
+      subject: emailSubject,
+      message: emailMessage,
+      includePdf: includePdf
+    });
+  },
+  // Rest of the mutation remains the same
+});
+4. Add Validation (Optional Enhancement)
+For better user experience, add validation to ensure the email is valid before sending:
+tsx
+// Add this function
+const isValidEmail = (email: string) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// Then update the Send button
+<Button 
+  onClick={() => emailQuote.mutate()}
+  disabled={emailQuote.isPending || !emailRecipient || !isValidEmail(emailRecipient)}
+>
+  {emailQuote.isPending ? "Sending..." : "Send Email"}
+</Button>
+5. Support Multiple Recipients (Optional Enhancement)
+If you want to support multiple recipients, you could enhance the solution:
+tsx
+// For multiple recipients, use a comma-separated string
+<Input
+  id="recipient"
+  value={emailRecipient}
+  onChange={(e) => setEmailRecipient(e.target.value)}
+  className="col-span-3"
+  placeholder="Enter recipient email(s), separated by commas"
+/>
+
+// Then in the email mutation, split the string
+const emailQuote = useMutation({
+  mutationFn: async () => {
+    if (!quoteId) return;
+    const recipients = emailRecipient.split(',').map(email => email.trim());
+    await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
+      recipients: recipients,  // Send as array
+      subject: emailSubject,
+      message: emailMessage,
+      includePdf: includePdf
+    });
+  },
+  // Rest of the mutation remains the same
+});
+Complete Code Changes
+Here's the complete code change for the email dialog section:
+tsx
+// Add these state variables with your other state declarations
+const [emailRecipient, setEmailRecipient] = useState("");
+const [emailSubject, setEmailSubject] = useState(`Quote #${quote?.quoteNumber || ""}`);
+const [emailMessage, setEmailMessage] = useState("");
+const [includePdf, setIncludePdf] = useState(true);
+
+// Add this effect to update fields when quote/customer data changes
+useEffect(() => {
+  if (customer?.email) {
+    setEmailRecipient(customer.email);
+  }
+  if (quote?.quoteNumber) {
+    setEmailSubject(`Quote #${quote.quoteNumber}`);
+  }
+}, [customer, quote]);
+
+// Email quote mutation
+const emailQuote = useMutation({
+  mutationFn: async () => {
+    if (!quoteId) return;
+    await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
+      recipient: emailRecipient,
+      subject: emailSubject,
+      message: emailMessage,
+      includePdf: includePdf
+    });
+  },
+  onSuccess: () => {
+    toast({
+      title: "Email sent",
+      description: "Quote has been emailed successfully.",
+    });
+    queryClient.invalidateQueries({ queryKey: [`/api/quotes/${quoteId}`] });
+    setIsEmailDialogOpen(false);
+  },
+  onError: (error: Error) => {
+    toast({
+      title: "Error",
+      description: error.message,
+      variant: "destructive",
+    });
+  },
+});
+
+// Validation function
+const isValidEmail = (email: string) => {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+// Then in the dialog component:
+<Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Email Quote</DialogTitle>
+      <DialogDescription>
+        Customize your email and send the quote to the customer.
+      </DialogDescription>
+    </DialogHeader>
+    
+    <div className="grid gap-4 py-4">
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="recipient" className="text-right">
+          To
+        </Label>
+        <Input
+          id="recipient"
+          value={emailRecipient}
+          onChange={(e) => setEmailRecipient(e.target.value)}
+          className="col-span-3"
+          placeholder="Enter recipient email address"
+        />
+      </div>
+      
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="subject" className="text-right">
+          Subject
+        </Label>
+        <Input
+          id="subject"
+          value={emailSubject}
+          onChange={(e) => setEmailSubject(e.target.value)}
+          className="col-span-3"
+        />
+      </div>
+      
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="message" className="text-right">
+          Message
+        </Label>
+        <Textarea
+          id="message"
+          value={emailMessage}
+          onChange={(e) => setEmailMessage(e.target.value)}
+          className="col-span-3"
+          rows={6}
+        />
+      </div>
+      
+      <div className="grid grid-cols-4 items-center gap-4">
+        <Label htmlFor="attachment" className="text-right">
+          Attachment
+        </Label>
+        <div className="flex items-center space-x-2 col-span-3">
+          <Checkbox 
+            id="attachment" 
+            checked={includePdf} 
+            onCheckedChange={(checked) => setIncludePdf(checked as boolean)}
+          />
+          <Label htmlFor="attachment" className="cursor-pointer">
+            Include quote as PDF attachment
+          </Label>
+        </div>
+      </div>
+    </div>
+    
+    <DialogFooter>
+      <Button 
+        variant="outline" 
+        onClick={() => setIsEmailDialogOpen(false)}
+      >
+        Cancel
+      </Button>
+      <Button 
+        onClick={() => emailQuote.mutate()}
+        disabled={emailQuote.isPending || !emailRecipient || !isValidEmail(emailRecipient)}
+      >
+        {emailQuote.isPending ? "Sending..." : "Send Email"}
+      </Button>
+    </DialogFooter>
+  </DialogContent>
+</Dialog>
+Server-Side Considerations
+Make sure the server-side API endpoint that handles the email sending supports the updated request format. If you're using the emailRecipient field instead of getting the email from the customer record, the server endpoint needs to be updated accordingly.
+Check the implementation in server/services/email-service.ts to ensure it properly handles the recipient from the request body.
+Testing the Fix
+After implementing these changes:
+Navigate to a quote detail page
+Click the "Email Quote" button
+Verify that the recipient field is editable
+Test with different email addresses
+Confirm that the email is sent successfully
+This fix will allow users to add or modify email recipients when sending quotes to clients, resolving the issue shown in your screenshot.
