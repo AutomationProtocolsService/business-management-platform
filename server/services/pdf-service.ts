@@ -14,8 +14,15 @@ class PDFServiceImpl {
   async generateQuotePDF(quoteData: any): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
-        // Create a PDF document
-        const doc = new PDFDocument({ margin: 50 });
+        // Create a PDF document with larger margins
+        const doc = new PDFDocument({ 
+          margin: 50,
+          size: 'letter',
+          bufferPages: true
+        });
+        
+        // Set maximum width for text wrapping
+        const maxWidth = 500;
         
         // Create a buffer to store the PDF
         const buffers: Buffer[] = [];
@@ -39,7 +46,7 @@ class PDFServiceImpl {
         
         // Add quote information
         doc.fontSize(12).text(`Quote Number: ${quoteData.quoteNumber}`);
-        doc.text(`Date: ${new Date(quoteData.createdAt).toLocaleDateString()}`);
+        doc.text(`Date: ${new Date(quoteData.issueDate || quoteData.createdAt).toLocaleDateString()}`);
         if (quoteData.expiryDate) {
           doc.text(`Expiry Date: ${new Date(quoteData.expiryDate).toLocaleDateString()}`);
         }
@@ -48,10 +55,14 @@ class PDFServiceImpl {
         // Add customer information if available
         if (quoteData.customer) {
           doc.text('CUSTOMER INFORMATION', { underline: true });
-          doc.text(`Name: ${quoteData.customer.name}`);
-          doc.text(`Email: ${quoteData.customer.email}`);
+          doc.text(`Name: ${quoteData.customer.name || 'N/A'}`);
+          doc.text(`Email: ${quoteData.customer.email || 'N/A'}`);
           if (quoteData.customer.phone) doc.text(`Phone: ${quoteData.customer.phone}`);
           if (quoteData.customer.address) doc.text(`Address: ${quoteData.customer.address}`);
+          doc.moveDown();
+        } else {
+          doc.text('CUSTOMER INFORMATION', { underline: true });
+          doc.text('No customer information available');
           doc.moveDown();
         }
         
@@ -59,34 +70,43 @@ class PDFServiceImpl {
         if (quoteData.project) {
           doc.text('PROJECT INFORMATION', { underline: true });
           doc.text(`Project: ${quoteData.project.name}`);
-          if (quoteData.project.description) doc.text(`Description: ${quoteData.project.description}`);
+          if (quoteData.project.description) doc.text(`Description: ${quoteData.project.description}`, { width: maxWidth });
           doc.moveDown();
         }
         
         // Add items table
         doc.text('ITEMS', { underline: true });
+        doc.moveDown(0.5);
+        
+        // Define table layout
+        const pageWidth = doc.page.width - 100; // 50 margin on each side
+        const itemWidth = 30;
+        const descriptionWidth = pageWidth - 210; // Allocate more space for description
+        const quantityWidth = 40;
+        const priceWidth = 60;
+        const amountWidth = 80;
+        
+        // Table header positions
+        const itemX = 50;
+        const descriptionX = itemX + itemWidth;
+        const quantityX = descriptionX + descriptionWidth;
+        const priceX = quantityX + quantityWidth;
+        const amountX = priceX + priceWidth;
         
         // Table header
-        const tableTop = doc.y + 10;
-        const itemX = 50;
-        const descriptionX = 100;
-        const quantityX = 300;
-        const priceX = 350;
-        const amountX = 450;
-        
         doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, tableTop);
-        doc.text('Description', descriptionX, tableTop);
-        doc.text('Qty', quantityX, tableTop);
-        doc.text('Price', priceX, tableTop);
-        doc.text('Amount', amountX, tableTop);
+        doc.text('Item', itemX, doc.y);
+        doc.text('Description', descriptionX, doc.y - doc.currentLineHeight());
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight());
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight());
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight());
         
         // Reset font
         doc.font('Helvetica');
         
         // Add horizontal line
         const lineY = doc.y + 5;
-        doc.moveTo(50, lineY).lineTo(550, lineY).stroke();
+        doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
         
         // Table rows
         let y = lineY + 10;
@@ -94,55 +114,92 @@ class PDFServiceImpl {
         // Add items
         if (quoteData.items && quoteData.items.length) {
           quoteData.items.forEach((item: any, i: number) => {
-            doc.text((i + 1).toString(), itemX, y);
-            doc.text(item.description, descriptionX, y);
-            doc.text(item.quantity.toString(), quantityX, y);
-            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, y);
-            doc.text(`$${item.total.toFixed(2)}`, amountX, y);
-            y += 20;
+            // Save initial Y position
+            const rowStartY = doc.y;
+            
+            // Item number (index)
+            doc.text((i + 1).toString(), itemX, rowStartY);
+            
+            // Description with word wrapping - We need to handle this separately
+            const descriptionHeight = doc.heightOfString(item.description, { 
+              width: descriptionWidth,
+              align: 'left' 
+            });
+            
+            doc.text(item.description, descriptionX, rowStartY, { 
+              width: descriptionWidth,
+              align: 'left' 
+            });
+            
+            // Other columns
+            doc.text(item.quantity.toString(), quantityX, rowStartY);
+            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
+            doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
+            
+            // Move down by the maximum height used
+            doc.moveDown(Math.max(1, descriptionHeight / doc.currentLineHeight()));
+            
+            // Check if we need a new page
+            if (doc.y > doc.page.height - 150) {
+              doc.addPage();
+            }
           });
         } else {
-          doc.text('No items', descriptionX, y);
-          y += 20;
+          doc.text('No items', descriptionX, doc.y);
+          doc.moveDown();
         }
         
         // Add horizontal line
-        doc.moveTo(50, y).lineTo(550, y).stroke();
-        y += 10;
+        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
+        doc.moveDown();
         
         // Add totals
-        doc.text('Subtotal:', 350, y);
-        doc.text(`$${quoteData.subtotal ? quoteData.subtotal.toFixed(2) : '0.00'}`, amountX, y);
-        y += 20;
+        const totalsX = amountX - 100;
+        doc.text('Subtotal:', totalsX, doc.y);
+        doc.text(`$${quoteData.subtotal ? quoteData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
+        doc.moveDown();
         
         if (quoteData.tax) {
-          doc.text('Tax:', 350, y);
-          doc.text(`$${quoteData.tax.toFixed(2)}`, amountX, y);
-          y += 20;
+          doc.text('Tax:', totalsX, doc.y);
+          doc.text(`$${quoteData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
+          doc.moveDown();
         }
         
         if (quoteData.discount) {
-          doc.text('Discount:', 350, y);
-          doc.text(`$${quoteData.discount.toFixed(2)}`, amountX, y);
-          y += 20;
+          doc.text('Discount:', totalsX, doc.y);
+          doc.text(`$${quoteData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
+          doc.moveDown();
         }
         
         doc.font('Helvetica-Bold');
-        doc.text('TOTAL:', 350, y);
-        doc.text(`$${quoteData.total ? quoteData.total.toFixed(2) : '0.00'}`, amountX, y);
+        doc.text('TOTAL:', totalsX, doc.y);
+        doc.text(`$${quoteData.total ? quoteData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
         doc.font('Helvetica');
+        doc.moveDown();
         
-        // Add notes and terms
+        // Add notes and terms with word wrapping
         if (quoteData.notes) {
           doc.moveDown();
           doc.text('Notes:', { underline: true });
-          doc.text(quoteData.notes);
+          doc.text(quoteData.notes, { width: maxWidth });
         }
         
         if (quoteData.terms) {
           doc.moveDown();
           doc.text('Terms and Conditions:', { underline: true });
-          doc.text(quoteData.terms);
+          doc.text(quoteData.terms, { width: maxWidth });
+        }
+        
+        // Add a footer
+        const pageCount = doc.bufferedPageRange().count;
+        for (let i = 0; i < pageCount; i++) {
+          doc.switchToPage(i);
+          doc.text(
+            `Page ${i + 1} of ${pageCount}`,
+            50,
+            doc.page.height - 50,
+            { align: 'center' }
+          );
         }
         
         // Finalize the PDF
@@ -164,8 +221,15 @@ class PDFServiceImpl {
   async generateInvoicePDF(invoiceData: any, useTestData = false): Promise<Buffer> {
     return new Promise((resolve, reject) => {
       try {
-        // Create a PDF document
-        const doc = new PDFDocument({ margin: 50 });
+        // Create a PDF document with larger margins
+        const doc = new PDFDocument({
+          margin: 50,
+          size: 'letter',
+          bufferPages: true
+        });
+        
+        // Set maximum width for text wrapping
+        const maxWidth = 500;
         
         // Create a buffer to store the PDF
         const buffers: Buffer[] = [];
@@ -202,10 +266,14 @@ class PDFServiceImpl {
         // Add customer information if available
         if (invoiceData.customer) {
           doc.text('BILL TO:', { underline: true });
-          doc.text(`Name: ${invoiceData.customer.name}`);
-          doc.text(`Email: ${invoiceData.customer.email}`);
+          doc.text(`Name: ${invoiceData.customer.name || 'N/A'}`);
+          doc.text(`Email: ${invoiceData.customer.email || 'N/A'}`);
           if (invoiceData.customer.phone) doc.text(`Phone: ${invoiceData.customer.phone}`);
           if (invoiceData.customer.address) doc.text(`Address: ${invoiceData.customer.address}`);
+          doc.moveDown();
+        } else {
+          doc.text('BILL TO:', { underline: true });
+          doc.text('No customer information available');
           doc.moveDown();
         }
         
@@ -213,7 +281,7 @@ class PDFServiceImpl {
         if (invoiceData.project) {
           doc.text('PROJECT INFORMATION', { underline: true });
           doc.text(`Project: ${invoiceData.project.name}`);
-          if (invoiceData.project.description) doc.text(`Description: ${invoiceData.project.description}`);
+          if (invoiceData.project.description) doc.text(`Description: ${invoiceData.project.description}`, { width: maxWidth });
           doc.moveDown();
         }
         
@@ -225,94 +293,138 @@ class PDFServiceImpl {
         
         // Add items table
         doc.text('ITEMS', { underline: true });
+        doc.moveDown(0.5);
+        
+        // Define table layout
+        const pageWidth = doc.page.width - 100; // 50 margin on each side
+        const itemWidth = 30;
+        const descriptionWidth = pageWidth - 210; // Allocate more space for description
+        const quantityWidth = 40;
+        const priceWidth = 60;
+        const amountWidth = 80;
+        
+        // Table header positions
+        const itemX = 50;
+        const descriptionX = itemX + itemWidth;
+        const quantityX = descriptionX + descriptionWidth;
+        const priceX = quantityX + quantityWidth;
+        const amountX = priceX + priceWidth;
         
         // Table header
-        const tableTop = doc.y + 10;
-        const itemX = 50;
-        const descriptionX = 100;
-        const quantityX = 300;
-        const priceX = 350;
-        const amountX = 450;
-        
         doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, tableTop);
-        doc.text('Description', descriptionX, tableTop);
-        doc.text('Qty', quantityX, tableTop);
-        doc.text('Price', priceX, tableTop);
-        doc.text('Amount', amountX, tableTop);
+        doc.text('Item', itemX, doc.y);
+        doc.text('Description', descriptionX, doc.y - doc.currentLineHeight());
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight());
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight());
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight());
         
         // Reset font
         doc.font('Helvetica');
         
         // Add horizontal line
         const lineY = doc.y + 5;
-        doc.moveTo(50, lineY).lineTo(550, lineY).stroke();
-        
-        // Table rows
-        let y = lineY + 10;
+        doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
         
         // Add items
         if (invoiceData.items && invoiceData.items.length) {
           invoiceData.items.forEach((item: any, i: number) => {
-            doc.text((i + 1).toString(), itemX, y);
-            doc.text(item.description, descriptionX, y);
-            doc.text(item.quantity.toString(), quantityX, y);
-            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, y);
-            doc.text(`$${item.total.toFixed(2)}`, amountX, y);
-            y += 20;
+            // Save initial Y position
+            const rowStartY = doc.y;
+            
+            // Item number (index)
+            doc.text((i + 1).toString(), itemX, rowStartY);
+            
+            // Description with word wrapping - We need to handle this separately
+            const descriptionHeight = doc.heightOfString(item.description, { 
+              width: descriptionWidth,
+              align: 'left' 
+            });
+            
+            doc.text(item.description, descriptionX, rowStartY, { 
+              width: descriptionWidth,
+              align: 'left' 
+            });
+            
+            // Other columns
+            doc.text(item.quantity.toString(), quantityX, rowStartY);
+            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
+            doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
+            
+            // Move down by the maximum height used
+            doc.moveDown(Math.max(1, descriptionHeight / doc.currentLineHeight()));
+            
+            // Check if we need a new page
+            if (doc.y > doc.page.height - 150) {
+              doc.addPage();
+            }
           });
         } else {
-          doc.text('No items', descriptionX, y);
-          y += 20;
+          doc.text('No items', descriptionX, doc.y);
+          doc.moveDown();
         }
         
         // Add horizontal line
-        doc.moveTo(50, y).lineTo(550, y).stroke();
-        y += 10;
+        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
+        doc.moveDown();
         
         // Add totals
-        doc.text('Subtotal:', 350, y);
-        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, amountX, y);
-        y += 20;
+        const totalsX = amountX - 100;
+        doc.text('Subtotal:', totalsX, doc.y);
+        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
+        doc.moveDown();
         
         if (invoiceData.tax) {
-          doc.text('Tax:', 350, y);
-          doc.text(`$${invoiceData.tax.toFixed(2)}`, amountX, y);
-          y += 20;
+          doc.text('Tax:', totalsX, doc.y);
+          doc.text(`$${invoiceData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
+          doc.moveDown();
         }
         
         if (invoiceData.discount) {
-          doc.text('Discount:', 350, y);
-          doc.text(`$${invoiceData.discount.toFixed(2)}`, amountX, y);
-          y += 20;
+          doc.text('Discount:', totalsX, doc.y);
+          doc.text(`$${invoiceData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
+          doc.moveDown();
         }
         
         doc.font('Helvetica-Bold');
-        doc.text('TOTAL DUE:', 350, y);
-        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, amountX, y);
+        doc.text('TOTAL DUE:', totalsX, doc.y);
+        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
         doc.font('Helvetica');
+        doc.moveDown();
         
         // Add payment instructions
         doc.moveDown();
         doc.text('PAYMENT INSTRUCTIONS', { underline: true });
-        doc.text('Please reference invoice number when making payment.');
+        doc.text('Please reference invoice number when making payment.', { width: maxWidth });
         
-        // Add notes and terms
+        // Add notes and terms with word wrapping
         if (invoiceData.notes) {
           doc.moveDown();
           doc.text('Notes:', { underline: true });
-          doc.text(invoiceData.notes);
+          doc.text(invoiceData.notes, { width: maxWidth });
         }
         
         if (invoiceData.terms) {
           doc.moveDown();
           doc.text('Terms and Conditions:', { underline: true });
-          doc.text(invoiceData.terms);
+          doc.text(invoiceData.terms, { width: maxWidth });
         }
         
-        // Add footer
-        const pageHeight = doc.page.height;
-        doc.text('Thank you for your business!', 50, pageHeight - 50, { align: 'center' });
+        // Add a footer
+        const pageCount = doc.bufferedPageRange().count;
+        for (let i = 0; i < pageCount; i++) {
+          doc.switchToPage(i);
+          doc.text(
+            `Page ${i + 1} of ${pageCount}`,
+            50,
+            doc.page.height - 50,
+            { align: 'center' }
+          );
+          
+          // Add "Thank you" message on the last page
+          if (i === pageCount - 1) {
+            doc.text('Thank you for your business!', 50, doc.page.height - 70, { align: 'center' });
+          }
+        }
         
         // Finalize the PDF
         doc.end();
