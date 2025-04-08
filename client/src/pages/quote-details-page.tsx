@@ -993,7 +993,7 @@ export default function QuoteDetailsPage() {
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
               notes: "",
-              assignedTo: null
+              assignedTo: undefined
             }}
             onSuccess={() => {
               setIsSurveyDialogOpen(false);
