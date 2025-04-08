@@ -1,0 +1,1 @@
+import axios from "axios"; (async () => { try { const response = await axios.post("http://localhost:5000/api/quotes/1/convert-to-invoice"); console.log("Successfully converted:", response.data); } catch (error) { console.error("Error converting quote to invoice:", error.response?.data || error.message); } })();

@@ -214,9 +214,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customer routes
   app.get("/api/customers", requireAuth, async (req: Request, res: Response) => {
     try {
-      const tenantFilter = getTenantFilterFromRequest(req);
+      const tenantId = getTenantIdFromRequest(req);
       
-      const customers = await storage.getAllCustomers(tenantFilter);
+      console.log(`Fetching customers for tenant ID: ${tenantId}`);
+      const customers = await storage.getAllCustomers(tenantId);
       
       // Get related data for reporting
       for (const customer of customers) {
@@ -340,8 +341,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (customerId) {
         projects = await storage.getProjectsByCustomer(Number(customerId), tenantId);
       } else {
-        const tenantFilter = getTenantFilterFromRequest(req);
-        projects = await storage.getAllProjects(tenantFilter);
+        const tenantId = getTenantIdFromRequest(req); 
+        projects = await storage.getAllProjects(tenantId);
       }
       
       res.json(projects);
@@ -458,8 +459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (projectId) {
         quotes = await storage.getQuotesByProject(Number(projectId), tenantId);
       } else {
-        const tenantFilter = getTenantFilterFromRequest(req);
-        quotes = await storage.getAllQuotes(tenantFilter);
+        const tenantId = getTenantIdFromRequest(req);
+        quotes = await storage.getAllQuotes(tenantId);
       }
       
       res.json(quotes);
@@ -958,12 +959,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quoteId = Number(req.params.id);
       const tenantId = getTenantIdFromRequest(req);
       
+      // Log more information for debugging
+      console.log(`Converting quote ID ${quoteId} to invoice. Tenant ID: ${tenantId}, User ID: ${req.user?.id}`);
+      
       // Fetch quote with tenant context
       const quote = await storage.getQuote(quoteId, tenantId);
       
       if (!quote) {
+        console.log(`Quote not found: ID ${quoteId}, Tenant ID ${tenantId}`);
         return res.status(404).json({ message: "Quote not found" });
       }
+      
+      console.log(`Found quote: ${JSON.stringify(quote, null, 2)}`);
       
       // Check if user has access to this resource - using tenantId instead of createdBy
       // to ensure proper tenant isolation
@@ -978,45 +985,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create invoice from quote
       const newInvoice = {
         invoiceNumber,
-        projectId: quote.projectId,
-        customerId: quote.customerId,
+        projectId: quote.projectId || null,
+        customerId: quote.customerId || null,
         quoteId: quote.id,
+        type: "final", // Ensure the type field is set correctly
         issueDate: new Date(),
         dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
         status: "issued",
-        subtotal: quote.subtotal,
-        tax: quote.tax,
-        discount: quote.discount,
-        total: quote.total,
-        notes: quote.notes,
-        terms: quote.terms,
+        subtotal: quote.subtotal || 0,
+        tax: quote.tax || 0,
+        discount: quote.discount || 0,
+        total: quote.total || 0,
+        notes: quote.notes || "",
+        terms: quote.terms || "",
         createdBy: req.user?.id,
         tenantId: tenantId // Add tenant ID to the invoice
       };
+      
+      console.log(`Creating invoice: ${JSON.stringify(newInvoice, null, 2)}`);
       
       const invoice = await storage.createInvoice(newInvoice);
       
       // Copy quote items to invoice items
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log(`Found ${quoteItems.length} quote items to copy`);
       
       for (const item of quoteItems) {
         await storage.createInvoiceItem({
           invoiceId: invoice.id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-          catalogItemId: item.catalogItemId
+          description: item.description || "",
+          quantity: item.quantity || 0,
+          unitPrice: item.unitPrice || 0,
+          total: item.total || 0,
+          catalogItemId: item.catalogItemId || null
         });
       }
       
       // Update quote status
       await storage.updateQuote(quoteId, { status: "converted" }, tenantId);
       
+      console.log(`Successfully converted quote ${quoteId} to invoice ${invoice.id}`);
       res.status(201).json(invoice);
     } catch (error) {
       console.error('Error converting quote to invoice:', error);
-      res.status(500).json({ message: "Failed to convert quote to invoice" });
+      res.status(500).json({ message: "Failed to convert quote to invoice", error: error instanceof Error ? error.message : String(error) });
     }
   });
 
@@ -1034,8 +1046,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else if (projectId) {
         invoices = await storage.getInvoicesByProject(Number(projectId), tenantId);
       } else {
-        const tenantFilter = getTenantFilterFromRequest(req);
-        invoices = await storage.getAllInvoices(tenantFilter);
+        const tenantId = getTenantIdFromRequest(req);
+        invoices = await storage.getAllInvoices(tenantId);
       }
       
       res.json(invoices);
