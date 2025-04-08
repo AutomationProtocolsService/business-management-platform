@@ -46,7 +46,12 @@ const surveyFormSchema = insertSurveySchema.extend({
   }),
   status: z.string(),
   notes: z.string().optional().default(""),
-  assignedTo: z.union([z.number(), z.string(), z.null(), z.undefined()]).optional()
+  assignedTo: z.union([
+    z.number(),
+    z.string(), 
+    z.null(),
+    z.undefined()
+  ]).optional()
     .transform(val => {
       if (val === "unassigned" || val === null || val === undefined) {
         return undefined;

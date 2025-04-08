@@ -989,7 +989,7 @@ export default function QuoteDetailsPage() {
           </DialogHeader>
           <SurveyForm 
             defaultValues={{ 
-              projectId: quote.projectId,
+              projectId: quote?.projectId || 0,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
               notes: "",
@@ -1018,7 +1018,7 @@ export default function QuoteDetailsPage() {
           </DialogHeader>
           <InstallationForm 
             defaultValues={{
-              projectId: quote.projectId,
+              projectId: quote?.projectId || 0,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
               notes: "",
