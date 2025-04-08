@@ -697,7 +697,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                             <SelectContent>
                               {customers.map((customer) => (
                                 <SelectItem key={customer.id} value={customer.id.toString()}>
-                                  {customer.name}
+                                  {customer.name} {customer.email && `(${customer.email})`}
                                 </SelectItem>
                               ))}
                             </SelectContent>

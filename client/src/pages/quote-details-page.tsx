@@ -341,6 +341,9 @@ export default function QuoteDetailsPage() {
     if (customer && quote) {
       if (customer.email) {
         setEmailRecipient(customer.email);
+      } else {
+        // Reset recipient if customer has no email
+        setEmailRecipient('');
       }
       setEmailSubject(`Quote #${quote.quoteNumber} from ${getCompanyName()}`);
       setEmailMessage(`Dear ${customer.name},\n\nPlease find attached our quote #${quote.quoteNumber}.\n\nIf you have any questions, please don't hesitate to contact us.\n\nBest regards,\n${getCompanyName()}`);
@@ -355,7 +358,20 @@ export default function QuoteDetailsPage() {
   // Email quote mutation
   const emailQuote = useMutation({
     mutationFn: async () => {
-      if (!quoteId || !emailRecipient) return;
+      if (!quoteId) {
+        throw new Error("Quote ID is missing");
+      }
+      
+      if (!emailRecipient) {
+        throw new Error("Recipient email is required");
+      }
+      
+      // Basic email validation
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(emailRecipient)) {
+        throw new Error("Please enter a valid email address");
+      }
+      
       await apiRequest("POST", `/api/quotes/${quoteId}/email`, {
         recipientEmail: emailRecipient,
         subject: emailSubject,
@@ -780,12 +796,18 @@ export default function QuoteDetailsPage() {
               <Label htmlFor="recipient" className="text-right">
                 To
               </Label>
-              <Input
-                id="recipient"
-                value={emailRecipient}
-                onChange={(e) => setEmailRecipient(e.target.value)}
-                className="col-span-3"
-              />
+              <div className="col-span-3 space-y-1">
+                <Input
+                  id="recipient"
+                  value={emailRecipient}
+                  onChange={(e) => setEmailRecipient(e.target.value)}
+                  className={!emailRecipient ? "border-red-500" : ""}
+                  placeholder="Enter recipient email address"
+                />
+                {!emailRecipient && (
+                  <p className="text-xs text-red-500">Customer email is required</p>
+                )}
+              </div>
             </div>
             
             <div className="grid grid-cols-4 items-center gap-4">
@@ -839,7 +861,8 @@ export default function QuoteDetailsPage() {
             </Button>
             <Button 
               onClick={() => emailQuote.mutate()}
-              disabled={emailQuote.isPending}
+              disabled={emailQuote.isPending || !emailRecipient}
+              title={!emailRecipient ? "Recipient email is required" : ""}
             >
               {emailQuote.isPending ? "Sending..." : "Send Email"}
             </Button>

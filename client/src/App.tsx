@@ -10,6 +10,7 @@ import ProjectsPage from "@/pages/projects-page";
 import ProjectNewPage from "@/pages/project-new-page";
 import QuotesPage from "@/pages/quotes-page";
 import QuoteDetailsPage from "@/pages/quote-details-page";
+import QuoteEditPage from "@/pages/quote-edit-page";
 import InvoicesPage from "@/pages/invoices-page";
 import InvoiceDetailsPage from "@/pages/invoice-details-page";
 import EmployeesPage from "@/pages/employees-page";
@@ -73,7 +74,7 @@ function Router() {
       <ProtectedRoute path="/projects/:id/edit" component={ProjectsPage} />
       <ProtectedRoute path="/quotes" component={QuotesPage} />
       <ProtectedRoute path="/quotes/:id" component={QuoteDetailsPage} />
-      <ProtectedRoute path="/quotes/:id/edit" component={QuotesPage} />
+      <ProtectedRoute path="/quotes/:id/edit" component={QuoteEditPage} />
       <ProtectedRoute path="/invoices" component={InvoicesPage} />
       <ProtectedRoute path="/invoices/:id" component={InvoiceDetailsPage} />
       <ProtectedRoute path="/invoices/:id/edit" component={InvoiceDetailsPage} />
