@@ -992,7 +992,8 @@ export default function QuoteDetailsPage() {
               projectId: quote.projectId,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
-              notes: ""
+              notes: "",
+              assignedTo: null
             }}
             onSuccess={() => {
               setIsSurveyDialogOpen(false);
@@ -1020,7 +1021,8 @@ export default function QuoteDetailsPage() {
               projectId: quote.projectId,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
-              notes: ""
+              notes: "",
+              assignedTo: []
             }}
             onSuccess={() => {
               setIsInstallationDialogOpen(false);
