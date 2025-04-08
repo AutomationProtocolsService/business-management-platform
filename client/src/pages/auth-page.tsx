@@ -81,7 +81,7 @@ export default function AuthPage() {
         throw new Error('Failed to fetch tenants');
       }
       const data = await response.json();
-      return data.tenants as Tenant[];
+      return data as Tenant[]; // The API returns the array directly, not wrapped in a 'tenants' property
     }
   });
 
