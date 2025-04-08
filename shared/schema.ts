@@ -1,7 +1,7 @@
 import { pgTable, text, serial, integer, boolean, date, timestamp, doublePrecision, jsonb, foreignKey, uniqueIndex, numeric, uuid } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
-import { relations } from "drizzle-orm";
+import { relations, and, eq, sql } from "drizzle-orm";
 
 // Tenants 
 export const tenants = pgTable("tenants", {
@@ -24,6 +24,15 @@ export const tenants = pgTable("tenants", {
   settings: jsonb("settings").$type<Record<string, any>>(), // For tenant-specific settings
 });
 
+// Organizations (for multi-tenant grouping)
+export const organizations = pgTable("organizations", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  description: text("description"),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
 // Users and Authentication
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
@@ -40,6 +49,19 @@ export const users = pgTable("users", {
   // Create a unique constraint for username within each tenant
   uniqueUsername: uniqueIndex("username_tenant_unique").on(users.username, users.tenantId),
 }));
+
+// User-Organization relationships (for multi-tenancy)
+export const userOrganizations = pgTable("user_organizations", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  organizationId: integer("organization_id").notNull().references(() => organizations.id),
+  role: text("role").notNull().default("member"), // member, admin, etc.
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => {
+  return {
+    userOrgUnique: uniqueIndex("user_org_unique").on(table.userId, table.organizationId),
+  };
+});
 
 // Customers
 export const customers = pgTable("customers", {
@@ -818,16 +840,33 @@ export const userInvitations = pgTable("user_invitations", {
 }));
 
 // Establish relations
-export const usersRelations = relations(users, ({ one }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
   tenant: one(tenants, {
     fields: [users.tenantId],
     references: [tenants.id]
-  })
+  }),
+  organizations: many(userOrganizations)
 }));
 
 export const tenantsRelations = relations(tenants, ({ many }) => ({
   users: many(users),
-  invitations: many(userInvitations)
+  invitations: many(userInvitations),
+  organizations: many(organizations)
+}));
+
+export const organizationsRelations = relations(organizations, ({ many }) => ({
+  users: many(userOrganizations)
+}));
+
+export const userOrganizationsRelations = relations(userOrganizations, ({ one }) => ({
+  user: one(users, {
+    fields: [userOrganizations.userId],
+    references: [users.id]
+  }),
+  organization: one(organizations, {
+    fields: [userOrganizations.organizationId],
+    references: [organizations.id]
+  })
 }));
 
 export const userInvitationsRelations = relations(userInvitations, ({ one }) => ({
@@ -873,6 +912,26 @@ export const passwordResetTokensRelations = relations(passwordResetTokens, ({ on
     references: [tenants.id]
   })
 }));
+
+// Export types for organizations
+export type Organization = typeof organizations.$inferSelect;
+export type InsertOrganization = typeof organizations.$inferInsert;
+export const insertOrganizationSchema = createInsertSchema(organizations)
+  .omit({
+    id: true,
+    createdAt: true
+  });
+export type OrganizationInsert = z.infer<typeof insertOrganizationSchema>;
+
+// Export types for user-organization relationships
+export type UserOrganization = typeof userOrganizations.$inferSelect;
+export type InsertUserOrganization = typeof userOrganizations.$inferInsert;
+export const insertUserOrganizationSchema = createInsertSchema(userOrganizations)
+  .omit({
+    id: true,
+    createdAt: true
+  });
+export type UserOrganizationInsert = z.infer<typeof insertUserOrganizationSchema>;
 
 // Export types for password reset tokens
 export type PasswordResetToken = typeof passwordResetTokens.$inferSelect;
