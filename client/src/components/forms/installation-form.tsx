@@ -61,11 +61,15 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
   // Initialize form
   const form = useForm<InstallationFormValues>({
     resolver: zodResolver(installationFormSchema),
-    defaultValues: defaultValues || {
+    defaultValues: {
       scheduledDate: getInputDateString(new Date()),
+      startTime: "09:00",
+      endTime: "17:00",
       status: "scheduled",
       notes: "",
+      projectId: 0, // Default value that will be overridden if defaultValues has a value
       assignedTo: [],
+      ...defaultValues
     },
   });
 
