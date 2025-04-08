@@ -52,7 +52,11 @@ import {
   type InsertUserInvitation,
   type InsertInventoryTransaction,
   type PasswordResetToken,
-  type InsertPasswordResetToken
+  type InsertPasswordResetToken,
+  type Organization,
+  type InsertOrganization,
+  type UserOrganization,
+  type InsertUserOrganization
 } from "@shared/schema";
 import session from "express-session";
 import createMemoryStore from "memorystore";
@@ -82,6 +86,23 @@ export interface IStorage {
   deleteTenant(id: number): Promise<boolean>;
   getAllTenants(): Promise<Tenant[]>;
   getActiveTenants(): Promise<Tenant[]>;
+  
+  // Organizations
+  getOrganization(id: number): Promise<Organization | undefined>;
+  getOrganizationByName(name: string, tenantId?: number): Promise<Organization | undefined>;
+  createOrganization(organization: InsertOrganization): Promise<Organization>;
+  updateOrganization(id: number, organizationData: Partial<Organization>, tenantId?: number): Promise<Organization | undefined>;
+  deleteOrganization(id: number, tenantId?: number): Promise<boolean>;
+  getAllOrganizations(filter?: TenantFilter): Promise<Organization[]>;
+  
+  // User Organizations
+  getUserOrganization(id: number): Promise<UserOrganization | undefined>;
+  getUserOrganizationByUserAndOrg(userId: number, organizationId: number): Promise<UserOrganization | undefined>;
+  createUserOrganization(userOrg: InsertUserOrganization): Promise<UserOrganization>;
+  updateUserOrganization(id: number, userOrgData: Partial<UserOrganization>): Promise<UserOrganization | undefined>;
+  deleteUserOrganization(id: number): Promise<boolean>;
+  getUserOrganizationsByUser(userId: number): Promise<UserOrganization[]>;
+  getUserOrganizationsByOrganization(organizationId: number): Promise<UserOrganization[]>;
   
   // Users
   getUser(id: number): Promise<User | undefined>;
@@ -337,6 +358,8 @@ export class MemStorage implements IStorage {
   private inventoryTransactions: Map<number, InventoryTransaction>;
   private fileAttachments: Map<number, FileAttachment>;
   private tenants: Map<number, Tenant>;
+  private organizations: Map<number, Organization>;
+  private userOrganizations: Map<number, UserOrganization>;
   private userInvitations: Map<number, UserInvitation>;
   private passwordResetTokens: Map<number, PasswordResetToken>;
   
@@ -367,6 +390,8 @@ export class MemStorage implements IStorage {
   private tenantId: number;
   private userInvitationId: number;
   private passwordResetTokenId: number;
+  private organizationId: number;
+  private userOrganizationId: number;
   
   // Session store
   sessionStore: any; // Using any for Express session store type issue
@@ -398,6 +423,8 @@ export class MemStorage implements IStorage {
     this.tenants = new Map();
     this.userInvitations = new Map();
     this.passwordResetTokens = new Map();
+    this.organizations = new Map();
+    this.userOrganizations = new Map();
     
     this.userId = 1;
     this.customerId = 1;
@@ -425,6 +452,8 @@ export class MemStorage implements IStorage {
     this.tenantId = 1;
     this.userInvitationId = 1;
     this.passwordResetTokenId = 1;
+    this.organizationId = 1;
+    this.userOrganizationId = 1;
     
     this.sessionStore = new MemoryStore({
       checkPeriod: 86400000 // 24 hours
@@ -1486,6 +1515,104 @@ export class MemStorage implements IStorage {
     );
   }
 
+  // Organization methods
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    return this.organizations.get(id);
+  }
+
+  async getOrganizationByName(name: string, tenantId?: number): Promise<Organization | undefined> {
+    if (tenantId) {
+      return Array.from(this.organizations.values()).find(
+        org => org.name === name && org.tenantId === tenantId
+      );
+    }
+    return Array.from(this.organizations.values()).find(org => org.name === name);
+  }
+
+  async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const id = this.organizationId++;
+    const newOrg: Organization = { ...organization, id, createdAt: new Date() };
+    this.organizations.set(id, newOrg);
+    return newOrg;
+  }
+
+  async updateOrganization(id: number, organizationData: Partial<Organization>, tenantId?: number): Promise<Organization | undefined> {
+    const organization = this.organizations.get(id);
+    if (!organization) return undefined;
+    
+    // Check tenant access if tenantId is provided
+    if (tenantId !== undefined && organization.tenantId !== tenantId) {
+      return undefined;
+    }
+    
+    const updatedOrganization = { ...organization, ...organizationData };
+    this.organizations.set(id, updatedOrganization);
+    return updatedOrganization;
+  }
+
+  async deleteOrganization(id: number, tenantId?: number): Promise<boolean> {
+    const organization = this.organizations.get(id);
+    if (!organization) return false;
+    
+    // Check tenant access if tenantId is provided
+    if (tenantId !== undefined && organization.tenantId !== tenantId) {
+      return false;
+    }
+    
+    return this.organizations.delete(id);
+  }
+
+  async getAllOrganizations(filter?: TenantFilter): Promise<Organization[]> {
+    const organizations = Array.from(this.organizations.values());
+    if (filter && 'tenantId' in filter) {
+      return organizations.filter(org => org.tenantId === filter.tenantId);
+    }
+    return organizations;
+  }
+
+  // User Organization methods
+  async getUserOrganization(id: number): Promise<UserOrganization | undefined> {
+    return this.userOrganizations.get(id);
+  }
+
+  async getUserOrganizationByUserAndOrg(userId: number, organizationId: number): Promise<UserOrganization | undefined> {
+    return Array.from(this.userOrganizations.values()).find(
+      userOrg => userOrg.userId === userId && userOrg.organizationId === organizationId
+    );
+  }
+
+  async createUserOrganization(userOrg: InsertUserOrganization): Promise<UserOrganization> {
+    const id = this.userOrganizationId++;
+    const newUserOrg: UserOrganization = { ...userOrg, id, createdAt: new Date(), role: userOrg.role || 'member' };
+    this.userOrganizations.set(id, newUserOrg);
+    return newUserOrg;
+  }
+
+  async updateUserOrganization(id: number, userOrgData: Partial<UserOrganization>): Promise<UserOrganization | undefined> {
+    const userOrg = this.userOrganizations.get(id);
+    if (!userOrg) return undefined;
+    
+    const updatedUserOrg = { ...userOrg, ...userOrgData };
+    this.userOrganizations.set(id, updatedUserOrg);
+    return updatedUserOrg;
+  }
+
+  async deleteUserOrganization(id: number): Promise<boolean> {
+    return this.userOrganizations.delete(id);
+  }
+
+  async getUserOrganizationsByUser(userId: number): Promise<UserOrganization[]> {
+    return Array.from(this.userOrganizations.values()).filter(
+      userOrg => userOrg.userId === userId
+    );
+  }
+
+  async getUserOrganizationsByOrganization(organizationId: number): Promise<UserOrganization[]> {
+    return Array.from(this.userOrganizations.values()).filter(
+      userOrg => userOrg.organizationId === organizationId
+    );
+  }
+
   // Tenant methods
   async getTenant(id: number): Promise<Tenant | undefined> {
     return this.tenants.get(id);
@@ -1524,6 +1651,8 @@ export class MemStorage implements IStorage {
     return Array.from(this.tenants.values()).filter(tenant => tenant.status === 'active');
   }
 
+
+  
   // User Invitation methods
   async getUserInvitation(id: number): Promise<UserInvitation | undefined> {
     return this.userInvitations.get(id);
@@ -1727,6 +1856,125 @@ export class DatabaseStorage implements IStorage {
   async getActiveTenants(): Promise<Tenant[]> {
     return await db.query.tenants.findMany({
       where: eq(schema.tenants.active, true)
+    });
+  }
+  
+  // Organization methods
+  async getOrganization(id: number): Promise<Organization | undefined> {
+    const result = await db.query.organizations.findFirst({
+      where: eq(schema.organizations.id, id)
+    });
+    return result;
+  }
+
+  async getOrganizationByName(name: string, tenantId?: number): Promise<Organization | undefined> {
+    let whereCondition: any = eq(schema.organizations.name, name);
+    
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        whereCondition,
+        eq(schema.organizations.tenantId, tenantId)
+      );
+    }
+    
+    const result = await db.query.organizations.findFirst({
+      where: whereCondition
+    });
+    return result;
+  }
+
+  async createOrganization(organization: InsertOrganization): Promise<Organization> {
+    const result = await db.insert(schema.organizations).values({
+      ...organization,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateOrganization(id: number, organizationData: Partial<Organization>, tenantId?: number): Promise<Organization | undefined> {
+    let query = db.update(schema.organizations)
+      .set(organizationData)
+      .where(eq(schema.organizations.id, id));
+    
+    if (tenantId !== undefined) {
+      query = query.where(eq(schema.organizations.tenantId, tenantId));
+    }
+    
+    const result = await query.returning();
+    return result[0];
+  }
+
+  async deleteOrganization(id: number, tenantId?: number): Promise<boolean> {
+    let query = db.delete(schema.organizations)
+      .where(eq(schema.organizations.id, id));
+    
+    if (tenantId !== undefined) {
+      query = query.where(eq(schema.organizations.tenantId, tenantId));
+    }
+    
+    const result = await query.returning();
+    return result.length > 0;
+  }
+
+  async getAllOrganizations(filter?: TenantFilter): Promise<Organization[]> {
+    if (filter && 'tenantId' in filter) {
+      return await db.query.organizations.findMany({
+        where: eq(schema.organizations.tenantId, filter.tenantId)
+      });
+    }
+    return await db.query.organizations.findMany();
+  }
+
+  // User Organization methods
+  async getUserOrganization(id: number): Promise<UserOrganization | undefined> {
+    const result = await db.query.userOrganizations.findFirst({
+      where: eq(schema.userOrganizations.id, id)
+    });
+    return result;
+  }
+
+  async getUserOrganizationByUserAndOrg(userId: number, organizationId: number): Promise<UserOrganization | undefined> {
+    const result = await db.query.userOrganizations.findFirst({
+      where: and(
+        eq(schema.userOrganizations.userId, userId),
+        eq(schema.userOrganizations.organizationId, organizationId)
+      )
+    });
+    return result;
+  }
+
+  async createUserOrganization(userOrg: InsertUserOrganization): Promise<UserOrganization> {
+    const result = await db.insert(schema.userOrganizations).values({
+      ...userOrg,
+      createdAt: new Date()
+    }).returning();
+    return result[0];
+  }
+
+  async updateUserOrganization(id: number, userOrgData: Partial<UserOrganization>): Promise<UserOrganization | undefined> {
+    const result = await db.update(schema.userOrganizations)
+      .set(userOrgData)
+      .where(eq(schema.userOrganizations.id, id))
+      .returning();
+    return result[0];
+  }
+
+  async deleteUserOrganization(id: number): Promise<boolean> {
+    const result = await db.delete(schema.userOrganizations)
+      .where(eq(schema.userOrganizations.id, id))
+      .returning();
+    return result.length > 0;
+  }
+
+  async getUserOrganizationsByUser(userId: number): Promise<UserOrganization[]> {
+    return await db.query.userOrganizations.findMany({
+      where: eq(schema.userOrganizations.userId, userId)
+    });
+  }
+
+  async getUserOrganizationsByOrganization(organizationId: number): Promise<UserOrganization[]> {
+    return await db.query.userOrganizations.findMany({
+      where: eq(schema.userOrganizations.organizationId, organizationId)
     });
   }
 
