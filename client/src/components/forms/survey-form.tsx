@@ -95,7 +95,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       notes: "",
       projectId: 0, // Default value that will be overridden if defaultValues has a value
       assignedTo: undefined,
-      ...(defaultValues || {})
+      ...defaultValues
     },
   });
   
