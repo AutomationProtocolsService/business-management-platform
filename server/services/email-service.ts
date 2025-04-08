@@ -38,10 +38,14 @@ class EmailServiceImpl {
         pdfBuffer = await PDFService.generateQuotePDF(quoteData);
       }
       
+      // Always use the verified sender email from env variables
+      const verifiedSenderEmail = process.env.SENDGRID_SENDER_EMAIL || senderEmail;
+      console.log(`Using verified sender email: ${verifiedSenderEmail}`);
+      
       // Construct the email
       const emailData: any = {
         to: recipientEmail,
-        from: senderEmail,
+        from: verifiedSenderEmail,
         subject: subject || `Quote #${quoteData.quoteNumber}`,
         text: message || `Please find attached Quote #${quoteData.quoteNumber}.`,
         html: this.generateHtmlContent('quote', quoteData, message),
@@ -92,10 +96,14 @@ class EmailServiceImpl {
         pdfBuffer = await PDFService.generateInvoicePDF(invoiceData);
       }
       
+      // Always use the verified sender email from env variables
+      const verifiedSenderEmail = process.env.SENDGRID_SENDER_EMAIL || senderEmail;
+      console.log(`Using verified sender email: ${verifiedSenderEmail}`);
+      
       // Construct the email
       const emailData: any = {
         to: recipientEmail,
-        from: senderEmail,
+        from: verifiedSenderEmail,
         subject: subject || `Invoice #${invoiceData.invoiceNumber}`,
         text: message || `Please find attached Invoice #${invoiceData.invoiceNumber}.`,
         html: this.generateHtmlContent('invoice', invoiceData, message),

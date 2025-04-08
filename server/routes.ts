@@ -874,10 +874,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log(`[Email Route] Fetched Project:`, project ? { name: project.name, id: project.id } : null);
       }
       
-      // Get company settings for sender email
+      // Get verified sender email from environment or fall back to company settings
+      const verifiedSenderEmail = process.env.SENDGRID_SENDER_EMAIL;
       const companySettings = await storage.getCompanySettings();
-      const senderEmail = companySettings?.email || 'noreply@example.com';
-      
+      const senderEmail = verifiedSenderEmail || companySettings?.email || 'noreply@example.com';
       console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
       
       // Check SendGrid API key
@@ -1293,10 +1293,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         project = await storage.getProject(invoice.projectId, tenantId);
       }
       
-      // Get company settings for sender email
+      // Get verified sender email from environment or fall back to company settings
+      const verifiedSenderEmail = process.env.SENDGRID_SENDER_EMAIL;
       const companySettings = await storage.getCompanySettings();
-      const senderEmail = companySettings?.email || 'noreply@example.com';
-      
+      const senderEmail = verifiedSenderEmail || companySettings?.email || 'noreply@example.com';
       console.log(`Sending email from ${senderEmail} to ${recipientEmail}`);
       
       // Check SendGrid API key
