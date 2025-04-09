@@ -229,14 +229,20 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     console.log("Submitting installation form with values:", values);
     
     try {
+      // Enhanced logging to debug the submission
+      console.log("Installation form - About to submit installation:", values);
+      console.log("Installation form - Is existing installation?", !!installationId);
+      
       // No need for additional processing here - the mutations handle date formatting
       if (installationId) {
+        console.log("Installation form - Updating existing installation ID:", installationId);
         updateInstallation.mutate(values);
       } else {
+        console.log("Installation form - Creating new installation");
         createInstallation.mutate(values);
       }
     } catch (error) {
-      console.error("Error processing form data:", error);
+      console.error("Error processing installation form data:", error);
       toast({
         title: "Form Error",
         description: error instanceof Error ? error.message : "An unexpected error occurred processing the form data",

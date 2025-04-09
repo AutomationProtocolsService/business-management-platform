@@ -980,7 +980,7 @@ export default function QuoteDetailsPage() {
 
       {/* Schedule Survey Dialog */}
       <Dialog open={isSurveyDialogOpen} onOpenChange={setIsSurveyDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Schedule Survey</DialogTitle>
             <DialogDescription>
@@ -995,13 +995,15 @@ export default function QuoteDetailsPage() {
               notes: "",
               assignedTo: undefined
             }}
-            onSuccess={() => {
+            onSuccess={(data) => {
+              console.log("Survey created successfully:", data);
               setIsSurveyDialogOpen(false);
               toast({
                 title: "Survey scheduled",
                 description: "The survey has been scheduled successfully."
               });
               queryClient.invalidateQueries({ queryKey: ["/api/surveys"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
             }}
           />
         </DialogContent>
@@ -1009,7 +1011,7 @@ export default function QuoteDetailsPage() {
 
       {/* Schedule Installation Dialog */}
       <Dialog open={isInstallationDialogOpen} onOpenChange={setIsInstallationDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Schedule Installation</DialogTitle>
             <DialogDescription>
@@ -1024,13 +1026,15 @@ export default function QuoteDetailsPage() {
               notes: "",
               assignedTo: []
             }}
-            onSuccess={() => {
+            onSuccess={(data) => {
+              console.log("Installation created successfully:", data);
               setIsInstallationDialogOpen(false);
               toast({
                 title: "Installation scheduled",
                 description: "The installation has been scheduled successfully."
               });
               queryClient.invalidateQueries({ queryKey: ["/api/installations"] });
+              queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
             }}
           />
         </DialogContent>

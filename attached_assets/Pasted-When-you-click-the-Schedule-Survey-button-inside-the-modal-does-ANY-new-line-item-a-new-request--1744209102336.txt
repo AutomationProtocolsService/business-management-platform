@@ -1,0 +1,14 @@
+When you click the "Schedule Survey" button inside the modal, does ANY new line item (a new request) appear in the Network tab list at that moment?
+If YES, a new line appears: What is the Status code shown for that line (e.g., 200, 201, 400, 404, 500)? Click on that line, go to the Response tab, and tell me what it shows.
+If NO, absolutely nothing new appears: This strongly indicates the problem is in your frontend JavaScript before it even tries to send the data to the backend.
+Let's focus on the "No network request" scenario first, as it's common for "button does nothing":
+If NO new request appears in the Network tab and NO errors appear in the Console when you click:
+Find the Frontend Code: Locate the React component file responsible for that "Schedule New Survey" modal/form (e.g., SurveyModal.jsx, ScheduleSurveyForm.jsx, features/surveys/components/SurveyForm.jsx - the exact name depends on your project structure).
+Check the Button: Find the <Button> component for "Schedule Survey" inside that file. It probably looks something like <Button onClick={handleScheduleSurvey} ...>Schedule Survey</Button>.
+Check the Handler Function: Find the function mentioned in the onClick (e.g., handleScheduleSurvey).
+Add a Simple Log: Put a console.log('Schedule Survey Button Clicked!'); as the very first line inside that handleScheduleSurvey function.
+Test Again: Save the file (your development server should auto-reload), open the modal, fill it, and click the "Schedule Survey" button while the Console tab is open.
+Did "Schedule Survey Button Clicked!" appear in the console?
+If NO: The onClick handler is not correctly attached to the button, or the function name is misspelled. Double-check the onClick={...} part on the button component.
+If YES: The button click is being registered, but the code after your console.log is failing silently or not doing what you expect (like making the API call). Now you need to add more console.log statements inside that function, especially around where you expect the fetch or axios call to happen, to see what data looks like just before the call and if the call itself is even reached.
+Please provide the specific information from the Console/Network tabs, or the results of adding the console.log statement. This detail is crucial for diagnosing the issue.

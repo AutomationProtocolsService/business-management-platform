@@ -130,10 +130,13 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
 
 
 
-  // Create survey mutation
+  // Create survey mutation with enhanced debugging
   const createSurvey = useMutation({
     mutationFn: async (values: SurveyFormValues) => {
       try {
+        // Enhanced debugging for client-side issues
+        console.log("[CREATE_SURVEY] Starting mutation with values:", values);
+        
         // Format data for API submission
         const formattedValues = {
           ...values,
@@ -141,31 +144,45 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
           scheduledDate: formatDateValue(values.scheduledDate)
         };
         
-        console.log("Submitting survey with formatted values:", formattedValues);
+        console.log("[CREATE_SURVEY] Submitting survey with formatted values:", formattedValues);
         
-        const res = await apiRequest("POST", "/api/surveys", formattedValues);
+        // Add more debugging to check what's actually being sent to the API
+        console.log("[CREATE_SURVEY] API endpoint:", "/api/surveys");
+        console.log("[CREATE_SURVEY] HTTP method:", "POST");
         
-        if (!res.ok) {
-          const errorText = await res.text();
-          try {
-            // Try to parse as JSON
-            const errorData = JSON.parse(errorText);
-            throw new Error(
-              JSON.stringify({
-                message: errorData.message || "Failed to create survey",
-                errors: errorData.errors || []
-              })
-            );
-          } catch (e) {
-            // If parsing fails, use the raw error text
-            throw new Error(`Server Error: ${errorText}`);
+        // Ensure we use proper try/catch to detect any issues during the request
+        try {
+          const res = await apiRequest("POST", "/api/surveys", formattedValues);
+          console.log("[CREATE_SURVEY] Response status:", res.status);
+          
+          if (!res.ok) {
+            const errorText = await res.text();
+            console.error("[CREATE_SURVEY] Error response text:", errorText);
+            
+            try {
+              // Try to parse as JSON
+              const errorData = JSON.parse(errorText);
+              throw new Error(
+                JSON.stringify({
+                  message: errorData.message || "Failed to create survey",
+                  errors: errorData.errors || []
+                })
+              );
+            } catch (e) {
+              // If parsing fails, use the raw error text
+              throw new Error(`Server Error: ${errorText}`);
+            }
           }
+          
+          const data = await res.json();
+          console.log("[CREATE_SURVEY] Success response data:", data);
+          return data;
+        } catch (requestError) {
+          console.error("[CREATE_SURVEY] Request error:", requestError);
+          throw requestError;
         }
-        
-        const data = await res.json();
-        return data;
       } catch (error) {
-        console.error("Survey creation error:", error);
+        console.error("[CREATE_SURVEY] Error during creation:", error);
         if (error instanceof Error) {
           throw error;
         } else {
@@ -174,13 +191,26 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
       }
     },
     onSuccess: (data) => {
+      console.log("[CREATE_SURVEY] onSuccess handler called with data:", data);
+      
       toast({
         title: "Survey created",
         description: "Survey has been scheduled successfully.",
       });
+      
+      // Invalidate queries to refresh data
+      console.log("[CREATE_SURVEY] Invalidating relevant queries");
       queryClient.invalidateQueries({ queryKey: ["/api/surveys"] });
       queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
-      if (onSuccess) onSuccess(data);
+      queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
+      
+      // Call the onSuccess callback provided by the parent component
+      if (onSuccess) {
+        console.log("[CREATE_SURVEY] Calling parent onSuccess callback");
+        onSuccess(data);
+      } else {
+        console.log("[CREATE_SURVEY] No parent onSuccess callback provided");
+      }
     },
     onError: (error: Error) => {
       console.error("Survey mutation error:", error);
@@ -293,12 +323,29 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
     },
   });
 
-  // Form submission handler
+  // Form submission handler with improved error handling
   function onSubmit(values: SurveyFormValues) {
-    if (surveyId) {
-      updateSurvey.mutate(values);
-    } else {
-      createSurvey.mutate(values);
+    console.log("Submitting survey form with values:", values);
+    
+    try {
+      // Enhanced logging to debug the submission
+      console.log("Survey form - About to submit survey:", values);
+      console.log("Survey form - Is existing survey?", !!surveyId);
+      
+      if (surveyId) {
+        console.log("Survey form - Updating existing survey ID:", surveyId);
+        updateSurvey.mutate(values);
+      } else {
+        console.log("Survey form - Creating new survey");
+        createSurvey.mutate(values);
+      }
+    } catch (error) {
+      console.error("Error processing survey form data:", error);
+      toast({
+        title: "Form Error",
+        description: error instanceof Error ? error.message : "An unexpected error occurred processing the form data",
+        variant: "destructive",
+      });
     }
   }
 
