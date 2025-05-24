@@ -59,13 +59,19 @@ router.post('/', requireAuth, async (req, res) => {
 
     // Execute in a transaction
     const result = await db.transaction(async (tx) => {
-      // Create the survey
+      // Create the survey - ensure date is properly formatted as string
+      const formattedDate = typeof scheduledDate === 'string' 
+        ? scheduledDate 
+        : scheduledDate instanceof Date 
+          ? scheduledDate.toISOString().split('T')[0] 
+          : new Date().toISOString().split('T')[0];
+          
       const newSurvey = await tx.insert(surveys)
         .values({
           tenantId,
           projectId: quote.projectId,
           quoteId,
-          scheduledDate, // PostgreSQL will handle the date conversion
+          scheduledDate: formattedDate, // Convert to proper string format for PostgreSQL
           assignedTo: typeof assignedTo === 'number' ? assignedTo : null, // Make sure it's either a valid ID or null
           status: status || 'scheduled',
           notes: notes || null,
