@@ -3,7 +3,8 @@ import { z } from 'zod';
 import { db } from '../db';
 import { quotes, surveys } from '../../shared/schema';
 import { insertSurveySchema } from '../../shared/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
+
 // Authentication middleware
 const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!(req as any).user) {
@@ -26,6 +27,8 @@ router.post('/', requireAuth, async (req, res) => {
     if (req.params.quoteId && !req.body.quoteId) {
       req.body.quoteId = parseInt(req.params.quoteId, 10);
     }
+
+    console.log('Survey request body:', JSON.stringify(req.body));
 
     // Validate request body
     const validationResult = insertSurveySchema.safeParse(req.body);
@@ -57,33 +60,59 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
+    // Make sure date is a string in ISO format (YYYY-MM-DD)
+    let formattedDate: string;
+    if (typeof scheduledDate === 'string') {
+      formattedDate = scheduledDate;
+    } else if (scheduledDate instanceof Date) {
+      formattedDate = scheduledDate.toISOString().split('T')[0];
+    } else {
+      formattedDate = new Date().toISOString().split('T')[0];
+    }
+
     // Execute in a transaction
     const result = await db.transaction(async (tx) => {
-      // Create the survey - ensure date is properly formatted as string
-      const formattedDate = typeof scheduledDate === 'string' 
-        ? scheduledDate 
-        : scheduledDate instanceof Date 
-          ? scheduledDate.toISOString().split('T')[0] 
-          : new Date().toISOString().split('T')[0];
-          
+      // 1. Create the survey
       const newSurvey = await tx.insert(surveys)
         .values({
           tenantId,
           projectId: quote.projectId,
           quoteId,
-          scheduledDate: formattedDate, // Convert to proper string format for PostgreSQL
-          assignedTo: typeof assignedTo === 'number' ? assignedTo : null, // Make sure it's either a valid ID or null
+          scheduledDate: formattedDate, // Use the properly formatted date string
+          assignedTo: typeof assignedTo === 'number' ? assignedTo : null,
           status: status || 'scheduled',
           notes: notes || null,
           createdBy: (req as any).user?.id || null
         })
         .returning();
 
-      // Return both survey and quote data for frontend to update UI
-      return { survey: newSurvey[0], quote };
+      // 2. Update the quote status to 'survey_booked'
+      await tx.update(quotes)
+        .set({
+          status: 'survey_booked',
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(quotes.id, quoteId),
+          eq(quotes.tenantId, tenantId)
+        ));
+
+      // Fetch the updated quote
+      const updatedQuote = await tx.query.quotes.findFirst({
+        where: and(
+          eq(quotes.id, quoteId),
+          eq(quotes.tenantId, tenantId)
+        )
+      });
+
+      // Return both survey and updated quote data for frontend
+      return { 
+        survey: newSurvey[0],
+        quote: updatedQuote
+      };
     });
 
-    // Return success response
+    // Return success response with status 201 (Created)
     res.status(201).json(result);
   } catch (error) {
     console.error('Error creating survey:', error);
