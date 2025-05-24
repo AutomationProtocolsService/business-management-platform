@@ -62,12 +62,19 @@ router.post('/', requireAuth, async (req, res) => {
       // Create the installation - ensure we have empty array for assignedTo
       const teamMembers = Array.isArray(assignedTo) ? assignedTo : [];
       
+      // Ensure date is properly formatted as string
+      const formattedDate = typeof scheduledDate === 'string' 
+        ? scheduledDate 
+        : scheduledDate instanceof Date 
+          ? scheduledDate.toISOString().split('T')[0] 
+          : new Date().toISOString().split('T')[0];
+      
       const newInstallation = await tx.insert(installations)
         .values({
           tenantId,
           projectId: quote.projectId,
           quoteId,
-          scheduledDate, // PostgreSQL will handle the date conversion
+          scheduledDate: formattedDate, // Convert to proper string format for PostgreSQL
           assignedTo: teamMembers,
           status: status || 'scheduled',
           notes: notes || null,
