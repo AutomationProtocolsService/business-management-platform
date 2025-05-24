@@ -72,9 +72,15 @@ function validateBody(schema: z.ZodType<any, any>) {
   };
 }
 
+// Import the routes configuration from our modular route files
+import configureModularRoutes from './routes/index';
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register modular route handlers
   registerQuoteRoutes(app);
+  
+  // Register our new survey and installation routes
+  configureModularRoutes(app);
   
   // Set up middleware for file uploads
   const upload = multer({
