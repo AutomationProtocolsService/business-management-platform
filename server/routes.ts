@@ -34,6 +34,7 @@ import {
   countInvoicesForTenant,
   countQuotesForTenant
 } from "./utils/document-numbering";
+import { registerQuoteRoutes } from "./routes/quotes";
 
 /**
  * Helper to get a tenant filter object from a request
@@ -72,6 +73,9 @@ function validateBody(schema: z.ZodType<any, any>) {
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Register modular route handlers
+  registerQuoteRoutes(app);
+  
   // Set up middleware for file uploads
   const upload = multer({
     storage: multer.diskStorage({
