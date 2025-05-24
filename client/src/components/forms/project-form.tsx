@@ -1,6 +1,7 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -19,16 +20,23 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { insertProjectSchema, Project, Customer } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { getInputDateString } from "@/lib/date-utils";
-import { useEffect } from "react";
+import { ClientCombobox } from "@/components/clients/ClientCombobox";
+import { CreateClientModal } from "@/components/clients/CreateClientModal";
+import { useClients } from "@/hooks/useClients";
 
 // Extend the insert schema with client-side validation
 const projectFormSchema = insertProjectSchema.extend({
   name: z.string().min(3, "Project name must be at least 3 characters."),
+  description: z.string().optional(),
+  customerId: z.number({
+    required_error: "Client is required",
+    invalid_type_error: "Client must be a number"
+  }).nullable(),
   startDate: z.string().optional(),
   deadline: z.string().optional(),
   budget: z.string().optional().transform((val) => val ? parseFloat(val) : undefined),
@@ -45,11 +53,10 @@ interface ProjectFormProps {
 
 export default function ProjectForm({ defaultValues, projectId, onSuccess, onCancel }: ProjectFormProps) {
   const { toast } = useToast();
-
-  // Fetch customers for the dropdown
-  const { data: customers = [], isLoading: isLoadingCustomers } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-  });
+  const { clients, isLoading: isLoadingCustomers } = useClients();
+  const [selectedClient, setSelectedClient] = useState<Customer | null>(null);
+  const [createClientOpen, setCreateClientOpen] = useState(false);
+  const [createClientTerm, setCreateClientTerm] = useState("");
 
   // Initialize form
   const form = useForm<ProjectFormValues>({
@@ -60,6 +67,29 @@ export default function ProjectForm({ defaultValues, projectId, onSuccess, onCan
       status: "pending",
     },
   });
+  
+  // Handle adding a new client
+  const handleAddClient = (term: string) => {
+    setCreateClientTerm(term);
+    setCreateClientOpen(true);
+  };
+  
+  // Handle successful client creation
+  const handleClientCreated = (client: Customer) => {
+    setSelectedClient(client);
+    form.setValue("customerId", client.id);
+  };
+  
+  // Update selected client when customerId changes in the form
+  useEffect(() => {
+    const customerId = form.getValues("customerId");
+    if (customerId && clients.length > 0) {
+      const client = clients.find((c: Customer) => c.id === customerId);
+      if (client) {
+        setSelectedClient(client);
+      }
+    }
+  }, [clients, form]);
 
   // Create project mutation
   const createProject = useMutation({
@@ -143,27 +173,27 @@ export default function ProjectForm({ defaultValues, projectId, onSuccess, onCan
           render={({ field }) => (
             <FormItem>
               <FormLabel>Client</FormLabel>
-              <Select
-                disabled={isLoadingCustomers}
-                onValueChange={(value) => field.onChange(Number(value))}
-                value={field.value?.toString()}
-              >
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a client" />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  {customers.map((customer) => (
-                    <SelectItem key={customer.id} value={customer.id.toString()}>
-                      {customer.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <FormControl>
+                <ClientCombobox
+                  selectedClient={selectedClient}
+                  onClientSelect={(client) => {
+                    setSelectedClient(client);
+                    field.onChange(client ? client.id : null);
+                  }}
+                  onAddClient={handleAddClient}
+                />
+              </FormControl>
               <FormMessage />
             </FormItem>
           )}
+        />
+        
+        {/* Client creation modal */}
+        <CreateClientModal
+          open={createClientOpen}
+          onOpenChange={setCreateClientOpen}
+          initialName={createClientTerm}
+          onSuccess={handleClientCreated}
         />
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -242,7 +272,12 @@ export default function ProjectForm({ defaultValues, projectId, onSuccess, onCan
             <FormItem>
               <FormLabel>Description</FormLabel>
               <FormControl>
-                <Textarea rows={4} placeholder="Enter project description" {...field} />
+                <Textarea 
+                  rows={4} 
+                  placeholder="Enter project description" 
+                  {...field} 
+                  value={field.value || ""} 
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
