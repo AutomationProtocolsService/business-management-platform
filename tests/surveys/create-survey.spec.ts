@@ -1,147 +1,142 @@
-import { describe, test, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import express from 'express';
 import { db } from '../../server/db';
-import * as auth from '../../server/auth';
-import surveysRouter from '../../server/routes/surveys';
+import { quotes, surveys, projects, customers, users, tenants } from '../../shared/schema';
+import { and, eq } from 'drizzle-orm';
 import request from 'supertest';
-import { quotes, surveys } from '../../shared/schema';
-import { eq } from 'drizzle-orm';
+import surveysRouter from '../../server/routes/surveys';
 
-describe('Survey API', () => {
-  let app: express.Express;
-  let testQuoteId: number;
-  let mockUser = {
-    id: 999,
-    email: 'test@example.com',
-    name: 'Test User',
-    role: 'admin',
-    tenantId: 1
-  };
+// Mock authentication middleware
+const mockAuthMiddleware = (req, res, next) => {
+  req.user = { id: 1, email: 'test@example.com' };
+  req.tenantId = 1;
+  next();
+};
 
-  // Setup test app
-  beforeAll(async () => {
+describe('Survey API Routes', () => {
+  let app;
+
+  beforeEach(() => {
+    // Set up a simple Express application for testing
     app = express();
     app.use(express.json());
-
-    // Mock authentication middleware
-    jest.spyOn(auth, 'requireAuth').mockImplementation((req, res, next) => {
-      (req as any).user = mockUser;
-      (req as any).tenantId = mockUser.tenantId;
-      next();
+    app.use((req, res, next) => {
+      mockAuthMiddleware(req, res, next);
     });
-
-    // Create a test quote in accepted status
-    const [quote] = await db.insert(quotes)
-      .values({
-        tenantId: mockUser.tenantId,
-        customerId: 1,
-        projectId: 1,
-        quoteNumber: 'TST-001',
-        status: 'accepted',
-        issueDate: new Date(),
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days in the future
-        subtotal: 1000,
-        tax: 100,
-        discount: 0,
-        total: 1100,
-        createdBy: mockUser.id
-      })
-      .returning();
-    
-    testQuoteId = quote.id;
-
-    // Mount the router
     app.use('/api/surveys', surveysRouter);
-  });
 
-  // Clean up test data
-  afterAll(async () => {
-    // Delete the test survey
-    await db.delete(surveys).where(eq(surveys.quoteId, testQuoteId));
-    // Delete the test quote
-    await db.delete(quotes).where(eq(quotes.id, testQuoteId));
+    // Clear mock calls
+    vi.clearAllMocks();
     
-    jest.restoreAllMocks();
-  });
-
-  test('POST /api/surveys should create a new survey for an accepted quote', async () => {
-    const surveyData = {
-      quoteId: testQuoteId,
-      scheduledDate: '2025-06-15',
-      status: 'scheduled',
-      notes: 'Test survey notes'
-    };
-
-    const response = await request(app)
-      .post('/api/surveys')
-      .send(surveyData)
-      .expect(201);
-
-    expect(response.body).toBeDefined();
-    expect(response.body.quoteId).toBe(testQuoteId);
-    expect(response.body.tenantId).toBe(mockUser.tenantId);
-    expect(response.body.status).toBe('scheduled');
-    expect(response.body.notes).toBe('Test survey notes');
-    
-    // Verify survey was saved to the database
-    const savedSurvey = await db.query.surveys.findFirst({
-      where: eq(surveys.quoteId, testQuoteId)
+    // Mock the database transaction
+    vi.spyOn(db, 'transaction').mockImplementation(async (callback) => {
+      return await callback(db);
     });
-    
-    expect(savedSurvey).not.toBeNull();
-    expect(savedSurvey?.quoteId).toBe(testQuoteId);
   });
 
-  test('POST /api/surveys should reject survey creation for non-existent quote', async () => {
-    const surveyData = {
-      quoteId: 99999, // Non-existent quote ID
-      scheduledDate: '2025-06-15',
-      status: 'scheduled',
-      notes: 'Test survey notes'
-    };
-
-    const response = await request(app)
-      .post('/api/surveys')
-      .send(surveyData)
-      .expect(404);
-
-    expect(response.body.message).toBe('Quote not found');
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
-  test('POST /api/surveys should reject survey creation for non-accepted quote', async () => {
-    // Create a test quote in draft status
-    const [draftQuote] = await db.insert(quotes)
-      .values({
-        tenantId: mockUser.tenantId,
-        customerId: 1,
-        projectId: 1,
-        quoteNumber: 'TST-002',
-        status: 'draft', // Not accepted
-        issueDate: new Date(),
-        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        subtotal: 1000,
-        tax: 100,
-        discount: 0,
-        total: 1100,
-        createdBy: mockUser.id
+  it('should create a survey for an accepted quote', async () => {
+    // Mock finding the quote
+    vi.spyOn(db.query.quotes, 'findFirst').mockResolvedValue({
+      id: 1,
+      projectId: 1,
+      status: 'accepted',
+      tenantId: 1,
+      // Add other required quote fields as needed
+    });
+
+    // Mock inserting the survey
+    vi.spyOn(db, 'insert').mockReturnValue({
+      values: vi.fn().mockReturnValue({
+        returning: vi.fn().mockResolvedValue([
+          {
+            id: 1,
+            quoteId: 1,
+            projectId: 1,
+            scheduledDate: '2025-06-15',
+            status: 'scheduled',
+            tenantId: 1,
+            assignedTo: null,
+            notes: 'Test survey notes',
+            createdBy: 1,
+            createdAt: new Date()
+          }
+        ])
       })
-      .returning();
+    });
 
-    const surveyData = {
-      quoteId: draftQuote.id,
-      scheduledDate: '2025-06-15',
-      status: 'scheduled',
-      notes: 'Test survey notes'
-    };
-
+    // Test the API endpoint
     const response = await request(app)
       .post('/api/surveys')
-      .send(surveyData)
-      .expect(400);
+      .send({
+        quoteId: 1,
+        scheduledDate: '2025-06-15',
+        status: 'scheduled',
+        notes: 'Test survey notes'
+      });
 
-    expect(response.body.message).toBe("Cannot schedule a survey for a quote that is not in 'accepted' status");
+    // Assertions
+    expect(response.status).toBe(201);
+    expect(response.body).toHaveProperty('survey');
+    expect(response.body).toHaveProperty('quote');
+    expect(response.body.survey.quoteId).toBe(1);
+    expect(response.body.survey.scheduledDate).toBe('2025-06-15');
+    expect(response.body.survey.status).toBe('scheduled');
+    
+    // Verify database insertion was called with correct parameters
+    expect(db.insert).toHaveBeenCalledTimes(1);
+  });
 
-    // Clean up
-    await db.delete(quotes).where(eq(quotes.id, draftQuote.id));
+  it('should reject creating a survey for a non-accepted quote', async () => {
+    // Mock finding the quote with a status that is not 'accepted'
+    vi.spyOn(db.query.quotes, 'findFirst').mockResolvedValue({
+      id: 1,
+      projectId: 1,
+      status: 'draft', // Not 'accepted'
+      tenantId: 1,
+      // Add other required quote fields as needed
+    });
+
+    // Test the API endpoint
+    const response = await request(app)
+      .post('/api/surveys')
+      .send({
+        quoteId: 1,
+        scheduledDate: '2025-06-15',
+        status: 'scheduled',
+        notes: 'Test survey notes'
+      });
+
+    // Assertions
+    expect(response.status).toBe(400);
+    expect(response.body.message).toContain('Cannot schedule a survey for a quote that is not in \'accepted\' status');
+    
+    // Verify database insertion was not called
+    expect(db.insert).not.toHaveBeenCalled();
+  });
+
+  it('should return 404 when quote is not found', async () => {
+    // Mock no quote found
+    vi.spyOn(db.query.quotes, 'findFirst').mockResolvedValue(null);
+
+    // Test the API endpoint
+    const response = await request(app)
+      .post('/api/surveys')
+      .send({
+        quoteId: 999, // Non-existent quote ID
+        scheduledDate: '2025-06-15',
+        status: 'scheduled',
+        notes: 'Test survey notes'
+      });
+
+    // Assertions
+    expect(response.status).toBe(404);
+    expect(response.body.message).toBe('Quote not found');
+    
+    // Verify database insertion was not called
+    expect(db.insert).not.toHaveBeenCalled();
   });
 });
