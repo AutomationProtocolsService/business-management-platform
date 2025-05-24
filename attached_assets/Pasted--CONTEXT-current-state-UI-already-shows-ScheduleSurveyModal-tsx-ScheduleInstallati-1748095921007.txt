@@ -1,0 +1,42 @@
+🔧  CONTEXT ─ current state
+• UI already shows     ScheduleSurveyModal.tsx   &   ScheduleInstallationModal.tsx
+• Both modals close correctly but NO request is fired (checked in Network tab).
+• Therefore the bug is **front-end only** – the back-end routes
+  POST /api/surveys      and POST /api/installations   already return 201
+  when hit via curl.
+
+🔨  GOAL
+1. In each modal, hook React-Hook-Form’s  handleSubmit(onSubmit)  to the
+   primary button (“Schedule Survey” / “Schedule Installation”).
+2. Implement  onSubmit  so it…
+   – calls  apiRequest("POST", "/api/surveys",        values)   or
+             apiRequest("POST", "/api/installations", values)
+   – awaits response; if !response.ok show destructive toast.
+   – on success: invalidate TanStack Query keys
+        • ["/api/surveys"]        • ["/api/installations"]
+     close the modal and show success toast “Survey scheduled” or
+     “Installation scheduled”.
+3. Disable the button and show spinner while the request is pending.
+4. Add  data-testid="schedule-survey-submit"   and
+          data-testid="schedule-installation-submit"
+   to the buttons so Playwright can click them.
+5. Create Playwright e2e tests:
+   • tests/surveys/schedule-survey.spec.ts
+   • tests/installations/schedule-installation.spec.ts
+   Tests must:  login → open a quote → open modal → pick dates →
+               submit → expect green toast.
+
+✅  ACCEPTANCE
+• `pnpm exec tsc --noEmit`  → 0 errors
+• `pnpm exec playwright test tests/surveys/schedule-survey.spec.ts
+                               tests/installations/schedule-installation.spec.ts`
+  passes.
+• Manual: pressing the blue buttons saves to DB and closes the modal.
+
+🗂️  EDIT / ADD ONLY THESE FILES — RETURN ONE UNIFIED DIFF
+1.  components/surveys/ScheduleSurveyModal.tsx
+2.  components/installations/ScheduleInstallationModal.tsx
+3.  tests/surveys/schedule-survey.spec.ts          (NEW)
+4.  tests/installations/schedule-installation.spec.ts (NEW)
+
+No other files should change.
