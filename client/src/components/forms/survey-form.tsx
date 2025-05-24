@@ -68,7 +68,7 @@ interface SurveyFormProps {
   onSuccess?: (data: Survey) => void;
 }
 
-export default function SurveyForm({ defaultValues, surveyId, onSuccess }: SurveyFormProps) {
+export default function SurveyForm({ defaultValues, surveyId, onSuccess, children }: SurveyFormProps & { children?: React.ReactNode }) {
   const { toast } = useToast();
 
   // Fetch survey data if editing
@@ -471,9 +471,11 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess }: Surve
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
-        </Button>
+        {children || (
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
+          </Button>
+        )}
       </form>
     </Form>
   );

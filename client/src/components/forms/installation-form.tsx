@@ -45,7 +45,7 @@ interface InstallationFormProps {
   onSuccess?: (data: Installation) => void;
 }
 
-export default function InstallationForm({ defaultValues, installationId, onSuccess }: InstallationFormProps) {
+export default function InstallationForm({ defaultValues, installationId, onSuccess, children }: InstallationFormProps & { children?: React.ReactNode }) {
   const { toast } = useToast();
 
   // Fetch projects for the dropdown
@@ -422,9 +422,11 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? "Saving..." : installationId ? "Update Installation" : "Schedule Installation"}
-        </Button>
+        {children || (
+          <Button type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Saving..." : installationId ? "Update Installation" : "Schedule Installation"}
+          </Button>
+        )}
       </form>
     </Form>
   );
