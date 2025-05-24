@@ -2,6 +2,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { useState, useEffect } from "react";
+import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -172,16 +173,43 @@ export default function ProjectForm({ defaultValues, projectId, onSuccess, onCan
           name="customerId"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Client</FormLabel>
+              <div className="flex justify-between items-center">
+                <FormLabel>Client</FormLabel>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCreateClientOpen(true)}
+                >
+                  <Plus className="h-3 w-3 mr-1" /> Create New
+                </Button>
+              </div>
               <FormControl>
-                <ClientCombobox
-                  selectedClient={selectedClient}
-                  onClientSelect={(client) => {
-                    setSelectedClient(client);
-                    field.onChange(client ? client.id : null);
+                <Select
+                  disabled={isLoadingCustomers}
+                  onValueChange={(value) => {
+                    const clientId = Number(value);
+                    field.onChange(clientId);
+                    
+                    // Update selected client
+                    const client = clients.find((c: Customer) => c.id === clientId);
+                    setSelectedClient(client || null);
                   }}
-                  onAddClient={handleAddClient}
-                />
+                  value={field.value?.toString() || ""}
+                >
+                  <FormControl>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select a client" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {clients.map((client: Customer) => (
+                      <SelectItem key={client.id} value={client.id.toString()}>
+                        {client.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </FormControl>
               <FormMessage />
             </FormItem>
