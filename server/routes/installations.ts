@@ -4,7 +4,13 @@ import { db } from '../db';
 import { quotes, installations, projects } from '../../shared/schema';
 import { insertInstallationSchema } from '../../shared/schema';
 import { and, eq } from 'drizzle-orm';
-import { requireAuth } from '../auth';
+// Authentication middleware
+const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (!(req as any).user) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  next();
+};
 
 const router = express.Router();
 
