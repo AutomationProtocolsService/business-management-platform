@@ -22,6 +22,11 @@ router.post('/', requireAuth, async (req, res) => {
       return res.status(400).json({ message: "No tenant context available" });
     }
 
+    // Add quoteId from URL params if not in body
+    if (req.params.quoteId && !req.body.quoteId) {
+      req.body.quoteId = parseInt(req.params.quoteId, 10);
+    }
+
     // Validate request body
     const validationResult = insertSurveySchema.safeParse(req.body);
     if (!validationResult.success) {
@@ -60,8 +65,8 @@ router.post('/', requireAuth, async (req, res) => {
           tenantId,
           projectId: quote.projectId,
           quoteId,
-          scheduledDate: scheduledDate, // Use the string date directly, PostgreSQL will handle conversion
-          assignedTo: assignedTo || null,
+          scheduledDate, // PostgreSQL will handle the date conversion
+          assignedTo: typeof assignedTo === 'number' ? assignedTo : null, // Make sure it's either a valid ID or null
           status: status || 'scheduled',
           notes: notes || null,
           createdBy: (req as any).user?.id || null
