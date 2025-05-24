@@ -647,16 +647,41 @@ export const insertTimesheetSchema = createInsertSchema(timesheets).omit({
   tenantId: true, // Will be set by the API based on authenticated user
 });
 
-export const insertSurveySchema = createInsertSchema(surveys).omit({
+export const insertSurveySchema = createInsertSchema(surveys, {
+  scheduledDate: z.string(), // Allow string date format
+  notes: z.string().nullable().optional(),
+  assignedTo: z.number().nullable().optional(),
+  status: z.string().default("scheduled"),
+  quoteId: z.number(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
+}).omit({
   id: true,
   createdAt: true,
   completedAt: true,
+  completedBy: true,
+  measurementsCollected: true,
+  photosCollected: true,
+  clientPresent: true,
+  depositInvoiceRequested: true,
 });
 
-export const insertInstallationSchema = createInsertSchema(installations).omit({
+export const insertInstallationSchema = createInsertSchema(installations, {
+  scheduledDate: z.string(), // Allow string date format
+  notes: z.string().nullable().optional(),
+  assignedTo: z.array(z.number()).nullable().optional(),
+  status: z.string().default("scheduled"),
+  quoteId: z.number(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
+}).omit({
   id: true,
   createdAt: true,
   completedAt: true,
+  completedBy: true,
+  depositInvoiceId: true,
+  clientSignoff: true,
+  snaggingRequired: true,
+  snaggingTaskListId: true,
+  finalInvoiceRequested: true,
 });
 
 export const insertTaskListSchema = createInsertSchema(taskLists).omit({
