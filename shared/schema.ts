@@ -579,17 +579,28 @@ export const insertQuoteSchema = createInsertSchema(quotes, {
   terms: z.string().nullable().optional(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
-  // Items will be handled separately
+  // Support for items array
   items: z.array(z.object({
+    catalogItemId: z.number().nullable().optional(),
     description: z.string(),
     quantity: z.number(),
     unitPrice: z.number(),
-    total: z.number()
+    // total is optional as it will be calculated server-side
+    total: z.number().optional(),
   })).optional(),
+  
+  // Tax and discount as percentages
+  taxPercent: z.number().optional(),
+  discountPercent: z.number().optional(),
+  
+  // Support for reference number provided by client
+  reference: z.string().optional(),
 }).omit({
   id: true,
   createdAt: true,
   quoteNumber: true, // Generated on the server
+  subtotal: true,    // Calculated on the server
+  total: true,       // Calculated on the server
 });
 
 export const insertQuoteItemSchema = createInsertSchema(quoteItems).omit({

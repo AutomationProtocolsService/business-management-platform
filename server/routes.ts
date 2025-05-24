@@ -472,48 +472,106 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/quotes", requireAuth, validateBody(insertQuoteSchema), async (req: Request, res: Response) => {
     try {
-      // Extract items from the request body if present
-      const { items, ...quoteData } = req.body;
+      // Extract items and percentage-based values from the request body
+      const { items, taxPercent, discountPercent, ...quoteData } = req.body;
       const tenantId = getTenantIdFromRequest(req);
       
-      // Generate quote number
-      const quoteNumber = await getNumberedDocument("QUO", tenantId);
+      // Calculate subtotal and totals
+      let subtotal = 0;
+      let processedItems = [];
       
-      // Create the quote without items first
+      if (items && Array.isArray(items) && items.length > 0) {
+        // Calculate item totals and overall subtotal
+        processedItems = items.map(item => {
+          const quantity = item.quantity || 0;
+          const unitPrice = item.unitPrice || 0;
+          const itemTotal = quantity * unitPrice;
+          subtotal += itemTotal;
+          
+          return {
+            ...item,
+            total: itemTotal,
+            quoteId: null // Will be set after quote is created
+          };
+        });
+      }
+      
+      // Calculate tax and discount amounts based on percentages if provided
+      const taxAmount = taxPercent ? (subtotal * (taxPercent / 100)) : (quoteData.tax || 0);
+      const discountAmount = discountPercent ? (subtotal * (discountPercent / 100)) : (quoteData.discount || 0);
+      const total = subtotal + taxAmount - discountAmount;
+      
+      // Generate unique quote number with retry
+      let quoteNumber;
+      let retryCount = 0;
+      const maxRetries = 3;
+      
+      while (retryCount < maxRetries) {
+        try {
+          // Add timestamp to make number more unique
+          quoteNumber = await getNumberedDocument(`QUO-${new Date().getTime().toString().slice(-4)}`, tenantId);
+          break; // If successful, exit the loop
+        } catch (err) {
+          console.log(`Retry ${retryCount + 1} for quote number generation`);
+          retryCount++;
+          if (retryCount >= maxRetries) {
+            throw new Error("Failed to generate a unique quote number after multiple attempts");
+          }
+          // Wait a small amount of time before retrying
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+      }
+      
+      // Create the quote with calculated values
       const quote = await storage.createQuote({
         ...quoteData,
         quoteNumber,
+        subtotal,
+        tax: taxAmount,
+        discount: discountAmount,
+        total,
         createdBy: req.user?.id,
         status: quoteData.status || "draft",
-        tenantId: tenantId // Add tenant ID to the quote
+        tenantId // Add tenant ID to the quote
       });
       
-      // Now add items if provided
-      if (items && Array.isArray(items) && items.length > 0) {
-        for (const item of items) {
-          await storage.createQuoteItem({
+      // Now add items with the proper quoteId reference
+      const createdItems = [];
+      if (processedItems.length > 0) {
+        for (const item of processedItems) {
+          const createdItem = await storage.createQuoteItem({
             ...item,
             quoteId: quote.id
           });
+          createdItems.push(createdItem);
         }
       }
+      
+      // Return the quote with its items
+      const quoteWithItems = {
+        ...quote,
+        items: createdItems
+      };
       
       // Send real-time update to all connected clients
       const wsManager = getWebSocketManager();
       if (wsManager) {
         wsManager.broadcast("quote:created", {
           id: quote.id,
-          data: quote,
+          data: quoteWithItems,
           message: `New quote created: ${quoteNumber}`,
           timestamp: new Date().toISOString(),
-          tenantId: tenantId // Include tenant ID in the notification
+          tenantId // Include tenant ID in the notification
         }, tenantId); // Pass tenant ID to limit broadcast scope
       }
       
-      res.status(201).json(quote);
+      res.status(201).json(quoteWithItems);
     } catch (error) {
       console.error("Failed to create quote:", error);
-      res.status(500).json({ message: "Failed to create quote" });
+      res.status(500).json({ 
+        message: "Failed to create quote",
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
     }
   });
 
