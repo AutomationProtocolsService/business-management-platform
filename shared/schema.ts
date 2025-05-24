@@ -650,7 +650,7 @@ export const insertTimesheetSchema = createInsertSchema(timesheets).omit({
 export const insertSurveySchema = createInsertSchema(surveys, {
   scheduledDate: z.string(), // Allow string date format
   notes: z.string().nullable().optional(),
-  assignedTo: z.number().nullable().optional(),
+  assignedTo: z.number().nullable().optional(), // Explicitly allow null
   status: z.string().default("scheduled"),
   quoteId: z.number(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
@@ -668,7 +668,11 @@ export const insertSurveySchema = createInsertSchema(surveys, {
 export const insertInstallationSchema = createInsertSchema(installations, {
   scheduledDate: z.string(), // Allow string date format
   notes: z.string().nullable().optional(),
-  assignedTo: z.array(z.number()).nullable().optional(),
+  assignedTo: z.union([
+    z.array(z.number()), 
+    z.null(),
+    z.undefined()
+  ]).optional().transform(val => val || []), // Default to empty array if null/undefined
   status: z.string().default("scheduled"),
   quoteId: z.number(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
