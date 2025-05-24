@@ -1055,7 +1055,6 @@ export default function QuoteDetailsPage() {
               Schedule Installation
             </Button>
           </InstallationForm>
-          />
         </DialogContent>
       </Dialog>
     </div>
