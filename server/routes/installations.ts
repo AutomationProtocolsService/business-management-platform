@@ -60,7 +60,7 @@ router.post('/', requireAuth, async (req, res) => {
           tenantId,
           projectId: quote.projectId,
           quoteId,
-          scheduledDate: new Date(scheduledDate),
+          scheduledDate: scheduledDate, // Use the string date directly, PostgreSQL will handle conversion
           assignedTo: assignedTo || null,
           status: status || 'scheduled',
           notes: notes || null,
@@ -68,7 +68,8 @@ router.post('/', requireAuth, async (req, res) => {
         })
         .returning();
 
-      return newInstallation[0];
+      // Return both installation and quote data for frontend to update UI
+      return { installation: newInstallation[0], quote };
     });
 
     // Return success response
