@@ -4,6 +4,7 @@ import { db } from '../db';
 import { quotes, installations, projects } from '../../shared/schema';
 import { insertInstallationSchema } from '../../shared/schema';
 import { and, eq } from 'drizzle-orm';
+
 // Authentication middleware
 const requireAuth = (req: express.Request, res: express.Response, next: express.NextFunction) => {
   if (!(req as any).user) {
@@ -26,6 +27,8 @@ router.post('/', requireAuth, async (req, res) => {
     if (req.params.quoteId && !req.body.quoteId) {
       req.body.quoteId = parseInt(req.params.quoteId, 10);
     }
+
+    console.log('Installation request body:', JSON.stringify(req.body));
 
     // Validate request body
     const validationResult = insertInstallationSchema.safeParse(req.body);
@@ -57,18 +60,22 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
+    // Make sure date is a string in ISO format (YYYY-MM-DD)
+    let formattedDate: string;
+    if (typeof scheduledDate === 'string') {
+      formattedDate = scheduledDate;
+    } else if (scheduledDate instanceof Date) {
+      formattedDate = scheduledDate.toISOString().split('T')[0];
+    } else {
+      formattedDate = new Date().toISOString().split('T')[0];
+    }
+
     // Execute in a transaction
     const result = await db.transaction(async (tx) => {
       // Create the installation - ensure we have empty array for assignedTo
       const teamMembers = Array.isArray(assignedTo) ? assignedTo : [];
       
-      // Ensure date is properly formatted as string
-      const formattedDate = typeof scheduledDate === 'string' 
-        ? scheduledDate 
-        : scheduledDate instanceof Date 
-          ? scheduledDate.toISOString().split('T')[0] 
-          : new Date().toISOString().split('T')[0];
-      
+      // 1. Create the installation
       const newInstallation = await tx.insert(installations)
         .values({
           tenantId,
@@ -82,8 +89,30 @@ router.post('/', requireAuth, async (req, res) => {
         })
         .returning();
 
-      // Return both installation and quote data for frontend to update UI
-      return { installation: newInstallation[0], quote };
+      // 2. Update the quote status to 'installation_booked'
+      await tx.update(quotes)
+        .set({
+          status: 'installation_booked',
+          updatedAt: new Date()
+        })
+        .where(and(
+          eq(quotes.id, quoteId),
+          eq(quotes.tenantId, tenantId)
+        ));
+
+      // Fetch the updated quote
+      const updatedQuote = await tx.query.quotes.findFirst({
+        where: and(
+          eq(quotes.id, quoteId),
+          eq(quotes.tenantId, tenantId)
+        )
+      });
+
+      // Return both installation and updated quote data for frontend
+      return { 
+        installation: newInstallation[0],
+        quote: updatedQuote
+      };
     });
 
     // Return success response

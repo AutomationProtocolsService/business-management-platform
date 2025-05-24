@@ -648,10 +648,19 @@ export const insertTimesheetSchema = createInsertSchema(timesheets).omit({
 });
 
 export const insertSurveySchema = createInsertSchema(surveys, {
-  scheduledDate: z.string(), // Allow string date format
+  scheduledDate: z.union([
+    z.string(),
+    z.date()
+  ]).transform(val => 
+    typeof val === 'string' 
+      ? val 
+      : val instanceof Date
+        ? val.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0]
+  ),
   notes: z.string().nullable().optional(),
   assignedTo: z.number().nullable().optional(), // Explicitly allow null
-  status: z.string().default("scheduled"),
+  status: z.enum(['scheduled', 'in-progress', 'completed']).default("scheduled"),
   quoteId: z.number(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 }).omit({
@@ -666,14 +675,23 @@ export const insertSurveySchema = createInsertSchema(surveys, {
 });
 
 export const insertInstallationSchema = createInsertSchema(installations, {
-  scheduledDate: z.string(), // Allow string date format
+  scheduledDate: z.union([
+    z.string(),
+    z.date()
+  ]).transform(val => 
+    typeof val === 'string' 
+      ? val 
+      : val instanceof Date
+        ? val.toISOString().split('T')[0]
+        : new Date().toISOString().split('T')[0]
+  ),
   notes: z.string().nullable().optional(),
   assignedTo: z.union([
     z.array(z.number()), 
     z.null(),
     z.undefined()
   ]).optional().transform(val => val || []), // Default to empty array if null/undefined
-  status: z.string().default("scheduled"),
+  status: z.enum(['scheduled', 'in-progress', 'completed']).default("scheduled"),
   quoteId: z.number(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 }).omit({
