@@ -9,7 +9,7 @@ import { getWebSocketManager } from "../websocket";
  * Helper to get the tenant ID from a request
  */
 function getTenantIdFromRequest(req: Request): number | undefined {
-  return req.tenant?.id;
+  return (req as any).tenant?.id;
 }
 
 /**
@@ -58,7 +58,9 @@ export function registerQuoteRoutes(app: any) {
         const issueDateStr = currentDate.toISOString().split('T')[0];
         const dueDateStr = dueDate.toISOString().split('T')[0];
         
-        // Create the invoice
+        console.log("Creating invoice with dates:", { issueDateStr, dueDateStr });
+        
+        // Create the invoice with proper date formatting for PostgreSQL
         const [newInvoice] = await tx.insert(invoices)
           .values({
             tenantId,
@@ -67,8 +69,8 @@ export function registerQuoteRoutes(app: any) {
             projectId: quote.projectId || null,
             customerId: quote.customerId || null,
             type: "final",
-            issueDate: issueDateStr,
-            dueDate: dueDateStr,
+            issueDate: issueDateStr,  // Using string format for dates
+            dueDate: dueDateStr,      // Using string format for dates
             status: "issued",
             subtotal: quote.subtotal || 0,
             tax: quote.tax || 0,
@@ -76,7 +78,7 @@ export function registerQuoteRoutes(app: any) {
             total: quote.total || 0,
             notes: quote.notes || "",
             terms: quote.terms || "",
-            createdBy: req.user?.id || null
+            createdBy: (req as any).user?.id || null
           })
           .returning();
         
@@ -85,13 +87,15 @@ export function registerQuoteRoutes(app: any) {
           await tx.insert(invoiceItems)
             .values({
               invoiceId: newInvoice.id,
-              description: item.description,
-              quantity: item.quantity,
-              unitPrice: item.unitPrice,
-              total: item.total,
-              catalogItemId: item.catalogItemId
+              description: item.description || "",
+              quantity: item.quantity || 0,
+              unitPrice: item.unitPrice || 0,
+              total: item.total || 0,
+              catalogItemId: item.catalogItemId || null
             });
         }
+        
+        console.log("Updating quote status to converted");
         
         // Update quote status to converted
         await tx.update(quotes)
@@ -104,14 +108,18 @@ export function registerQuoteRoutes(app: any) {
         return newInvoice;
       });
       
-      // Send real-time update to clients
-      const wsManager = getWebSocketManager();
-      if (wsManager) {
-        wsManager.broadcast("invoice:created", {
-          id: invoice.id,
-          message: `Invoice created from quote #${quote.quoteNumber}`,
-          tenantId
-        }, tenantId);
+      // Send real-time update to clients if available
+      try {
+        const wsManager = getWebSocketManager();
+        if (wsManager) {
+          wsManager.broadcast("invoice:created", {
+            id: invoice.id,
+            message: `Invoice created from quote #${quote.quoteNumber}`,
+            tenantId
+          }, tenantId);
+        }
+      } catch (error) {
+        console.log("WebSocket notification failed, but invoice was created successfully");
       }
       
       // Return the created invoice
