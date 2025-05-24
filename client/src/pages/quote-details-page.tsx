@@ -990,6 +990,7 @@ export default function QuoteDetailsPage() {
           <SurveyForm 
             defaultValues={{ 
               projectId: quote?.projectId || 0,
+              quoteId: quoteId,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
               notes: "",
@@ -1005,7 +1006,15 @@ export default function QuoteDetailsPage() {
               queryClient.invalidateQueries({ queryKey: ["/api/surveys"] });
               queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
             }}
-          />
+          >
+            <Button 
+              type="submit" 
+              className="w-full mt-6" 
+              data-testid="schedule-survey-submit"
+            >
+              Schedule Survey
+            </Button>
+          </SurveyForm>
         </DialogContent>
       </Dialog>
 
@@ -1021,6 +1030,7 @@ export default function QuoteDetailsPage() {
           <InstallationForm 
             defaultValues={{
               projectId: quote?.projectId || 0,
+              quoteId: quoteId,
               scheduledDate: getInputDateString(new Date()),
               status: "scheduled",
               notes: "",
@@ -1036,6 +1046,15 @@ export default function QuoteDetailsPage() {
               queryClient.invalidateQueries({ queryKey: ["/api/installations"] });
               queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
             }}
+          >
+            <Button 
+              type="submit" 
+              className="w-full mt-6"
+              data-testid="schedule-installation-submit"
+            >
+              Schedule Installation
+            </Button>
+          </InstallationForm>
           />
         </DialogContent>
       </Dialog>
