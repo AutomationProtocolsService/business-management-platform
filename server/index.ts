@@ -94,6 +94,26 @@ app.use((req, res, next) => {
   // Apply the centralized error handling
   applyErrorHandling(app);
 
+  // Add global Express error handler for unhandled errors
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    console.error('💥 Unhandled error caught by global handler:', err);
+    console.error('💥 Error stack:', err.stack);
+    console.error('💥 Request URL:', req.url);
+    console.error('💥 Request method:', req.method);
+    console.error('💥 Request body:', req.body);
+    
+    if (res.headersSent) {
+      return next(err);
+    }
+    
+    res.status(500).json({ 
+      error: err.message, 
+      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      url: req.url,
+      method: req.method
+    });
+  });
+
   // Use the port provided by Replit or fall back to 5000
   // This serves both the API and the client
   const port = process.env.PORT || 5000;
@@ -101,6 +121,27 @@ app.use((req, res, next) => {
   // Add a health check endpoint at the root
   app.get("/", (_, res) => {
     res.send("✅ Server is up and running!");
+  });
+
+  // Add a health check endpoint for debugging
+  app.get("/healthz", async (_, res) => {
+    try {
+      // Test database connection
+      const result = await db.execute("SELECT 1 as test");
+      res.json({ 
+        status: 'ok', 
+        database: 'connected',
+        timestamp: new Date().toISOString(),
+        result: result.rows
+      });
+    } catch (error) {
+      res.status(500).json({ 
+        status: 'error', 
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
   });
   
   server.listen({

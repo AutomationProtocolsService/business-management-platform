@@ -1,0 +1,187 @@
+1 · Catch the real exception (so you stop getting the anonymous 503)
+a. Add a global Express error handler
+js
+Copy
+Edit
+// index.js, **after** all routes
+app.use((err, req, res, next) => {
+  console.error('💥  Unhandled error', err);
+  res.status(500).json({ error: err.message, stack: err.stack });
+});
+b. Instrument the route
+js
+Copy
+Edit
+router.post('/', async (req, res, next) => {
+  console.log('▶️  /installations hit with', req.body);    // 👈
+  try {
+    // … your logic …
+  } catch (err) {
+    console.error('🛑  Failed in /installations', err);      // 👈
+    next(err);                                              // bubbles to handler above
+  }
+});
+Now reload, click Schedule Installation once, and read the Console.
+If you still get only “503” with no server log, your server never received the request—jump to § 5.
+
+2 · Validate the POST payload before touching DB
+Most “installation fails” boil down to missing / invalid fields that blow up in your Prisma/ORM layer.
+
+js
+Copy
+Edit
+const z = require('zod');
+
+const InstallationSchema = z.object({
+  projectId: z.number().int().positive(),
+  startTime: z.string().datetime(),
+  endTime: z.string().datetime(),
+  teamId: z.number().int().optional(),
+  status: z.enum(['Scheduled', 'In Progress', 'Completed']),
+  notes: z.string().optional()
+});
+
+router.post('/', async (req, res, next) => {
+  try {
+    const data = InstallationSchema.parse(req.body);  // throws 400 on bad input
+    // … create in DB …
+  } catch (err) {
+    if (err instanceof z.ZodError) {
+      return res.status(400).json({ error: err.errors });
+    }
+    next(err);
+  }
+});
+Why?
+The “No team members available” message in your form suggests teamId might be null.
+If your DB column is NOT NULL, Prisma will reject, throw, and you’ll bail with a 503.
+
+3 · Eliminate database connectivity issues
+Credentials present?
+Replit ▸ Secrets panel must contain the exact env vars your DB client expects.
+
+Run a health query at startup
+
+js
+Copy
+Edit
+import pkg from '@prisma/client';
+const { PrismaClient } = pkg;
+const db = new PrismaClient();
+
+db.$queryRaw`SELECT 1`            // pings the DB
+  .then(() => console.log('✅  DB up'))
+  .catch(err => {
+    console.error('⛔️  DB unreachable', err);
+    process.exit(1);              // fail fast
+  });
+Check connection pool limits (Supabase ≈ 20).
+On Replit free plans your app sleeps; when it wakes every Post request creates a new connection.
+Either await db.$disconnect() when idle or use a singleton database client.
+
+4 · Confirm the request even hits your server
+Open DevTools ▸ Network and inspect the failing entry:
+
+What to look at	What it tells you
+Initiator	“fetch” ⟶ your React code fired it.
+“(prefetch)” or missing ⟶ maybe not.
+Remote Addr	Should be your repl domain. If it’s 34.117.** it already routed to Replit proxy.
+Response Headers	If server: nginx/1.15 → Replit proxy emitted 503 (server didn’t answer).
+If it’s your own Express headers (x-powered-by: Express) → the bug is in your code.
+
+You can also hit the endpoint directly from Replit’s shell:
+
+bash
+Copy
+Edit
+curl -v -X POST $REPLIT_URL/api/installations -H 'Content-Type: application/json' \
+  -d '{"projectId":1,"startTime":"2025-06-17T19:57:00Z","endTime":"2025-06-26T21:57:00Z","status":"In Progress"}'
+If the curl also returns 503 → server or proxy issue.
+
+If curl succeeds → bug is in the React fetch (wrong origin, missing credentials, etc.)
+
+5 · Make sure you’re listening on the correct $PORT
+Replit injects a random port into process.env.PORT.
+Hard-coding 3000 or 5000 will work locally but break in prod.
+
+js
+Copy
+Edit
+const PORT = process.env.PORT || 3000;   // local fallback
+app.listen(PORT, () => console.log('Server up on', PORT));
+Re-deploy, then reconfirm with lsof -i -P -n | grep LISTEN.
+
+6 · Kill zombie processes that hog the port
+Sometimes a crash leaves Node running; Replit spawns a second instance that can’t bind and exits quickly, so the proxy shows 503.
+
+bash
+Copy
+Edit
+ps aux | grep node          # multiple Node PIDs?
+kill -9 <pid>
+npm start
+Add nodemon.json to auto-restart cleanly:
+
+json
+Copy
+Edit
+{
+  "execMap": { "js": "node --exit-code 1" },
+  "watch": ["src"],
+  "ext": "js,json"
+}
+7 · Double-check CORS & SameSite cookies
+If you see two network rows—a pre-flight OPTIONS that gets 503, then the POST never fires—your CORS middleware is mis-configured.
+
+js
+Copy
+Edit
+app.use(require('cors')({
+  origin: '*',              // tighten later
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+8 · Guard against out-of-memory / long-running tasks
+Replit free instances get ~512 MiB. A runaway PDF generator or huge query may SIGKILL the process mid-request:
+
+Stream large responses (res.write) instead of buffering.
+
+Offload heavy work to a background job (e.g. Supabase Edge Function).
+
+9 · Deploy a /healthz route for quick detective work
+js
+Copy
+Edit
+app.get('/healthz', (req, res) => res.json({ up: true, time: Date.now() }));
+If curl /healthz sometimes fails, the problem is with uptime / crashes, not your installations route.
+
+10 · Still stuck? Flip the stack to “serverless”
+Comment this out
+
+js
+Copy
+Edit
+app.use('/api/installations', installationsRouter);
+Replace with a Supabase Function / Vercel Edge Function:
+
+js
+Copy
+Edit
+export default async (req, res) => {
+  // same logic, but runs on demand, no port needed
+}
+If that works, the issue was Replit process management; migrate permanently or upgrade to Replit’s paid “Reserved VM” plan for stability.
+
+⬢ TL;DR Flowchart
+Does /installations log hit?
+No ⟶ check proxy/port (§ 5-6).
+Yes ⟶ what does the stack trace say? (§ 1-3).
+
+No stack trace? Enable global handler.
+
+Stack trace = DB error? Fix schema/connection.
+
+Stack trace = validation error? Zod + return 400.
+
+Everything looks right locally but 503 on Replit?
+Port, OOM, or zombie process—see § 5-6-8.

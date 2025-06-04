@@ -16,28 +16,38 @@ const requireAuth = (req: express.Request, res: express.Response, next: express.
 const router = express.Router();
 
 // POST /api/installations - Create a new installation
-router.post('/', requireAuth, async (req, res) => {
+router.post('/', requireAuth, async (req, res, next) => {
+  console.log('▶️ /installations POST endpoint hit');
+  console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+  
   try {
     const tenantId = (req as any).tenantId;
+    console.log('🏢 Tenant ID from request:', tenantId);
+    
     if (!tenantId) {
+      console.log('❌ No tenant ID available');
       return res.status(400).json({ message: "No tenant context available" });
     }
 
     // Add quoteId from URL params if not in body
     if (req.params.quoteId && !req.body.quoteId) {
       req.body.quoteId = parseInt(req.params.quoteId, 10);
+      console.log('📝 Added quoteId from params:', req.body.quoteId);
     }
 
-    console.log('Installation request body:', JSON.stringify(req.body));
+    console.log('🔍 Validating installation data with schema...');
 
     // Validate request body
     const validationResult = insertInstallationSchema.safeParse(req.body);
     if (!validationResult.success) {
+      console.log('❌ Validation failed:', validationResult.error.issues);
       return res.status(400).json({ 
         message: "Invalid installation data", 
         errors: validationResult.error.format()
       });
     }
+    
+    console.log('✅ Validation passed. Validated data:', validationResult.data);
 
     const { quoteId, projectId, scheduledDate, startTime, endTime, assignedTo, status, notes } = validationResult.data;
 
@@ -127,11 +137,12 @@ router.post('/', requireAuth, async (req, res) => {
       };
     });
 
-    // Return success response
+    console.log('✅ Installation created successfully:', result);
     res.status(201).json(result);
   } catch (error) {
-    console.error('Error creating installation:', error);
-    res.status(500).json({ message: "Failed to create installation", error: (error as Error).message });
+    console.error('🛑 Failed in /installations POST:', error);
+    console.error('🛑 Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
+    next(error); // Forward to Express error handler
   }
 });
 
