@@ -39,25 +39,29 @@ router.post('/', requireAuth, async (req, res) => {
       });
     }
 
-    const { quoteId, scheduledDate, assignedTo, status, notes } = validationResult.data;
+    const { quoteId, projectId, scheduledDate, startTime, endTime, assignedTo, status, notes } = validationResult.data;
 
-    // Verify that the quote exists and belongs to this tenant
-    const quote = await db.query.quotes.findFirst({
-      where: and(
-        eq(quotes.id, quoteId),
-        eq(quotes.tenantId, tenantId)
-      )
-    });
-
-    if (!quote) {
-      return res.status(404).json({ message: "Quote not found" });
-    }
-
-    // Verify that the quote is in 'accepted' status
-    if (quote.status !== 'accepted') {
-      return res.status(400).json({ 
-        message: "Cannot schedule an installation for a quote that is not in 'accepted' status" 
+    // For installation forms without a quoteId, we can still create the installation
+    let quote = null;
+    if (quoteId) {
+      // Verify that the quote exists and belongs to this tenant
+      quote = await db.query.quotes.findFirst({
+        where: and(
+          eq(quotes.id, quoteId),
+          eq(quotes.tenantId, tenantId)
+        )
       });
+
+      if (!quote) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      // Verify that the quote is in 'accepted' status
+      if (quote.status !== 'accepted') {
+        return res.status(400).json({ 
+          message: "Cannot schedule an installation for a quote that is not in 'accepted' status" 
+        });
+      }
     }
 
     // Make sure date is a string in ISO format (YYYY-MM-DD)
@@ -79,9 +83,11 @@ router.post('/', requireAuth, async (req, res) => {
       const newInstallation = await tx.insert(installations)
         .values({
           tenantId,
-          projectId: quote.projectId,
-          quoteId,
-          scheduledDate: formattedDate, // Convert to proper string format for PostgreSQL
+          projectId,
+          quoteId: quoteId || null,
+          scheduledDate: formattedDate,
+          startTime: startTime || null,
+          endTime: endTime || null,
           assignedTo: teamMembers,
           status: status || 'scheduled',
           notes: notes || null,
@@ -89,29 +95,35 @@ router.post('/', requireAuth, async (req, res) => {
         })
         .returning();
 
-      // 2. Update the quote status to 'installation_booked'
-      await tx.update(quotes)
-        .set({
-          status: 'installation_booked',
-          updatedAt: new Date()
-        })
-        .where(and(
-          eq(quotes.id, quoteId),
-          eq(quotes.tenantId, tenantId)
-        ));
+      // 2. Update the quote status to 'installation_booked' if there's a quote
+      if (quote && quoteId) {
+        await tx.update(quotes)
+          .set({
+            status: 'installation_booked',
+            updatedAt: new Date()
+          })
+          .where(and(
+            eq(quotes.id, quoteId),
+            eq(quotes.tenantId, tenantId)
+          ));
 
-      // Fetch the updated quote
-      const updatedQuote = await tx.query.quotes.findFirst({
-        where: and(
-          eq(quotes.id, quoteId),
-          eq(quotes.tenantId, tenantId)
-        )
-      });
+        // Fetch the updated quote
+        const updatedQuote = await tx.query.quotes.findFirst({
+          where: and(
+            eq(quotes.id, quoteId),
+            eq(quotes.tenantId, tenantId)
+          )
+        });
 
-      // Return both installation and updated quote data for frontend
+        return { 
+          installation: newInstallation[0],
+          quote: updatedQuote
+        };
+      }
+
+      // Return just installation data if no quote
       return { 
-        installation: newInstallation[0],
-        quote: updatedQuote
+        installation: newInstallation[0]
       };
     });
 
