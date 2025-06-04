@@ -1,0 +1,43 @@
+<SurveyForm> almost certainly wraps a native <form> (or a react-hook-form provider) and wires its own
+onSubmit={handleSubmit(onSuccess)} internally.
+If your Button is not physically inside that <form> tag the browser never sees a
+“submit-button-in-this-form”, so the click does nothing.
+
+Why it happens
+jsx
+Copy
+Edit
+<SurveyForm>
+  {/* children land *outside* the real <form> if SurveyForm does: */}
+  return (
+    <>
+      <form /* … */>{/* inputs */}</form>   // ① real form
+      {children}                            // ② rendered *after* form
+    </>
+  );
+</SurveyForm>
+type="submit" only works when the button node is a descendant of <form>
+(or has a form="id-of-form" attribute). When it isn’t, the event short-circuits and you get the
+“button that doesn’t respond” symptom you’re seeing.
+
+3 quick fixes (pick one)
+#	Fix	Code
+1	Move the button inside the form
+(simplest if you control <SurveyForm> source)	jsx<br>// SurveyForm.jsx<br>return (<form onSubmit={...}> {children} </form>);
+2	Use the form attribute if you must keep the layout	jsx<br><SurveyForm id="survey-form" ...>…</SurveyForm><br><Button form="survey-form" type="submit">Schedule Survey</Button>
+3	Expose a submit helper from SurveyForm	jsx<br>// SurveyForm.jsx<br>export function SurveyForm({ children, ...props }) {<br> const methods = useForm(...);<br> return (<FormProvider {...methods}> <form onSubmit={methods.handleSubmit(props.onSuccess)}> {typeof children === 'function' ? children(methods) : children} </form> </FormProvider>);} <br><br>// caller<br><SurveyForm onSuccess={...}> {({ handleSubmit }) => ( <Button onClick={handleSubmit(() => {})}>Schedule Survey</Button> )}</SurveyForm>
+
+(If you’re using react-hook-form + @hookform/resolvers, option 3 is the idiomatic pattern.)
+
+Quick diagnostic: prove it’s an “outside-form” issue
+js
+Copy
+Edit
+document.querySelector('[data-testid="schedule-survey-submit"]').form
+// → null  ← button is *not* associated with any form
+Add form="survey-form" and run again—you’ll get the form element and the click will fire.
+
+TL;DR
+type="submit" only fires when the button is part of the form the browser can see.
+Put the button inside that <form> element or link it with the form attribute, and the
+Schedule Survey click will start working.
