@@ -688,48 +688,8 @@ export const insertInstallationSchema = createInsertSchema(installations, {
         ? val.toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0]
   ),
-  startTime: z.union([
-    z.string(),
-    z.date(),
-    z.null(),
-    z.undefined()
-  ]).optional().transform(val => {
-    if (!val) return null;
-    if (typeof val === 'string') {
-      try {
-        const date = new Date(val);
-        if (isNaN(date.getTime())) return null;
-        return date.toISOString();
-      } catch {
-        return null;
-      }
-    }
-    if (val instanceof Date) {
-      return val.toISOString();
-    }
-    return null;
-  }),
-  endTime: z.union([
-    z.string(),
-    z.date(),
-    z.null(),
-    z.undefined()
-  ]).optional().transform(val => {
-    if (!val) return null;
-    if (typeof val === 'string') {
-      try {
-        const date = new Date(val);
-        if (isNaN(date.getTime())) return null;
-        return date.toISOString();
-      } catch {
-        return null;
-      }
-    }
-    if (val instanceof Date) {
-      return val.toISOString();
-    }
-    return null;
-  }),
+  startTime: z.string().datetime().optional().nullable(),
+  endTime: z.string().datetime().optional().nullable(),
   notes: z.string().nullable().optional(),
   assignedTo: z.union([
     z.array(z.number()), 

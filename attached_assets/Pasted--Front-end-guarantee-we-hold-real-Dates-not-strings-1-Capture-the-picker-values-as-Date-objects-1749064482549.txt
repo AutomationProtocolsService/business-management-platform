@@ -1,0 +1,178 @@
+➊ Front-end — guarantee we hold real Dates, not strings
+1. Capture the picker values as Date objects
+tsx
+Copy
+Edit
+// Example with native <input type="datetime-local">
+export default function InstallationModal() {
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime,   setEndTime]   = useState<Date | null>(null);
+
+  return (
+    <>
+      <input
+        type="datetime-local"
+        onChange={e => setStartTime(e.target.valueAsDate)}
+        required
+      />
+      <input
+        type="datetime-local"
+        onChange={e => setEndTime(e.target.valueAsDate)}
+        required
+      />
+      {/* …rest of the form… */}
+    </>
+  );
+}
+Why valueAsDate?
+It’s the only cross-browser way to get a real Date from an <input>, instead of a formatted string.
+
+2. Normalize to ISO once—right before the fetch
+ts
+Copy
+Edit
+async function handleSubmit() {
+  if (!startTime || !endTime) {
+    toast.error('Please pick both start and end times');   // guardrail
+    return;
+  }
+
+  const body = JSON.stringify({
+    projectId,                      // number
+    startTime: startTime.toISOString(),
+    endTime:   endTime.toISOString(),
+    status,
+    notes,
+    teamId                           // may be null
+  });
+
+  const res = await fetch('/api/installations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(errText || res.statusText);
+  }
+  toast.success('Installation scheduled');
+}
+No other part of the React code calls toISOString().
+If you still see the exact same error, put:
+
+ts
+Copy
+Edit
+console.log('startTime is', startTime, 'instanceof Date?', startTime instanceof Date);
+You should see something like:
+
+javascript
+Copy
+Edit
+startTime is 2025-06-11T02:37:00.000Z instanceof Date? true
+If it prints false, the picker/component you’re using is returning something other than a Date—wrap it yourself:
+
+ts
+Copy
+Edit
+setStartTime(new Date(rawValue));
+➋ Back-end — accept ISO, cast to Date, fail fast
+1. Global error handler (so no more silent 503s)
+js
+Copy
+Edit
+app.use((err, req, res, next) => {
+  console.error('💥 Unhandled error', err);
+  res.status(500).json({ error: err.message });
+});
+2. Express route with schema validation
+js
+Copy
+Edit
+import { z } from 'zod';
+
+const schema = z.object({
+  projectId:  z.number().int().positive(),
+  startTime:  z.string().datetime(),
+  endTime:    z.string().datetime(),
+  status:     z.enum(['Scheduled', 'In Progress', 'Completed']),
+  notes:      z.string().optional(),
+  teamId:     z.number().int().optional().nullable()
+});
+
+router.post('/', async (req, res, next) => {
+  try {
+    const data = schema.parse(req.body);
+
+    // convert to JS Date for ORM
+    const installation = await prisma.installation.create({
+      data: {
+        ...data,
+        startTime: new Date(data.startTime),
+        endTime:   new Date(data.endTime)
+      }
+    });
+
+    res.status(201).json(installation);
+  } catch (err) {
+    next(err);                 // bubbles to global handler
+  }
+});
+If the front-end ever sends a non-ISO string, the route returns a clean 400 with a message like:
+
+json
+Copy
+Edit
+{
+  "error": [
+    {
+      "code": "invalid_string",
+      "message": "Invalid datetime",
+      "path": ["startTime"]
+    }
+  ]
+}
+—no mystery 503.
+
+➌ Database — double-check schema matches
+prisma
+Copy
+Edit
+model Installation {
+  id         Int      @id @default(autoincrement())
+  projectId  Int
+  startTime  DateTime @db.Timestamptz(6)
+  endTime    DateTime @db.Timestamptz(6)
+  status     String
+  notes      String?  @db.Text
+  teamId     Int?
+}
+Timestamptz stores the offset—no guessing games around UTC vs local.
+
+teamId can be nullable if “No team members available”.
+
+➍ Smoke test from the Replit shell
+bash
+Copy
+Edit
+curl -X POST $YOUR_REPL_URL/api/installations \
+     -H 'Content-Type: application/json' \
+     -d '{
+           "projectId": 1,
+           "startTime": "2025-06-11T02:37:00.000Z",
+           "endTime":   "2025-06-18T14:37:00.000Z",
+           "status":    "In Progress"
+         }'
+# Expect: {"id":…,"projectId":1,…}
+If that succeeds but the React call still fails, the bug is 100 % in the front-end.
+If curl fails the same way, the back-end (or DB) still isn’t happy—read the JSON error returned by the handler above.
+
+➎ Last-mile checklist
+✓	Question	Action if “No”
+Does DevTools ▸ Network show POST → 400/500 instead of 503?	Error handler wired? (app.use((err,…))
+Do the console logs say instanceof Date? true for both times?	Fix picker → valueAsDate
+Does curl with hard-coded ISO succeed?	DB credentials / schema mis-match
+Does prisma.installation.create() return?	teamId nullability, foreign-key checks
+
+Work through the table—one “No” at a time—and the value.toISOString toast will finally vanish
