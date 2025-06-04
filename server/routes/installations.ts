@@ -49,7 +49,7 @@ router.post('/', requireAuth, async (req, res, next) => {
     
     console.log('✅ Validation passed. Validated data:', validationResult.data);
 
-    const { quoteId, projectId, scheduledDate, startTime, endTime, assignedTo, status, notes } = validationResult.data;
+    const { quoteId, projectId, scheduledDate, startTime, assignedTo, status, notes } = validationResult.data;
 
     // For installation forms without a quoteId, we can still create the installation
     let quote = null;
@@ -74,14 +74,18 @@ router.post('/', requireAuth, async (req, res, next) => {
       }
     }
 
-    // Make sure date is a string in ISO format (YYYY-MM-DD)
-    let formattedDate: string;
-    if (typeof scheduledDate === 'string') {
-      formattedDate = scheduledDate;
-    } else if (scheduledDate instanceof Date) {
-      formattedDate = scheduledDate.toISOString().split('T')[0];
-    } else {
-      formattedDate = new Date().toISOString().split('T')[0];
+    // Convert startTime to Date object if it's a string
+    let startDateTime: Date | null = null;
+    if (startTime && typeof startTime === 'string') {
+      try {
+        startDateTime = new Date(startTime);
+        if (isNaN(startDateTime.getTime())) {
+          startDateTime = null;
+        }
+      } catch (e) {
+        console.log('Error parsing startTime:', e);
+        startDateTime = null;
+      }
     }
 
     // Execute in a transaction
@@ -95,9 +99,8 @@ router.post('/', requireAuth, async (req, res, next) => {
           tenantId,
           projectId,
           quoteId: quoteId || null,
-          scheduledDate: formattedDate,
-          startTime: startTime || null,
-          endTime: endTime || null,
+          scheduledDate: scheduledDate || null,
+          startTime: startDateTime,
           assignedTo: teamMembers,
           status: status || 'scheduled',
           notes: notes || null,
