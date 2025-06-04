@@ -651,16 +651,7 @@ export const insertTimesheetSchema = createInsertSchema(timesheets).omit({
 });
 
 export const insertSurveySchema = createInsertSchema(surveys, {
-  scheduledDate: z.union([
-    z.string(),
-    z.date()
-  ]).transform(val => 
-    typeof val === 'string' 
-      ? val 
-      : val instanceof Date
-        ? val.toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0]
-  ),
+  scheduledDate: z.string().optional(),
   notes: z.string().nullable().optional(),
   assignedTo: z.number().nullable().optional(), // Explicitly allow null
   status: z.enum(['scheduled', 'in-progress', 'completed']).default("scheduled"),
