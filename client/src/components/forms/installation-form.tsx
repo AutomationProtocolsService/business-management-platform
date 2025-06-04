@@ -74,33 +74,33 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
     },
   });
 
-  // Helper to format date values safely
-  const formatDateValue = (dateValue: unknown): string | undefined => {
-    if (!dateValue) return undefined;
-    if (typeof dateValue !== 'string') return undefined;
+  // Helper to safely convert to ISO string
+  const toSafeISOString = (value: unknown): string | null => {
+    if (!value) return null;
     
     try {
-      const date = new Date(dateValue);
-      if (isNaN(date.getTime())) return undefined;
-      return date.toISOString().split('T')[0];
+      // If it's already a Date object, use it directly
+      if (value instanceof Date) {
+        console.log('Converting Date object to ISO:', value);
+        return value.toISOString();
+      }
+      
+      // If it's a string, try to parse it first
+      if (typeof value === 'string') {
+        console.log('Converting string to Date then ISO:', value);
+        const date = new Date(value);
+        if (isNaN(date.getTime())) {
+          console.error('Invalid date string:', value);
+          return null;
+        }
+        return date.toISOString();
+      }
+      
+      console.error('Unexpected value type for date conversion:', typeof value, value);
+      return null;
     } catch (e) {
-      console.error("Error formatting date:", e);
-      return undefined;
-    }
-  };
-
-  // Helper to format datetime values safely
-  const formatDateTimeValue = (dateTimeValue: unknown): string | undefined => {
-    if (!dateTimeValue) return undefined;
-    if (typeof dateTimeValue !== 'string') return undefined;
-    
-    try {
-      const date = new Date(dateTimeValue);
-      if (isNaN(date.getTime())) return undefined;
-      return date.toISOString();
-    } catch (e) {
-      console.error("Error formatting datetime:", e);
-      return undefined;
+      console.error("Error converting to ISO string:", e);
+      return null;
     }
   };
 
@@ -108,21 +108,23 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
   const createInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
       try {
-        // Format data for API submission
+        console.log('📝 Raw form values:', values);
+        console.log('🔍 startTime type:', typeof values.startTime, 'value:', values.startTime);
+        console.log('🔍 endTime type:', typeof values.endTime, 'value:', values.endTime);
+        
+        // Format data for API submission using safe conversion
         const formattedValues = {
-          ...values,
-          // Convert values to strings and then back to dates in ISO format
-          scheduledDate: formatDateValue(values.scheduledDate),
-          startTime: formatDateTimeValue(values.startTime),
-          endTime: formatDateTimeValue(values.endTime),
+          projectId: values.projectId,
+          scheduledDate: values.scheduledDate, // Keep as string for date field
+          startTime: toSafeISOString(values.startTime),
+          endTime: toSafeISOString(values.endTime),
+          status: values.status,
+          notes: values.notes || null,
           // Handle teamId conversion to assignedTo array
           assignedTo: values.teamId ? [values.teamId] : (values.assignedTo || [])
         };
 
-        // Remove teamId field since backend doesn't expect it
-        delete (formattedValues as any).teamId;
-
-        console.log("Submitting installation with formatted values:", formattedValues);
+        console.log("📤 Submitting installation with formatted values:", formattedValues);
         
         const res = await apiRequest("POST", "/api/installations", formattedValues);
         
@@ -173,16 +175,23 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
   const updateInstallation = useMutation({
     mutationFn: async (values: InstallationFormValues) => {
       try {
-        // Format data for API submission
+        console.log('📝 Raw update form values:', values);
+        console.log('🔍 Update startTime type:', typeof values.startTime, 'value:', values.startTime);
+        console.log('🔍 Update endTime type:', typeof values.endTime, 'value:', values.endTime);
+        
+        // Format data for API submission using safe conversion
         const formattedValues = {
-          ...values,
-          // Convert values to strings and then back to dates in ISO format
-          scheduledDate: formatDateValue(values.scheduledDate),
-          startTime: formatDateTimeValue(values.startTime),
-          endTime: formatDateTimeValue(values.endTime)
+          projectId: values.projectId,
+          scheduledDate: values.scheduledDate, // Keep as string for date field
+          startTime: toSafeISOString(values.startTime),
+          endTime: toSafeISOString(values.endTime),
+          status: values.status,
+          notes: values.notes || null,
+          // Handle teamId conversion to assignedTo array
+          assignedTo: values.teamId ? [values.teamId] : (values.assignedTo || [])
         };
 
-        console.log("Updating installation with formatted values:", formattedValues);
+        console.log("📤 Updating installation with formatted values:", formattedValues);
         
         const res = await apiRequest("PUT", `/api/installations/${installationId}`, formattedValues);
         
