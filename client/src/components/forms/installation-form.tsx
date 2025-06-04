@@ -35,6 +35,7 @@ const installationFormSchema = insertInstallationSchema.extend({
   status: z.string(),
   notes: z.string().optional(),
   assignedTo: z.array(z.number()).optional(),
+  teamId: z.number().optional(), // For compatibility with forms that send teamId
 });
 
 export type InstallationFormValues = z.infer<typeof installationFormSchema>;
@@ -113,8 +114,13 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
           // Convert values to strings and then back to dates in ISO format
           scheduledDate: formatDateValue(values.scheduledDate),
           startTime: formatDateTimeValue(values.startTime),
-          endTime: formatDateTimeValue(values.endTime)
+          endTime: formatDateTimeValue(values.endTime),
+          // Handle teamId conversion to assignedTo array
+          assignedTo: values.teamId ? [values.teamId] : (values.assignedTo || [])
         };
+
+        // Remove teamId field since backend doesn't expect it
+        delete (formattedValues as any).teamId;
 
         console.log("Submitting installation with formatted values:", formattedValues);
         

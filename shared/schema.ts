@@ -249,8 +249,11 @@ export const installations = pgTable("installations", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   projectId: integer("project_id").references(() => projects.id).notNull(),
+  quoteId: integer("quote_id").references(() => quotes.id), // Link to the quote that this installation is for
   depositInvoiceId: integer("deposit_invoice_id").references(() => invoices.id), // Link to the deposit invoice that enabled scheduling this installation
   scheduledDate: date("scheduled_date").notNull(),
+  startTime: timestamp("start_time"), // Start time for installation
+  endTime: timestamp("end_time"), // End time for installation
   status: text("status").notNull().default("scheduled"), // scheduled, completed, cancelled, snagging
   notes: text("notes"),
   assignedTo: jsonb("assigned_to").$type<number[]>(), // Team members assigned to installation
@@ -685,14 +688,53 @@ export const insertInstallationSchema = createInsertSchema(installations, {
         ? val.toISOString().split('T')[0]
         : new Date().toISOString().split('T')[0]
   ),
+  startTime: z.union([
+    z.string(),
+    z.date(),
+    z.null(),
+    z.undefined()
+  ]).optional().transform(val => {
+    if (!val) return null;
+    if (typeof val === 'string') {
+      try {
+        return new Date(val).toISOString();
+      } catch {
+        return null;
+      }
+    }
+    if (val instanceof Date) {
+      return val.toISOString();
+    }
+    return null;
+  }),
+  endTime: z.union([
+    z.string(),
+    z.date(),
+    z.null(),
+    z.undefined()
+  ]).optional().transform(val => {
+    if (!val) return null;
+    if (typeof val === 'string') {
+      try {
+        return new Date(val).toISOString();
+      } catch {
+        return null;
+      }
+    }
+    if (val instanceof Date) {
+      return val.toISOString();
+    }
+    return null;
+  }),
   notes: z.string().nullable().optional(),
   assignedTo: z.union([
     z.array(z.number()), 
     z.null(),
     z.undefined()
   ]).optional().transform(val => val || []), // Default to empty array if null/undefined
-  status: z.enum(['scheduled', 'in-progress', 'completed']).default("scheduled"),
-  quoteId: z.number(),
+  status: z.enum(['scheduled', 'in-progress', 'completed', 'cancelled', 'rescheduled']).default("scheduled"),
+  quoteId: z.number().optional(), // Made optional for cases where it's not needed
+  projectId: z.number(), // Required field
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 }).omit({
   id: true,
