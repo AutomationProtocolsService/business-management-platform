@@ -175,14 +175,12 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
       try {
         console.log('📝 Raw update form values:', values);
         console.log('🔍 Update startTime type:', typeof values.startTime, 'value:', values.startTime);
-        console.log('🔍 Update endTime type:', typeof values.endTime, 'value:', values.endTime);
         
         // Format data for API submission using safe conversion
         const formattedValues = {
           projectId: values.projectId,
           scheduledDate: values.scheduledDate, // Keep as string for date field
           startTime: toSafeISOString(values.startTime),
-          endTime: toSafeISOString(values.endTime),
           status: values.status,
           notes: values.notes || null,
           // Handle teamId conversion to assignedTo array
@@ -317,35 +315,19 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
           )}
         />
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <FormField
-            control={form.control}
-            name="startTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Start Time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-
-          <FormField
-            control={form.control}
-            name="endTime"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>End Time</FormLabel>
-                <FormControl>
-                  <Input type="datetime-local" {...field} value={field.value as string || ""} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
-        </div>
+        <FormField
+          control={form.control}
+          name="startTime"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Start Time</FormLabel>
+              <FormControl>
+                <Input type="datetime-local" {...field} value={field.value as string || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
         <FormField
           control={form.control}
