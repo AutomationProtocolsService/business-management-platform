@@ -678,18 +678,8 @@ export const insertSurveySchema = createInsertSchema(surveys, {
 });
 
 export const insertInstallationSchema = createInsertSchema(installations, {
-  scheduledDate: z.union([
-    z.string(),
-    z.date()
-  ]).transform(val => 
-    typeof val === 'string' 
-      ? val 
-      : val instanceof Date
-        ? val.toISOString().split('T')[0]
-        : new Date().toISOString().split('T')[0]
-  ),
+  scheduledDate: z.string().optional(),
   startTime: z.string().datetime().optional().nullable(),
-  endTime: z.string().datetime().optional().nullable(),
   notes: z.string().nullable().optional(),
   assignedTo: z.union([
     z.array(z.number()), 

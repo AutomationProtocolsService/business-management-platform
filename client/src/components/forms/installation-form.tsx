@@ -110,14 +110,12 @@ export default function InstallationForm({ defaultValues, installationId, onSucc
       try {
         console.log('📝 Raw form values:', values);
         console.log('🔍 startTime type:', typeof values.startTime, 'value:', values.startTime);
-        console.log('🔍 endTime type:', typeof values.endTime, 'value:', values.endTime);
         
         // Format data for API submission using safe conversion
         const formattedValues = {
           projectId: values.projectId,
           scheduledDate: values.scheduledDate, // Keep as string for date field
           startTime: toSafeISOString(values.startTime),
-          endTime: toSafeISOString(values.endTime),
           status: values.status,
           notes: values.notes || null,
           // Handle teamId conversion to assignedTo array
