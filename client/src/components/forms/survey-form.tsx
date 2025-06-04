@@ -312,7 +312,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
         />
 
         {children || (
-          <Button type="submit" disabled={isSubmitting}>
+          <Button type="button" onClick={() => form.handleSubmit(onSubmit)()} disabled={isSubmitting}>
             {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
           </Button>
         )}
