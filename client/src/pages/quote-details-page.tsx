@@ -1007,6 +1007,14 @@ export default function QuoteDetailsPage() {
               queryClient.invalidateQueries({ queryKey: ["/api/projects"] });
             }}
           />
+          <Button 
+            form="survey-form"
+            type="submit" 
+            className="w-full mt-6" 
+            data-testid="schedule-survey-submit"
+          >
+            Schedule Survey
+          </Button>
         </DialogContent>
       </Dialog>
 
