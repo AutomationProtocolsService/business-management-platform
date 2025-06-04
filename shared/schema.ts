@@ -697,7 +697,9 @@ export const insertInstallationSchema = createInsertSchema(installations, {
     if (!val) return null;
     if (typeof val === 'string') {
       try {
-        return new Date(val).toISOString();
+        const date = new Date(val);
+        if (isNaN(date.getTime())) return null;
+        return date.toISOString();
       } catch {
         return null;
       }
@@ -716,7 +718,9 @@ export const insertInstallationSchema = createInsertSchema(installations, {
     if (!val) return null;
     if (typeof val === 'string') {
       try {
-        return new Date(val).toISOString();
+        const date = new Date(val);
+        if (isNaN(date.getTime())) return null;
+        return date.toISOString();
       } catch {
         return null;
       }

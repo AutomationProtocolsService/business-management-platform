@@ -1,0 +1,123 @@
+What the new error is telling you
+value.toISOString is not a function means we’re calling .toISOString() on something that isn’t a JavaScript Date instance—most likely a plain string coming straight from the form.
+So the request never even leaves the browser; React throws, catches (or your try { … } catch in the handler does) and the red toast shows.
+
+1 · Pinpoint where it happens
+Search your front-end for .toISOString(.
+You’ll very likely find code shaped like:
+
+ts
+Copy
+Edit
+const payload = {
+  startTime: startTime.toISOString(),
+  endTime: endTime.toISOString(),
+  ...
+};
+Put a quick guard around it:
+
+ts
+Copy
+Edit
+console.log('startTime typeof', typeof startTime, startTime);
+console.log('endTime typeof',   typeof endTime,   endTime);
+Expected: object and instances of Date
+Actual: string like "11-06-2025 08:07"
+
+2 · Why the Date got lost
+a. Inputs return strings by default
+HTML date/time pickers (<input type="date">, type="time", or many component libraries) emit strings unless you read .valueAsDate.
+
+b. You might be formatting them early
+If you use dayjs / moment / format() before saving to state, you’ve already converted to a string.
+
+3 · Two clean fixes
+Fix A – keep Date objects all the way down
+Capture as valueAsDate
+
+tsx
+Copy
+Edit
+<input
+  type="datetime-local"
+  onChange={e => setStartTime(e.target.valueAsDate)}
+/>
+Make state strongly typed
+
+ts
+Copy
+Edit
+const [startTime, setStartTime] = useState<Date | null>(null);
+Only convert right before the fetch
+
+ts
+Copy
+Edit
+const payload = {
+  startTime: startTime!.toISOString(),
+  endTime:   endTime!.toISOString(),
+  ...
+};
+Fix B – accept strings and convert in one place
+If you like the DD-MM-YYYY HH:mm display, leave state as string but normalise once:
+
+ts
+Copy
+Edit
+import { parse } from 'date-fns';
+
+function toISO(str: string) {
+  // "11-06-2025 08:07" → 2025-06-11T08:07:00.000Z
+  const dt = parse(str, 'dd-MM-yyyy HH:mm', new Date());
+  return dt.toISOString();
+}
+
+const payload = {
+  startTime: toISO(startTimeStr),
+  endTime:   toISO(endTimeStr),
+  ...
+};
+Tip: keep all parsing/formatting in one util so future changes don’t scatter across the app.
+
+4 · Add fast-fail validation (optional but recommended)
+ts
+Copy
+Edit
+import { z } from 'zod';
+
+const installationSchema = z.object({
+  projectId:  z.number().int().positive(),
+  startTime:  z.string().datetime(),   // already ISO by now
+  endTime:    z.string().datetime(),
+  status:     z.enum(['Scheduled','In Progress','Completed']),
+  notes:      z.string().optional(),
+  teamId:     z.number().int().optional()
+});
+
+const payload = installationSchema.parse({
+  ...yourObjectHere
+});
+If you mis-format again, the schema throws before the fetch and you’ll see a descriptive validation error, not a cryptic toISOString crash.
+
+5 · Double-check the back-end, too
+Even after the front-end is fixed, be sure the server expects ISO strings (Prisma DateTime, Postgres timestamp with time zone, etc.):
+
+ts
+Copy
+Edit
+const { startTime, endTime } = req.body;
+await prisma.installation.create({
+  data: {
+    startTime: new Date(startTime),   // ⇦ extra belt-and-braces
+    endTime:   new Date(endTime),
+    ...
+  }
+});
+Quick sanity checklist
+ React state holds Date objects or consistent strings, never a mix.
+
+ Exactly one spot converts to ISO (either front-end util or back-end).
+
+ Added a console.log(typeof value, value) to verify before shipping.
+
+ Pushed a global error boundary so future bugs surface visibly.

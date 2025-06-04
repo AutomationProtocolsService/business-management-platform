@@ -7,6 +7,7 @@ import { tenantFilterMiddleware } from "./middleware/tenant-filter";
 import { setupUnhandledRejectionHandler } from "./middleware/error-handler";
 import { logger } from "./logger";
 import { applyErrorHandling } from "./middleware/apply-error-handling";
+import { db } from "./db";
 
 // Set up global handler for uncaught promise rejections
 setupUnhandledRejectionHandler();
