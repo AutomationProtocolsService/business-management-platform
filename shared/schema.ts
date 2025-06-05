@@ -655,7 +655,7 @@ export const insertSurveySchema = createInsertSchema(surveys, {
   notes: z.string().nullable().optional(),
   assignedTo: z.number().nullable().optional(), // Explicitly allow null
   status: z.enum(['scheduled', 'in-progress', 'completed']).default("scheduled"),
-  quoteId: z.number(),
+  quoteId: z.number().nullable().optional(), // Make quoteId optional since surveys can exist without quotes
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
 }).omit({
   id: true,
