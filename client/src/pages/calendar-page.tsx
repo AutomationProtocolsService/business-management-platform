@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { 
@@ -117,14 +117,6 @@ export default function CalendarPage() {
     }
   });
   
-  // Add temporary debugging
-  React.useEffect(() => {
-    if (events?.length) {
-      console.log("📅 Raw events:", events);
-      console.log("📊 First event structure:", events[0]);
-    }
-  }, [events]);
-
   // Filter events based on type
   const filteredEvents = filterType === "all" 
     ? events 
@@ -136,19 +128,13 @@ export default function CalendarPage() {
     
     const dayStr = day.date.toISOString().split('T')[0];
     
-    const dayEvents = filteredEvents.filter(event => {
+    return filteredEvents.filter(event => {
       if (!event.start_time) return false;
       
       // Extract date part from event start_time (format: "2025-06-04 00:00:00")
       const eventDateStr = event.start_time.split(' ')[0];
       return eventDateStr === dayStr;
     });
-    
-    if (dayEvents.length > 0) {
-      console.log(`Found ${dayEvents.length} events for ${dayStr}:`, dayEvents);
-    }
-    
-    return dayEvents;
   };
   
   // Navigate to previous month
