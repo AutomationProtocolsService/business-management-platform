@@ -143,6 +143,17 @@ export default function CalendarPage() {
     return filteredEvents.filter(event => {
       if (!event.start_date) return false;
       
+      // Debug logging for installations
+      if (event.type === 'installation') {
+        console.log('Installation event match check:', {
+          eventId: event.id,
+          eventDate: event.start_date,
+          dayDate: dayStr,
+          matches: event.start_date === dayStr,
+          dayNumber: day.day
+        });
+      }
+      
       // Direct string comparison - no parsing needed
       return event.start_date === dayStr;
     });
