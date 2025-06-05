@@ -278,14 +278,11 @@ export default function CalendarPage() {
                                 href={`/${event.type}s/${event.id.split('-')[1]}`}
                                 className="block px-2 py-1 text-xs rounded-md border border-gray-200 hover:bg-gray-50"
                               >
-                                <div className="flex justify-between">
+                                <div className="w-full">
                                   {renderEventBadge(event)}
-                                  <span className="text-gray-500">
-                                    {event.start_time ? formatDate(event.start_time, "h:mm a") : "All Day"}
-                                  </span>
-                                </div>
-                                <div className="font-medium text-gray-800 truncate mt-1">
-                                  Project #{event.project_id}
+                                  <div className="font-medium text-gray-800 truncate mt-1">
+                                    Project #{event.project_id}
+                                  </div>
                                 </div>
                               </Link>
                             ))}

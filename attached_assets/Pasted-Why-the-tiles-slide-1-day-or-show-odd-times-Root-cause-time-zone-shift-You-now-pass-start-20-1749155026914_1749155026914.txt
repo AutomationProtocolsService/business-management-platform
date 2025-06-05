@@ -1,0 +1,76 @@
+Why the tiles slide +1 day (or show odd times)
+Root cause → time–zone shift.
+You now pass start: "2025-06-24T00:00:00.000Z" (midnight UTC).
+Browsers parse that into local time.
+If your user is UTC+05:30, the Date becomes 23-Jun 19:30 — FullCalendar then renders it on the 23rd, plus a clock (“12:00 AM” default for all-day).
+
+Installation events keep the original start_time (which includes the real clock), so you get seemingly random offsets: some rows slide a day, some keep the DB clock.
+
+Fast, deterministic fix
+We’ll make every event an all-day block keyed to a pure date string, never a timestamp.
+
+tsx
+Copy
+Edit
+// client/pages/CalendarPage.tsx  (inside map)
+const dateOnly = (typeof ev.start_time === "string"
+  ? ev.start_time          // "2025-06-24"  ❮❮ make the API send this
+  : ev.start_time          // Date or string
+).toString().split("T")[0]; // keep YYYY-MM-DD no TZ
+
+return {
+  id:    ev.id,
+  title: ev.type === "survey" ? "Survey" : "Installation",
+  start: dateOnly,          // *just* the date
+  allDay: true,
+  display: "block",         // remove clock
+  backgroundColor: ev.type === "survey" ? "#147aff" : "#ffc400",
+};
+FullCalendar treats "YYYY-MM-DD" with allDay: true as a local-day tile;
+no parsing, no timezone math, never drifts.
+
+Make the API return date-only
+Option A (coalesce in SQL view)
+
+sql
+Copy
+Edit
+SELECT
+  start_time::date AS start_time,   -- '2025-06-24'
+  ...
+FROM installations
+Option B (if you keep timestamps for future half-day events)
+
+ts
+Copy
+Edit
+const dateOnly = ev.start_time.toISOString().split("T")[0];
+One-line patch for installation rows that really need time
+If you want surveys as all-day but installations to keep 09:00, 13:00 etc.:
+
+tsx
+Copy
+Edit
+const isSurvey = ev.type === "survey";
+const start = isSurvey
+  ? ev.start_time.split("T")[0]       // date string
+  : ev.start_time;                    // ISO timestamp
+
+return {
+  ...,
+  allDay: isSurvey,
+  start,
+};
+Guide to tell Ghostwriter if you want an exact diff
+text
+Copy
+Edit
+Calendar shows events one day off. Cause: UTC midnight → local shift.
+Need diff that:
+1. Changes v_calendar_events to cast start_time to ::date
+2. Updates CalendarPage mapper to use date string and allDay:true
+3. Leaves Installation times intact if end_time is not null
+Return patch for: prisma/migrations/<…>.sql, server/routes/calendar.ts, client/pages/CalendarPage.tsx
+Copy that prompt along with the current CalendarPage snippet; the agent will output the three-file diff.
+
+Apply, refresh → squares appear on precise 4 / 11 / 18 / 24 (or whatever dates), with no “12:00 AM” noise.
