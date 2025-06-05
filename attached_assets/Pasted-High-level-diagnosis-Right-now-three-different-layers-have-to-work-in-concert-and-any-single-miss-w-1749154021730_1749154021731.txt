@@ -1,0 +1,100 @@
+High-level diagnosis
+Right now three different layers have to work in concert, and any single miss will leave the calendar blank even though Surveys / Installations tables look fine.
+
+bash
+Copy
+Edit
+DB  ──►  /api/calendar      ──►  React-Query cache   ──►  Calendar component
+(view)      (route)                (data)                 (render)
+If you see rows in Surveys/Installations but nothing on the grid, the failure is always in one (sometimes two) of those arrows. Below is the minimal reproducible checklist I use as a principal dev before I hand the problem to an AI agent (or another engineer).
+
+1 Smoke-check each layer in 90 sec
+Layer	One-liner to run	Pass condition	If it fails
+Database view	psql -c "select * from v_calendar_events limit 5"	Returns rows with the correct start_time ISO strings	View missing UNION or wrong column names
+API route	curl 'http://localhost:3000/api/calendar?start=2025-06-01&end=2025-06-30'	200 JSON array length ≥ 3	Express route not using the view, date filter wrong, CORS
+React-Query	In DevTools ▶ Console:
+rq = window.__REACT_QUERY_DEVTOOLS_GLOBAL_HOOK__; rq.$log();	['calendar', …] query exists with data array	Hook called with wrong params, or never rendered
+Component	Add console.table(events) right before you map to FullCalendar	Table prints same 3 dates	Mapping logic converts Date → Invalid Date, wrong field name
+
+Do not move to a next layer until the previous one passes.
+
+2 Typical single-line fixes
+Symptom	Patch
+API returns empty although tables have rows	WHERE start_time BETWEEN $1 AND $2 is filtering on UTC midnight; cast columns to timestamp with time zone or shift start/end to noon before comparing.
+React-Query cache never created	You forgot queryKey: ['calendar', startISO, endISO] or the Calendar page mounts before start/end are computed (so use enabled: !!start).
+Invalid time value at new Date(ev.start)	Make sure ev.start is always a string. If the API sends null, coalesce in SQL: COALESCE(start_time, NOW()).
+Events array OK but no tiles show	FullCalendar expects start and title. Missing title bombs silently.
+
+3 Prompt template for the Replit AI agent
+Copy-paste the block below into the agent after you’ve filled the <<<…>>> placeholders and attached the exact console snippets from step 1.
+(That context is what lets the agent return a precise diff instead of generic advice.)
+
+text
+Copy
+Edit
+**App context**
+- React + Vite front-end, React Query 5
+- Node/Express back-end, Prisma Postgres
+- Calendar page should display Surveys + Installations
+
+**What works**
+- POST /surveys and /installations create rows (UI tables refresh)
+- Database has `v_calendar_events` view (see snippet)
+
+**What fails**
+- Calendar grid stays empty
+
+**Evidence**
+```bash
+# 1. DB view returns rows
+<<<paste psql output here>>>
+
+# 2. API call from curl
+<<<paste curl output or empty array>>>
+
+# 3. React Query cache dump
+<<<paste rq.$log() snippet>>>
+
+# 4. console.table(events) inside CalendarPage
+<<<paste table>>> 
+Goal
+
+Make /api/calendar return rows for the requested range.
+
+Ensure useCalendarEvents() fills React Query cache.
+
+Fix mapping so FullCalendar shows coloured blocks.
+
+Constraints
+
+Do not replace FullCalendar; only adjust data plumbing.
+
+Colours: #147aff for surveys, #ffc400 for installations.
+
+Return a diff patch touching only:
+
+server/routes/calendar.ts
+
+client/hooks/useCalendarEvents.ts
+
+client/pages/CalendarPage.tsx
+
+Please explain each change in one comment line.
+
+yaml
+Copy
+Edit
+
+---
+
+## 4  Why this workflow works  
+
+* **Layered smoke-check** guarantees you locate the exact break before coding.  
+* The prompt **hands over verified snippets**, so the AI agent doesn’t waste tokens guessing.  
+* Requesting a *diff* on three files keeps the response small and copy-pasta-ble.
+
+Follow the table in §1 until you see which arrow is broken, gather the snippets, drop them into the prompt above, and Ghostwriter should give you a patch that finally lights up those 4-18-24 tiles.
+
+
+
+
