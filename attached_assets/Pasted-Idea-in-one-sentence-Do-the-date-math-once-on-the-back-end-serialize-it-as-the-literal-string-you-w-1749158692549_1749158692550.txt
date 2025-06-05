@@ -1,0 +1,91 @@
+Idea in one sentence
+Do the date math once on the back-end, serialize it as the literal string you want ("2025-06-11"), and never let JavaScript parse that string again.
+
+Because the browser never turns it back into a Date object, nothing can slide to the next day.
+
+1 Add a dedicated “calendar_events” table / materialized view
+Instead of casting on the fly, generate “flattened” rows once and store the date-only string.
+
+sql
+Copy
+Edit
+-- run as a migration
+CREATE MATERIALIZED VIEW calendar_events AS
+SELECT
+  id::text                 AS id,
+  'survey'                 AS type,
+  project_id,
+  to_char(scheduled_date, 'YYYY-MM-DD') AS event_date,   -- TEXT
+  status
+FROM surveys
+
+UNION ALL
+
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  to_char(start_time, 'YYYY-MM-DD')      AS event_date,  -- TEXT
+  status
+FROM installations;
+
+-- index so BETWEEN is fast
+CREATE INDEX ON calendar_events(event_date);
+(If you don’t want a mat-view, keep a normal view and accept the tiny CPU cost.)
+
+2 Expose a super-simple API
+ts
+Copy
+Edit
+// server/routes/calendar.ts
+router.get('/', async (req, res, next) => {
+  const { start, end } = req.query;            // "2025-06-01", "2025-06-30"
+  const rows = await prisma.$queryRaw<
+    { id: string; type: string; project_id: number; event_date: string; status: string }[]
+  >`SELECT * FROM calendar_events
+     WHERE event_date BETWEEN ${start} AND ${end}`;
+  res.json(rows);
+});
+No casting, no Date constructor, no time zone anywhere.
+
+3 Front-end: treat every event as all-day and never parse dates
+tsx
+Copy
+Edit
+const fcEvents = events.map((ev) => ({
+  id:     ev.id,
+  title:  ev.type === 'survey' ? 'Survey' : 'Installation',
+  start:  ev.event_date,   // "2025-06-11"
+  allDay: true,            // FullCalendar puts it in that square, no clock
+  backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     ev.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+FullCalendar options (optional)
+tsx
+Copy
+Edit
+<FullCalendar
+  timeZone="local"         // doesn’t matter—string never parsed
+  displayEventTime={false} // hides “12 AM” fallback
+  events={fcEvents}
+  ...
+/>
+4 Invalidate cache when you create / edit
+ts
+Copy
+Edit
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['calendar'] });
+}
+Why this can’t drift
+The DB has already converted every timestamp to the target date string.
+
+The API passes that string unchanged.
+
+The React mapper never calls new Date() or parseISO() – it just forwards the literal.
+
+FullCalendar, per spec, renders a YYYY-MM-DD string as an all-day event on that exact square, in every locale.
+
+If you still see the yellow “Installation” badge appear on 12 Jun even though the string you log in fcEvents is "2025-06-11", send that console dump plus the rendered screenshot to the Replit AI agent—at that point it would be a FullCalendar config quirk, not data drift.
+
+But in practice, this pattern (DATE → TEXT → all-day) is what we use in multi-TZ SaaS dashboards precisely because it never shifts.
