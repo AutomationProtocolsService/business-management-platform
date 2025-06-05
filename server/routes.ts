@@ -1698,9 +1698,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const tenantId = getTenantIdFromRequest(req);
       const { start, end } = req.query;
 
+      // Refresh materialized view to get latest data
+      await storage.execQuery(`REFRESH MATERIALIZED VIEW calendar_events`, []);
+
       let query = `
-        SELECT *
-        FROM v_calendar_events
+        SELECT 
+          id,
+          type,
+          tenant_id,
+          project_id,
+          event_date,
+          status
+        FROM calendar_events
         WHERE tenant_id = $1
       `;
       
