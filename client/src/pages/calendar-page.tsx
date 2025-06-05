@@ -103,7 +103,7 @@ export default function CalendarPage() {
   
   // Fetch calendar events
   const { data: events = [], isLoading } = useQuery<CalendarEvent[]>({
-    queryKey: ["/api/calendar", startOfMonth.toISOString(), endOfMonth.toISOString(), "v2"],
+    queryKey: ["/api/calendar", startOfMonth.toISOString(), endOfMonth.toISOString(), "v3"],
     queryFn: async ({ queryKey }) => {
       const [_, start, end] = queryKey;
       const url = `/api/calendar?start=${start}&end=${end}`;
@@ -118,7 +118,14 @@ export default function CalendarPage() {
         throw new Error("Failed to fetch calendar events");
       }
       
-      return res.json();
+      const data = await res.json();
+      console.table(data.map(e => ({ 
+        id: e.id, 
+        type: e.type, 
+        apiDate: e.start_date,
+        rawData: JSON.stringify(e)
+      })));
+      return data;
     }
   });
   
