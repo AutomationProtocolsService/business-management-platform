@@ -113,40 +113,39 @@ export default function CalendarPage() {
         throw new Error("Failed to fetch calendar events");
       }
       
-      const data = await res.json();
-      console.log("📅 Calendar API Response:", data);
-      return data;
+      return res.json();
     }
   });
   
+  // Add temporary debugging
+  React.useEffect(() => {
+    if (events?.length) {
+      console.log("📅 Raw events:", events);
+      console.log("📊 First event structure:", events[0]);
+    }
+  }, [events]);
+
   // Filter events based on type
   const filteredEvents = filterType === "all" 
     ? events 
     : events.filter(event => event.type === filterType);
   
-  console.log("📊 Filtered Events:", filteredEvents);
-  
   // Get events for a specific day
   const getEventsForDay = (day: any) => {
-    if (!day.date) return [];
+    if (!day.date || !filteredEvents.length) return [];
     
     const dayStr = day.date.toISOString().split('T')[0];
+    
     const dayEvents = filteredEvents.filter(event => {
-      // Defensive parsing - handle null, undefined, or invalid dates
-      const iso = typeof event.start_time === 'string'
-        ? event.start_time                  // already ISO
-        : event.start_time instanceof Date
-        ? event.start_time.toISOString()    // cast Date → ISO
-        : null;                             // bad value
-
-      if (!iso) return false;               // skip invalid rows
-      const eventDateStr = iso.split('T')[0];
-      console.log(`🔍 Comparing ${eventDateStr} === ${dayStr}:`, eventDateStr === dayStr);
+      if (!event.start_time) return false;
+      
+      // Extract date part from event start_time (format: "2025-06-04 00:00:00")
+      const eventDateStr = event.start_time.split(' ')[0];
       return eventDateStr === dayStr;
     });
     
     if (dayEvents.length > 0) {
-      console.log(`📅 Found ${dayEvents.length} events for ${dayStr}:`, dayEvents);
+      console.log(`Found ${dayEvents.length} events for ${dayStr}:`, dayEvents);
     }
     
     return dayEvents;
