@@ -1,0 +1,90 @@
+High-level game plan
+Re-produce & isolate the dead button inside the Surveys module while proving the Quote-side button still fires.
+
+Diff the two code paths until the first divergence (that’s almost always the bug).
+
+Instrument the Surveys path with minimal logs to surface where the click dies.
+
+Hand that focused evidence (one failing component, one working one) to the Replit AI agent so it can suggest the tightest patch.
+
+Below is the exact step-by-step script I’d run.
+
+1 · Prove where the click stops
+Checkpoint	What to do in the Surveys page	Expected if wiring is healthy	If it fails
+DOM	document.querySelector('[data-testid="schedule-survey-submit"]').addEventListener('click', e => console.log('dom')) then click	dom logs	Overlay / pointer-events:none / disabled attribute is swallowing the click.
+React	Wrap JSX: <Button … onClick={()=>{console.log('react');}}>…	react logs	onClick never arrives ⇒ prop missing, wrapped component lost the handler, or type="submit" being ignored.
+Handler	Inside handleSchedule, first line console.log('handler start')	logs	Function reference shadowed or not passed down.
+Fetch / mutation	Add console.log('sending request') just before fetch or mutation. Watch Network tab.	Network row appears	Validation early-return or form not submitted (classic “button outside form” case).
+
+Work left → right until a log disappears: the break is just before that.
+
+2 · Diff the working vs. broken code
+Open both components side-by-side (Quotes page vs Surveys page).
+
+Pay attention to five common divergence points:
+
+Hot spot	Typical difference you’ll find
+Form wrapper	Quotes version’s button is inside <form onSubmit={…}>, Surveys version’s sits outside.
+Button props	Working: type="button" + explicit onClick; Broken: type="submit" but no surrounding <form>.
+Modal/Portal	Surveys modal inserts children after the real form (ReactDOM.createPortal), breaking the submit link.
+Validation schema	Surveys path keeps yupResolver but quotes path skips it, so the former blocks submit silently.
+Disabled logic	Surveys button gets `disabled={isSubmitting
+
+Comment-toggle the suspect lines and refresh; when the button comes alive you’ve pinpointed it.
+
+3 · Patch candidates (pick the one that matches the diff)
+Root cause you find	Minimal patch
+Button outside form	jsx<br><SurveyForm id="survey-form" ...><br> …fields…<br> <Button type="submit">Schedule</Button><br></SurveyForm>
+or keep layout and add form="survey-form" to the button.
+type="submit" but you want a manual handler	Change to type="button" and call handleSchedule directly.
+Unmet validation keeps form invalid	Show errors and/or relax schema; add onInvalid={e=>console.log(e)} to surface why.
+Disabled by state flag	Add a tooltip or console log where the flag is set—often !watch('date') is never truthy because default date is empty string not null.
+
+4 · Hand-off prompt for Replit AI (fill in the blanks)
+text
+Copy
+Edit
+**Context**
+- React + Vite app on Replit.
+- Two UIs schedule surveys:
+  1) QuoteDetails → button WORKS
+  2) Surveys list → modal → button NO RESPONSE
+
+**Symptom**
+- In Surveys page, click `Schedule Survey` (data-test-id: schedule-survey-submit) → nothing in console, no network call.
+
+**Code snippets**
+// Working Quote path (shortened)
+<QuoteSurveyForm onSuccess={...}>
+  <Button onClick={handleSchedule}>Schedule Survey</Button>
+</QuoteSurveyForm>
+
+// Broken Surveys path
+<SurveyForm defaultValues={...} onSuccess={...}>
+  <Button type="submit" data-testid="schedule-survey-submit">
+    Schedule Survey
+  </Button>
+</SurveyForm>
+
+**Observations**
+- DOM click listener fires (`addEventListener` test logs).
+- React `onClick` does NOT log in Surveys path.
+- Button sits OUTSIDE the real <form> rendered by SurveyForm (checked in Elements).
+
+**Ask**
+1. Confirm that being outside the form breaks submit.
+2. Show either:
+   - how to pass `form="survey-form-id"` safely with react-hook-form, or
+   - how to restructure SurveyForm so children render inside the form tag.
+
+Please provide diff-style fix.
+Paste that into the agent; it now has precise context and should return a single-file patch rather than generic advice.
+
+TL;DR workflow for us
+Binary-probe click path → stop where logs disappear.
+
+Diff working vs broken components → note first structural difference.
+
+Apply the matching patch (mostly “button is outside <form> or wrong type”).
+
+If needed, feed the narrowed-down snippet to Replit AI for an exact code diff.

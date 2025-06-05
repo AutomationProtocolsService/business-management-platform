@@ -327,6 +327,14 @@ export default function SurveysPage() {
                 </DialogDescription>
               </DialogHeader>
               <SurveyForm onSuccess={handleSurveyCreated} />
+              <Button 
+                form="survey-form"
+                type="submit" 
+                className="w-full mt-6" 
+                data-testid="schedule-survey-submit"
+              >
+                Schedule Survey
+              </Button>
             </DialogContent>
           </Dialog>
         </div>
