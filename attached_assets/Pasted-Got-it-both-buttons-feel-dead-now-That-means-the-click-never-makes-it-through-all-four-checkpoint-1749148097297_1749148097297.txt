@@ -1,0 +1,138 @@
+Got it — both buttons feel dead now.
+That means the click never makes it through all four checkpoints:
+
+pgsql
+Copy
+Edit
+DOM ➜ React synthetic event ➜ your handler’s first line ➜ network / DB call
+Below is a surgical debugging script to discover exactly which checkpoint breaks, plus two battle-tested refactors that make the button work no matter how your modal / form is structured.
+
+1 Pin-point where the signal dies (2 minutes)
+DOM probe
+
+js
+Copy
+Edit
+// paste in DevTools → Console
+document
+  .querySelector('[data-testid="schedule-survey-submit"]')
+  ?.addEventListener('click', () => console.log('✅ DOM click'));
+You must see ✅ DOM click when you press the button.
+
+React probe
+
+In the JSX that renders the small button:
+
+jsx
+Copy
+Edit
+<Button
+  type="submit"
+  data-testid="schedule-survey-submit"
+  onClick={() => console.log('✅ React hit')}
+>
+  Schedule Survey
+</Button>
+Now click again.
+
+Seen	Meaning
+✅ DOM click only	An overlay or disabled attribute is blocking React’s listener.
+✅ DOM click and ✅ React hit	React receives the event – the failure is inside your submit logic (validation or form wiring).
+
+Stop at the first checkpoint that fails; that’s where you patch.
+
+2 Fastest guaranteed-working refactor
+🔵 Option A – Manual submit handler (no reliance on browser form)
+jsx
+Copy
+Edit
+export default function ScheduleSurveyModal() {
+  const methods = useForm({ defaultValues });     // react-hook-form
+  const { handleSubmit, formState } = methods;
+
+  async function onSubmit(data) {
+    // POST /surveys
+    await fetch('/api/surveys', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+    // toast / close modal
+  }
+
+  return (
+    <FormProvider {...methods}>
+      {/* NO native <form> tag needed */}
+      <SurveyFields />   {/* all your inputs */}
+
+      <Button
+        type="button"                       // ← not "submit"
+        onClick={handleSubmit(onSubmit)}    // ← manual trigger
+        disabled={formState.isSubmitting}
+        data-testid="schedule-survey-submit"
+        className="w-full mt-6"
+      >
+        Schedule Survey
+      </Button>
+    </FormProvider>
+  );
+}
+Because you call handleSubmit manually, overlay issues, nested forms, and
+type="submit" edge-cases disappear.
+
+🔵 Option B – Keep native form but wire button explicitly
+Give the internal form an id
+
+jsx
+Copy
+Edit
+<SurveyForm
+  id="survey-form"
+  defaultValues={...}
+  onSuccess={onSubmit}
+>
+  …fields…
+</SurveyForm>
+Put one button anywhere and bind it
+
+jsx
+Copy
+Edit
+<Button
+  type="submit"
+  form="survey-form"                 // 👈 links to the form
+  data-testid="schedule-survey-submit"
+  className="w-full mt-6"
+>
+  Schedule Survey
+</Button>
+The form attribute forces the browser to submit the correct form even if the
+button lives in a modal footer or portal.
+
+3 Common “silent-fail” traps to look for
+Trap	Symptom	Quick fix
+Nested forms (modal library wraps entire page in its own <form>)	No React onClick, no submit	Remove outer form or switch to Option A.
+Button disabled by state	disabled attr present in Elements pane	Check validation; ensure required scheduledDate is actually filled.
+Overlay covering button	Adding outline:2px solid red doesn’t show when you hover	Add z-index + remove pointer-events:none on overlay.
+Validation short-circuit (yupResolver)	React log prints, but then nothing	Catch and log errors from formState; display them in UI.
+
+4 What to hand the Replit AI agent (if needed)
+text
+Copy
+Edit
+Button shows “✅ DOM click” and “✅ React hit” but form never submits.
+
+I replaced code with **Option A** below; still nothing sent to /surveys.
+
+```jsx
+// paste the entire ScheduleSurveyModal component here
+Ask: “Why doesn’t handleSubmit(onSubmit) execute the fetch?“
+
+TL;DR
+Delete the duplicate footer button.
+
+Re-wire the lone button via Option A (manual handleSubmit) or Option B (form="survey-form").
+
+Re-test with the DOM + React probes: you should now see clicks, logs, and the POST request firing.
+
+Make that one change, reload, and the Schedule Survey button will finally do its job.
