@@ -1,0 +1,116 @@
+What’s really happening
+When you click Schedule Survey nothing fires because React-Hook-Form never calls your onSubmit – it aborts at the validation step.
+That’s why:
+
+No console log from the first line of onSubmit.
+
+No network row in DevTools.
+
+But the button’s onClick does bubble (you can log it if you add an inline handler).
+
+The silent failure is almost always this sequence:
+
+pgsql
+Copy
+Edit
+<input type="date">        ➜  returns "2025-06-18"   (string, no time)
+zod .datetime()            ➜  expects RFC-3339        (YYYY-MM-DDTHH:mm:ssZ)
+zodResolver in RHF         ➜  validation ❌ fails
+RHF handleSubmit()         ➜  skips onSubmit callback
+UI                         ➜  shows no error → it feels “dead”
+InstallationForm sneaks past the same trap because its schema either:
+
+coerces the two DateTime fields itself, or
+
+uses z.string() (no format check) and you convert inside the submit handler.
+
+1 Prove it in 10 seconds
+Add this one liner above your <Button> in survey-form.tsx:
+
+tsx
+Copy
+Edit
+{form.formState.isSubmitSuccessful === false && (
+  <pre className="text-red-500">{JSON.stringify(form.formState.errors, null, 2)}</pre>
+)}
+Open the modal, click the button, and you’ll see something like:
+
+json
+Copy
+Edit
+{
+  "scheduledDate": {
+    "message": "Invalid datetime",
+    "type": "invalid_string"
+  }
+}
+Now we know the exact guard that stops the flow.
+
+2 Two bullet-proof fixes
+🔵 Fix A — let Zod coerce plain dates automatically
+(quickest, keeps schema strict)
+
+ts
+Copy
+Edit
+// survey-schema.ts
+import { z } from "zod";
+
+export const surveySchema = z.object({
+  scheduledDate: z.coerce.date(),         // 👈 converts "2025-06-18" → Date
+  assignedTo:    z.number().nullable(),   // allow null for "Unassigned"
+  status:        z.enum(["Scheduled", "In Progress", "Completed"]),
+  notes:         z.string().optional()
+});
+
+export type SurveyInput = z.infer<typeof surveySchema>;
+z.coerce.date() accepts either a JS Date or any string parseable by
+Date.parse(), so the value from the <input type="date"> now validates.
+
+🔵 Fix B — keep current schema, transform inside onSubmit
+(if you don’t want to touch the Zod file)
+
+tsx
+Copy
+Edit
+async function onSubmit(raw: SurveyInput) {
+  const payload = {
+    ...raw,
+    scheduledDate: new Date(raw.scheduledDate).toISOString()   // 🕑 convert here
+  };
+
+  await mutateAsync(payload);
+  ...
+}
+Then, change the schema line to scheduledDate: z.string() (no .datetime() check).
+
+3 Clean up the UX (show the user why it failed)
+Whichever fix you choose, keep this error helper so future validation issues aren’t silent:
+
+tsx
+Copy
+Edit
+<input
+  type="date"
+  {...form.register("scheduledDate")}
+  className={clsx("input", {
+    "border-red-500": form.formState.errors.scheduledDate
+  })}
+/>
+{form.formState.errors.scheduledDate && (
+  <p className="text-sm text-red-500">
+    {form.formState.errors.scheduledDate.message}
+  </p>
+)}
+4 Retest the full flow
+Console – you should now hit the first console.log in onSubmit.
+
+Network – POST /api/surveys returns 201.
+
+UI – new survey row appears.
+
+If the request appears but the server returns 400/500, the schema on the server side has the same mismatch – cast with new Date(req.body.scheduledDate) exactly like you do for Installations.
+
+TL;DR
+The button wasn’t dead; validation was blocking silently.
+Accept the plain YYYY-MM-DD string (z.coerce.date()) or cast it to ISO yourself before sending. After that, handleSubmit runs, the mutation fires, and Surveys behaves exactly like Installations.
