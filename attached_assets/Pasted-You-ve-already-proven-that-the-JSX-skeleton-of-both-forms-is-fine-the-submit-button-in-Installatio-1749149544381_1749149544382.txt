@@ -1,0 +1,109 @@
+You’ve already proven that the JSX skeleton of both forms is fine ― the submit button in InstallationForm fires, the one in SurveyForm is rendered in exactly the same way, yet nothing is created.
+That leaves only three places where the two flows can still diverge:
+
+Layer	Installation (✓ works)	Survey (⚠ failing)	What to compare / patch
+1. Data massaging inside onSubmit	onSubmit(data) → { projectId, startTime, … }	onSubmit({ scheduledDate, … })	• Is scheduledDate converted to ISO before you mutate?
+• Are you adding projectId (the API requires it)?
+2. RTK-Query / trpc / tanstack mutation	useCreateInstallation.mutateAsync() returns 201	useCreateSurvey.mutateAsync() never called or rejects	• Do you call the hook at all?
+• Does the hook point to the right URL?
+• Does it unwrap errors so the form doesn’t swallow them?
+3. Express / Prisma route	POST /api/installations works	POST /api/surveys 400 or 500	• Does the schema expect scheduledDate (DateTime)?
+• Do you cast new Date(req.body.scheduledDate)?
+• Do you allow assignedTo = null?
+
+Below is the quickest “diff-and-patch” guide to make them identical all the way down.
+
+1 · Client-side: make onSubmit mirror Installation
+tsx
+Copy
+Edit
+// client/src/components/forms/survey-form.tsx
+export function SurveyForm({ onSuccess, surveyId, children }: Props) {
+  const { mutateAsync, isLoading } = useCreateSurvey();   // ⬅ same pattern
+  const form = useForm<SurveyInput>({ resolver: zodResolver(schema), defaultValues });
+
+  async function onSubmit(data: SurveyInput) {
+    // ① guaranteed ISO string
+    const body = {
+      ...data,
+      scheduledDate: new Date(data.scheduledDate).toISOString(),
+    };
+
+    try {
+      const survey = await mutateAsync(body);             // ② call the hook
+      onSuccess?.(survey);
+    } catch (err) {
+      toast.error(getApiError(err));
+    }
+  }
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+        <SurveyFields form={form} />                      {/* inputs */}
+        {children || (
+          <Button
+            type="submit"
+            disabled={isLoading}
+            data-testid="schedule-survey-submit"
+          >
+            {isLoading
+              ? "Saving…"
+              : surveyId
+              ? "Update Survey"
+              : "Schedule Survey"}
+          </Button>
+        )}
+      </form>
+    </Form>
+  );
+}
+sanity log
+Add once:
+
+ts
+Copy
+Edit
+console.log('📤 survey payload', body);
+Click the button; confirm you see the log.
+If not, the RHF handleSubmit isn’t running → validation blocking (see §4 below).
+
+2 · Mutation hook must point to the right endpoint
+ts
+Copy
+Edit
+// client/src/api/hooks/useCreateSurvey.ts
+export function useCreateSurvey() {
+  return useMutation<Survey, ApiError, SurveyPayload>({
+    mutationFn: (payload) =>
+      api.post('/surveys', payload).then((r) => r.data),  // ⚠ make sure it's /surveys
+    onSuccess: () => queryClient.invalidateQueries(['surveys']),
+  });
+}
+Run DevTools ▸ Network.
+
+You must see POST /api/surveys with a 2xx.
+
+If the request never appears, the mutate hook isn’t called (check §1).
+
+If it appears but is 4xx/5xx, jump to §3.
+
+3 · Server route: cast and validate exactly like Installation
+ts
+Copy
+Edit
+// server/src/routes/surveys.ts
+router.post('/', async (req, res, next) => {
+  try {
+    const body = SurveySchema.parse(req.body);   // zod validation
+    const survey = await prisma.survey.create({
+      data: {
+        ...body,
+        scheduledDate: new Date(body.scheduledDate), // Date object
+      },
+    });
+    res.status(201).json(survey);
+  } catch (err) {
+    next(err);
+  }
+});

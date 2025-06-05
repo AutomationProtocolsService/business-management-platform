@@ -177,16 +177,29 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
   });
 
   async function onSubmit(values: SurveyFormValues) {
+    console.log("🎯 Survey onSubmit called with values:", values);
+    console.log("🔍 Form validation state:", form.formState.errors);
+    
     try {
+      // Validate form data
+      const isValid = await form.trigger();
+      console.log("✅ Form validation result:", isValid);
+      
+      if (!isValid) {
+        console.error("❌ Form validation failed:", form.formState.errors);
+        return;
+      }
+
       if (surveyId) {
-        console.log("Survey form - Updating existing survey");
+        console.log("📝 Survey form - Updating existing survey ID:", surveyId);
         updateSurvey.mutate(values);
       } else {
-        console.log("Survey form - Creating new survey");
+        console.log("🆕 Survey form - Creating new survey");
+        console.log("📊 Mutation about to be called with:", values);
         createSurvey.mutate(values);
       }
     } catch (error) {
-      console.error("Error processing survey form data:", error);
+      console.error("💥 Error processing survey form data:", error);
       toast({
         title: "Form Error",
         description: error instanceof Error ? error.message : "An unexpected error occurred processing the form data",
