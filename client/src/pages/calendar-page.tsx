@@ -103,11 +103,16 @@ export default function CalendarPage() {
   
   // Fetch calendar events
   const { data: events = [], isLoading } = useQuery<CalendarEvent[]>({
-    queryKey: ["/api/calendar", startOfMonth.toISOString(), endOfMonth.toISOString()],
+    queryKey: ["/api/calendar", startOfMonth.toISOString(), endOfMonth.toISOString(), "v2"],
     queryFn: async ({ queryKey }) => {
       const [_, start, end] = queryKey;
       const url = `/api/calendar?start=${start}&end=${end}`;
-      const res = await fetch(url);
+      const res = await fetch(url, {
+        headers: {
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache'
+        }
+      });
       
       if (!res.ok) {
         throw new Error("Failed to fetch calendar events");
