@@ -1,0 +1,168 @@
+1 · Give the calendar a single “events” API
+a. Create a read-only SQL view (or Prisma raw query)
+sql
+Copy
+Edit
+-- prisma/migrations/…/create_calendar_view.sql
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  id::text              AS id,
+  'survey'              AS "type",
+  project_id,
+  scheduled_date        AS start_time,
+  NULL                  AS end_time,
+  status
+FROM surveys
+UNION ALL
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  start_time,
+  end_time,
+  status
+FROM installations;
+Columns are normalised so the front-end can treat both rows the same.
+
+b. Expose /api/calendar
+ts
+Copy
+Edit
+// server/routes/calendar.ts
+router.get('/', async (req, res, next) => {
+  try {
+    const { start, end } = req.query;    // ISO strings from the calendar
+    const events = await prisma.$queryRaw<
+      CalendarEvent[]
+    >`
+      SELECT *
+      FROM v_calendar_events
+      WHERE start_time BETWEEN ${new Date(start)} AND ${new Date(end)}
+    `;
+    res.json(events);
+  } catch (err) {
+    next(err);
+  }
+});
+ts
+Copy
+Edit
+// shared type
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  start_time: string;    // ISO
+  end_time:   string | null;
+  status:     'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
+}
+2 · React-Query hook for the Calendar page
+ts
+Copy
+Edit
+// client/hooks/useCalendarEvents.ts
+import { useQuery } from '@tanstack/react-query';
+import { CalendarEvent } from 'shared-types';
+import api from '@/lib/api';
+
+export function useCalendarEvents(start: Date, end: Date) {
+  return useQuery({
+    queryKey: ['calendar', start.toISOString(), end.toISOString()],
+    queryFn: () =>
+      api
+        .get<CalendarEvent[]>('/calendar', {
+          params: { start: start.toISOString(), end: end.toISOString() },
+        })
+        .then((r) => r.data),
+  });
+}
+The calendar component passes its visible range (start, end) to this hook.
+
+3 · Map events to FullCalendar (or your grid)
+tsx
+Copy
+Edit
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+
+export default function CalendarPage() {
+  const [range, setRange] = useState<{ start: Date; end: Date }>(() => {
+    // initialise with current month
+    const start = new Date();
+    start.setDate(1);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    return { start, end };
+  });
+
+  const { data: events = [] } = useCalendarEvents(range.start, range.end);
+
+  const fcEvents = events.map((e) => ({
+    id: e.id,
+    title:
+      e.type === 'survey'
+        ? '📋 Survey — ' + e.status
+        : '🔧 Install — ' + e.status,
+    start: e.start_time,
+    end: e.end_time,
+    backgroundColor: e.type === 'survey' ? '#147aff' : '#ffc400',
+    borderColor:     e.type === 'survey' ? '#147aff' : '#ffc400',
+  }));
+
+  return (
+    <FullCalendar
+      plugins={[dayGridPlugin]}
+      initialView="dayGridMonth"
+      events={fcEvents}
+      datesSet={(info) =>
+        setRange({ start: info.start, end: info.end })
+      }
+      height="auto"
+    />
+  );
+}
+Colour legend
+tsx
+Copy
+Edit
+<div className="flex gap-4 my-4">
+  <span className="inline-flex items-center gap-1">
+    <span className="w-3 h-3 rounded-full" style={{ background: '#147aff' }} />
+    Survey
+  </span>
+  <span className="inline-flex items-center gap-1">
+    <span className="w-3 h-3 rounded-full" style={{ background: '#ffc400' }} />
+    Installation
+  </span>
+</div>
+4 · Make new bookings appear instantly
+Add the same invalidation line to both create-mutations.
+
+ts
+Copy
+Edit
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['calendar'] });
+  // … existing invalidations …
+}
+Because the query key includes the date range, React-Query only refetches the visible month.
+
+5 · (Polish) Real-time push
+If you already use Supabase Realtime or Socket.IO, broadcast a calendar:event
+message on every create/update and:
+
+ts
+Copy
+Edit
+queryClient.setQueryData(['calendar', ...currentRange], (old?: CalendarEvent[]) =>
+  old ? [...old, newEvent] : old
+);
+Users on the Calendar page will see the coloured block pop in without HTTP.
+
+You now have:
+Blue blocks for Surveys, yellow blocks for Installations.
+
+A single GET /calendar that the client can query for any range.
+
+Instant UI update whenever you add/edit a booking.
