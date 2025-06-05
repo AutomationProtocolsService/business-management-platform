@@ -1,0 +1,160 @@
+🧩 **PROJECT CONTEXT**
+
+* Repo:  <<<repl-name>>>  
+* Tech:  React + TypeScript + react-hook-form + Prisma + Node/Express  
+* Modal lib:  HeadlessUI Dialog
+
+---
+
+### 1️⃣  WORKING FLOW  — “Schedule Installation”
+
+**Files**
+
+* `src/features/installations/InstallationModal.tsx`
+* `src/features/installations/useCreateInstallation.ts`  (RTK-Query mutation)
+* `src/routes/api/installations.ts`                      (Express route)
+
+**Key points that work**
+
+```tsx
+// InstallationModal.tsx  – simplified
+export function InstallationModal({ projectId }: { projectId: number }) {
+  const methods = useForm<InstallationInput>({ defaultValues });
+  const create = useCreateInstallation();           // RTK-Query
+
+  async function onSubmit(data: InstallationInput) {
+    await create.mutateAsync({ projectId, ...data });
+    toast.success('Installation scheduled');
+    close();
+  }
+
+  return (
+    <FormProvider {...methods}>
+      <form id="installation-form" onSubmit={methods.handleSubmit(onSubmit)}>
+        <InstallationFields />                       // 📅 date/time pickers etc.
+
+        {/* ONE button, inside the form, type=submit */}
+        <Button
+          type="submit"
+          className="w-full mt-6"
+          data-testid="schedule-installation-submit"
+        >
+          Schedule Installation
+        </Button>
+      </form>
+    </FormProvider>
+  );
+}
+Everything lives inside a single <form>, and the submit button fires the RHF
+handleSubmit which triggers the RTK-Query mutation.
+
+2️⃣ BROKEN FLOW — “Schedule Survey”
+Modal opens, fields render, but button click does nothing
+
+Files involved:
+
+src/features/surveys/SurveyModal.tsx
+
+src/features/surveys/useCreateSurvey.ts (exists, works when called manually)
+
+src/components/SurveyForm.tsx (wrapper similar to InstallationForm)
+
+Problem symptoms
+
+javascript
+Copy
+Edit
+document.querySelector('[data-testid="schedule-survey-submit"]').form
+// → null   (button not associated with any <form>)
+DOM click logs but React handler never fires.
+
+SurveyForm currently renders:
+
+tsx
+Copy
+Edit
+return (
+  <>
+    <form id="survey-form" onSubmit={…}>
+      {inputs}                 // date, assignee, status, notes
+    </form>
+
+    {/* this extra footer button is OUTSIDE <form> */}
+    <Button
+      type="submit"
+      className="w-full mt-6"
+      data-testid="schedule-survey-submit"
+    >
+      Schedule Survey
+    </Button>
+  </>
+);
+So the button is detached from the form.
+
+3️⃣ TASK
+Goal: Make Survey scheduling behave exactly like Installation scheduling.
+
+Delete the detached footer button, or move it inside the <form>.
+
+Re-use the working Installation pattern:
+
+FormProvider + useForm
+
+single <form id="survey-form" onSubmit={methods.handleSubmit(onSubmit)}>
+
+a single button inside that form with type="submit".
+
+Wire the submit to useCreateSurvey mutation.
+
+Ensure the Express route POST /api/surveys already works (it does).
+
+Add the same success toast & modal close.
+
+4️⃣ ACCEPTANCE TESTS (must pass)
+✅ Clicking Schedule Survey triggers Network POST /api/surveys (201).
+
+✅ New survey row appears in Surveys table without page refresh (cache invalidated).
+
+✅ No duplicate buttons rendered in the modal.
+
+✅ yarn test succeeds (SurveyModal click test exists).
+
+5️⃣ CODE STARTERS
+tsx
+Copy
+Edit
+// SurveyModal.tsx – create this after refactor
+export function SurveyModal({ projectId }: { projectId: number }) {
+  const methods = useForm<SurveyInput>({ defaultValues });
+  const create = useCreateSurvey();
+
+  async function onSubmit(data: SurveyInput) {
+    await create.mutateAsync({ projectId, ...data });
+    toast.success('Survey scheduled');
+    close();
+  }
+
+  return (
+    <FormProvider {...methods}>
+      <form id="survey-form" onSubmit={methods.handleSubmit(onSubmit)}>
+        <SurveyFields />
+
+        <Button
+          type="submit"
+          className="w-full mt-6"
+          data-testid="schedule-survey-submit"
+        >
+          Schedule Survey
+        </Button>
+      </form>
+    </FormProvider>
+  );
+}
+6️⃣ DELIVERABLE
+Git diff (or patch) touching only the Survey feature:
+
+SurveyModal.tsx (new or updated)
+
+SurveyForm.tsx (if cleaned up)
+
+No changes to Installation files.
