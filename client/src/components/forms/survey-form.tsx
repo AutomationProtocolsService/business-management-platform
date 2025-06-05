@@ -120,6 +120,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/surveys"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/calendar"] });
       toast({
         title: "Survey Created",
         description: "Survey has been scheduled successfully.",
