@@ -1,0 +1,94 @@
+Send the calendar just a plain string (YYYY-MM-DD) — never a Date object, never an ISO timestamp.
+
+Tell FullCalendar the event is all-day.
+
+Do zero additional parsing on the client.
+
+This combination can’t drift, because the browser never converts the value.
+
+① Return start_date as text for both entities
+1. View / raw query
+sql
+Copy
+Edit
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  id::text        AS id,
+  'survey'        AS type,
+  project_id,
+  to_char(scheduled_date, 'YYYY-MM-DD') AS start_date,  -- text
+  status
+FROM surveys
+
+UNION ALL
+
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  to_char(start_time, 'YYYY-MM-DD')     AS start_date,  -- force DATE → text
+  status
+FROM installations;
+to_char(..., 'YYYY-MM-DD') guarantees the API can only ever return a date
+string; time & zone information are gone.
+
+② Route & type
+ts
+Copy
+Edit
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  start_date: string;                     // "2025-06-11"
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
+}
+ts
+Copy
+Edit
+router.get('/', async (req, res, next) => {
+  const { start, end } = req.query;       // expect same YYYY-MM-DD strings
+  const events = await prisma.$queryRaw<CalendarEvent[]>`
+    SELECT *
+    FROM v_calendar_events
+    WHERE start_date BETWEEN ${start} AND ${end}
+  `;
+  res.json(events);
+});
+No casting, no Date constructor — the DB already produced the right format.
+
+③ Front-end mapper (no parsing at all)
+tsx
+Copy
+Edit
+const fcEvents = (events ?? []).map(ev => ({
+  id:    ev.id,
+  title: ev.type === 'survey' ? 'Survey' : 'Installation',
+  start: ev.start_date,    // ⬅ nothing but the pure date string
+  allDay: true,            // ⬅ forces single-day tile, hides time
+  display: 'block',
+  backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     ev.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+FullCalendar specs: If start is “YYYY-MM-DD” and allDay is true,
+the event is rendered exactly on that square with no clock.
+
+④ Verify with two console lines
+tsx
+Copy
+Edit
+console.table(events.map(e => ({ id: e.id, apiDate: e.start_date })));
+console.table(fcEvents.map(e => ({ id: e.id, fcStart: e.start })));
+Both tables must show identical date strings (“2025-06-11”), proving
+nothing slipped back into a timestamp.
+
+⑤ Invalidate cache after create / edit (already in place)
+ts
+Copy
+Edit
+onSuccess: () => queryClient.invalidateQueries({ queryKey: ['calendar'] });
+What this changes
+Before	After
+Installation row sent "2025-06-11T19:37:00.000Z" → browser shifted → rendered on 12 Jun	Route sends "2025-06-11"; calendar blocks stay on 11 Jun
+Different code paths for survey vs installation	Both share the exact 4-column view, one mapper, one render path
+Future TZ differences caused drift	Impossible – no timestamp remains to convert

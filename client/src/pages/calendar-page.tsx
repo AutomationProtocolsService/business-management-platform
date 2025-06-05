@@ -33,8 +33,8 @@ interface CalendarEvent {
   type: 'survey' | 'installation';
   tenant_id: number;
   project_id: number;
-  start_time: string;
-  end_time: string | null;
+  start_date: string;
+  end_date: string | null;
   status: string;
 }
 
@@ -134,25 +134,10 @@ export default function CalendarPage() {
     const dayStr = day.date.toISOString().split('T')[0];
     
     return filteredEvents.filter(event => {
-      if (!event.start_time) return false;
+      if (!event.start_date) return false;
       
-      // Handle date-only format (YYYY-MM-DD)
-      const eventDateStr = event.start_time.includes(' ') 
-        ? event.start_time.split(' ')[0]  // Old format with time
-        : event.start_time;               // New date-only format
-      
-      // Debug logging
-      if (event.type === 'installation') {
-        console.log('Installation event debug:', {
-          eventId: event.id,
-          eventDate: eventDateStr,
-          dayDate: dayStr,
-          match: eventDateStr === dayStr,
-          originalStartTime: event.start_time
-        });
-      }
-      
-      return eventDateStr === dayStr;
+      // Direct string comparison - no parsing needed
+      return event.start_date === dayStr;
     });
   };
   

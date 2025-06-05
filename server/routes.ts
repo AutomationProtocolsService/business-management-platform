@@ -1708,11 +1708,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Add date range filtering if provided
       if (start && end) {
-        query += ` AND start_time BETWEEN $2 AND $3`;
+        query += ` AND start_date BETWEEN $2 AND $3`;
         params.push(start as string, end as string);
       }
 
-      query += ` ORDER BY start_time ASC`;
+      query += ` ORDER BY start_date ASC`;
 
       const events = await storage.execQuery(query, params);
       res.json(events);
