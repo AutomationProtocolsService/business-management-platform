@@ -141,6 +141,17 @@ export default function CalendarPage() {
         ? event.start_time.split(' ')[0]  // Old format with time
         : event.start_time;               // New date-only format
       
+      // Debug logging
+      if (event.type === 'installation') {
+        console.log('Installation event debug:', {
+          eventId: event.id,
+          eventDate: eventDateStr,
+          dayDate: dayStr,
+          match: eventDateStr === dayStr,
+          originalStartTime: event.start_time
+        });
+      }
+      
       return eventDateStr === dayStr;
     });
   };
