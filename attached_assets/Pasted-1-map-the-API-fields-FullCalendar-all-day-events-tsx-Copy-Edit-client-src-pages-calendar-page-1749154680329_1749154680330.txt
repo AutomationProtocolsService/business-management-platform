@@ -1,0 +1,63 @@
+1 ⸺ map the API fields → FullCalendar all-day events
+tsx
+Copy
+Edit
+// client/src/pages/calendar-page.tsx
+import { parseISO, formatISO } from "date-fns";
+
+/* …within <CalendarPage /> … */
+
+const fcEvents = (events ?? []).map((ev) => {
+  // 1️⃣  normalise start date (ignore time part entirely)
+  const startIso = typeof ev.start_time === "string"
+    ? ev.start_time
+    : formatISO(ev.start_time);
+
+  const dateOnly = startIso.split("T")[0];         // "2025-06-18"
+
+  return {
+    id:        ev.id,
+    title:     ev.type === "survey" ? "Survey" : "Install",
+    start:     dateOnly,        // <-- FullCalendar interprets YYYY-MM-DD as all-day
+    allDay:    true,            // <-- guarantee no time appears
+    backgroundColor: ev.type === "survey" ? "#147aff" : "#ffc400",
+    borderColor:     ev.type === "survey" ? "#147aff" : "#ffc400",
+    extendedProps: {
+      projectId: ev.project_id, // keep whatever meta you need
+      status:    ev.status
+    }
+  };
+});
+Why it works
+If you pass start as a plain YYYY-MM-DD string and allDay: true, FullCalendar renders a single-day block with no clock icon or time text. It also uses the user’s locale automatically for display.
+
+2 ⸺ (Optional) simplify the back-end
+You can keep start_time in your view as a full ISO timestamp (useful later if you decide to add half-day events).
+The front-end now ignores the time portion, so no server change is required.
+If you’d rather the API return date-only, change the view:
+
+sql
+Copy
+Edit
+SELECT
+  start_time::date AS start_date  -- e.g. '2025-06-18'
+and update the TS interface accordingly (start_date: string).
+
+3 ⸺ invalidate the calendar query after every create / edit (already in place)
+ts
+Copy
+Edit
+queryClient.invalidateQueries({ queryKey: ["calendar"] });
+4 ⸺ quick manual test
+Open Surveys › Schedule Survey → pick any date in the current month → Save.
+
+Watch the toast fire and the calendar refetch (React-Query devtools shows a green flash).
+
+The square for that date now has a blue pill labeled “Survey”.
+
+Repeat with Schedule Installation → you’ll see a yellow pill.
+
+If the pills show up, the feature is complete.
+If the API still returns data but nothing renders, drop console.table(fcEvents) inside the component; any record with start: "" will highlight a mapping typo.
+
+That’s all that’s needed—no new routes, no DB changes, just the tiny mapping tweak above. Once committed, every newly scheduled Survey or Installation will pop onto the calendar exactly on its date.
