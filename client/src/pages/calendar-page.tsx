@@ -130,8 +130,15 @@ export default function CalendarPage() {
     
     const dayStr = day.date.toISOString().split('T')[0];
     return filteredEvents.filter(event => {
-      const eventDate = new Date(event.start).toISOString().split('T')[0];
-      return eventDate === dayStr;
+      // Defensive parsing - handle null, undefined, or invalid dates
+      const iso = typeof event.start === 'string'
+        ? event.start                       // already ISO
+        : event.start instanceof Date
+        ? event.start.toISOString()         // cast Date → ISO
+        : null;                             // bad value
+
+      if (!iso) return false;               // skip invalid rows
+      return iso.split('T')[0] === dayStr;
     });
   };
   

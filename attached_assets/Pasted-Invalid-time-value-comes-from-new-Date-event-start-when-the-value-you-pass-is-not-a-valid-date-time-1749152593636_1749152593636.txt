@@ -1,0 +1,60 @@
+Invalid time value comes from new Date(event.start) when the value you pass is not a valid date-time string (or is null/undefined).
+As soon as JS can’t parse it, the constructor returns NaN and the next call to .toISOString() throws.
+
+Why it happens in your events list
+survey.scheduled_date and installation.start_time arrive from the API as ISO strings (good).
+
+But one or more rows come through as null, empty string, or already a Date object – usually because:
+
+the DB column is nullable (end_time can be NULL),
+
+a legacy survey hasn’t got a date, or
+
+you push the object once, then mutate it in place (React-Query cache now holds a Date instance, not a string).
+
+3-line defensive fix
+tsx
+Copy
+Edit
+// calendar-page.tsx
+const dayISO = day.date.toISOString().split('T')[0];
+
+return filteredEvents.filter((ev) => {
+  const iso = typeof ev.start === 'string'
+    ? ev.start                       // already ISO
+    : ev.start instanceof Date
+    ? ev.start.toISOString()         // cast Date → ISO
+    : null;                          // bad value
+
+  if (!iso) return false;            // skip invalid rows
+  return iso.split('T')[0] === dayISO;
+});
+Even cleaner with date-fns/parseISO
+tsx
+Copy
+Edit
+import { parseISO, isValid, formatISO } from 'date-fns';
+
+const dayISO = formatISO(day.date, { representation: 'date' });
+
+return filteredEvents.filter((ev) => {
+  const d = typeof ev.start === 'string' ? parseISO(ev.start) : ev.start;
+  return isValid(d) && formatISO(d, { representation: 'date' }) === dayISO;
+});
+Make sure the API never returns junk
+Surveys – ensure scheduled_date is NOT NULL or coerce NULL → NOW() in the view:
+
+sql
+Copy
+Edit
+COALESCE(scheduled_date, NOW()) AS start_time
+Installations – same for start_time.
+
+Quick test
+js
+Copy
+Edit
+console.table(filteredEvents.map(e => [e.id, e.start]));
+Any row that prints undefined or an obvious bad string is the culprit; after the guard above you’ll see the error disappear and the calendar render.
+
+Once everything is forced to a valid ISO string (or filtered out), toISOString() will never throw.
