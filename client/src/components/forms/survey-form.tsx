@@ -200,7 +200,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
 
   return (
     <Form {...form}>
-      <form id="survey-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="projectId"
@@ -311,13 +311,7 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
           )}
         />
 
-        <Button 
-          type="button"
-          onClick={form.handleSubmit(onSubmit)}
-          disabled={isSubmitting}
-          data-testid="schedule-survey-submit"
-          className="w-full mt-6"
-        >
+        <Button type="submit" disabled={isSubmitting} data-testid="schedule-survey-submit">
           {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
         </Button>
       </form>
