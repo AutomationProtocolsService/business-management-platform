@@ -1,0 +1,86 @@
+The yellow Installation badge is still on 12 June, so the calendar is still receiving a value that contains a time-component (or something that the browser parses as one).
+If you give FullCalendar only the literal string "2025-06-11" it will always render on 11 June – there is no other possible outcome. That means:
+
+the cast to DATE (or to_char( …, 'YYYY-MM-DD')) never reached the JSON the browser sees or
+
+the front-end mapper still reads start_time instead of your new start_date.
+
+Below is the definitive “single-console-log” proof and the matching one-line fix.
+Run the log first; it will reveal which arrow is still wrong.
+
+1 Log what the calendar receives
+In CalendarPage.tsx, just before you build fcEvents, add:
+
+tsx
+Copy
+Edit
+console.table(
+  events.map((e: any) => ({
+    id: e.id,
+    startField: e.start_time ?? e.start_date,
+    typeofStart: typeof (e.start_time ?? e.start_date),
+  }))
+);
+Reload the page, open DevTools ▸ Console.
+
+You will see one of two things
+What you see	Root cause	One-line remedy
+startField = 2025-06-11T19:37:00.000Z	View / API still returns timestamp	Cast it in SQL:
+start_time::date AS start_date or
+to_char(start_time,'YYYY-MM-DD') AS start_date
+startField = 2025-06-11 but the mapper still passes start_time	Mapper uses the old field	Change mapper:
+start: e.start_date, allDay: true
+
+Until the table shows exactly 2025-06-11 and the mapper forwards that string, the tile will not shift into place.
+
+2 Copy-paste patch (if the log still shows a timestamp)
+sql
+Copy
+Edit
+-- migrations/20240605_fix_calendar_dates.sql
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  id::text        AS id,
+  'survey'        AS type,
+  project_id,
+  to_char(scheduled_date, 'YYYY-MM-DD') AS start_date,
+  status
+FROM surveys
+
+UNION ALL
+
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  to_char(start_time, 'YYYY-MM-DD')     AS start_date, -- 🟡 <— key line
+  status
+FROM installations;
+ts
+Copy
+Edit
+// CalendarEvent type
+start_date: string;    // 'YYYY-MM-DD'
+tsx
+Copy
+Edit
+// CalendarPage mapper
+const fcEvents = events.map((e) => ({
+  id: e.id,
+  title: e.type === 'survey' ? 'Survey' : 'Installation',
+  start: e.start_date,  // ← ONLY this string
+  allDay: true,
+  backgroundColor: e.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+Clear cache / hard-refresh → the Installation badge now sits on 11 Jun (and 2 Jul will appear on 2 Jul).
+
+Why this fixes it forever
+Database view removes the time at the source.
+
+API sends a plain string – no UTC, no zone.
+
+React never parses that string – passes straight to FullCalendar.
+
+FullCalendar, per spec, renders an “all-day” event on that exact square.
+
+Run the console-table first; once you see 2025-06-11 there, the badge will line up.

@@ -129,6 +129,20 @@ export default function CalendarPage() {
     }
   });
   
+  // Debug: Log what the calendar receives
+  if (events.length > 0) {
+    console.table(
+      events.map((e: any) => ({
+        id: e.id,
+        type: e.type,
+        startField: e.start_time ?? e.start_date,
+        typeofStart: typeof (e.start_time ?? e.start_date),
+        hasStartTime: !!e.start_time,
+        hasStartDate: !!e.start_date
+      }))
+    );
+  }
+
   // Filter events based on type
   const filteredEvents = filterType === "all" 
     ? events 
