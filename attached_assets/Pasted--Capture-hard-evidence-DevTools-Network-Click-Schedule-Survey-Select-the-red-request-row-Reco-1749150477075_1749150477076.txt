@@ -1,0 +1,86 @@
+① Capture hard evidence
+DevTools ▸ Network
+
+Click Schedule Survey
+
+Select the red request row.
+
+Record:
+
+Field	What to copy
+Status	e.g. 400, 422, 500
+Response	JSON/body text (Prisma, Zod, or SQL error?)
+Request Payload	The JSON we sent (scheduledDate, status, …)
+
+Server logs
+Your global error handler should print a stack trace; copy the lines between “🟥”/“💥” and the next request.
+
+Paste those snippets into the AI agent (or here) if you want an immediate pinpoint, but chances are you’ll spot the mismatch yourself with the next table.
+
+② Quick lookup table of common 4 xx / 5 xx causes
+API response / log snippet	Cause	Fix
+scheduledDate must be a valid datetime (Zod)	Still sending "YYYY-MM-DD" not ISO	new Date(dateStr).toISOString() or z.coerce.date() in schema
+quoteId missing (Prisma Foreign key constraint failed)	Route/schema still requires it	• Pass quoteId when scheduling from a quote page
+• OR make quoteId nullable in schema & DB
+assignedTo violates NOT NULL`	assignedTo is null when “Unassigned”	Make column nullable and z.number().nullable()
+Cannot parse \\"status\\" as enum	Sending Scheduled but DB enum uses lowercase	Map to DB value (scheduled) before saving, or align enum in Prisma
+500 with Invalid DateTime value	Date string lacks timezone	Always send ISO (2025-06-11T00:00:00.000Z)
+
+③ One-liner patches (copy what matches your evidence)
+A — Convert the date before mutating
+tsx
+Copy
+Edit
+const payload = {
+  ...data,
+  scheduledDate: new Date(data.scheduledDate).toISOString(),  // 🕑
+};
+await createSurvey.mutateAsync(payload);
+B — Make quoteId optional / nullable everywhere
+Zod / type
+
+ts
+Copy
+Edit
+quoteId: z.number().int().positive().optional().nullable()
+Prisma
+
+prisma
+Copy
+Edit
+quoteId Int?   // nullable FK
+quote    Quote? @relation(fields:[quoteId], references:[id])
+C — Allow assignedTo = null
+ts
+Copy
+Edit
+assignedTo: z.number().int().optional().nullable()
+④ Validate on the server too (belt-and-braces)
+ts
+Copy
+Edit
+router.post('/', async (req, res, next) => {
+  try {
+    const body = surveySchema.parse(req.body);   // same schema, shared via zodios or ts-poet
+    const survey = await prisma.survey.create({
+      data: {
+        ...body,
+        scheduledDate: new Date(body.scheduledDate),  // cast to Date
+      },
+    });
+    res.status(201).json(survey);
+  } catch (err) {
+    next(err);   // global handler logs + sends 400/500 JSON
+  }
+});
+With both client-side and server-side validation aligned, any future mismatch
+will surface as a clear JSON error instead of a silent toast.
+
+⑤ Retest end-to-end
+Click Schedule Survey
+
+DevTools row should now be 201 Created
+
+Survey appears instantly in the list (mutation’s onSuccess invalidates cache)
+
+No red toast—only the success toast you already show for installations.
