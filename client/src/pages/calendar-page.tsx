@@ -296,11 +296,11 @@ export default function CalendarPage() {
                                 <div className="flex justify-between">
                                   {renderEventBadge(event)}
                                   <span className="text-gray-500">
-                                    {formatDate(event.start, "h:mm a")}
+                                    {event.start_time ? formatDate(event.start_time, "h:mm a") : "All Day"}
                                   </span>
                                 </div>
                                 <div className="font-medium text-gray-800 truncate mt-1">
-                                  {event.projectName}
+                                  Project #{event.project_id}
                                 </div>
                               </Link>
                             ))}
