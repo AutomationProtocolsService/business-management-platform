@@ -1692,6 +1692,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Calendar API - unified view of surveys and installations
+  app.get("/api/calendar", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { start, end } = req.query;
+
+      let query = `
+        SELECT *
+        FROM v_calendar_events
+        WHERE tenant_id = $1
+      `;
+      
+      const params = [tenantId];
+
+      // Add date range filtering if provided
+      if (start && end) {
+        query += ` AND start_time BETWEEN $2 AND $3`;
+        params.push(new Date(start as string), new Date(end as string));
+      }
+
+      query += ` ORDER BY start_time ASC`;
+
+      const events = await storage.execQuery(query, params);
+      res.json(events);
+    } catch (error) {
+      console.error('Error fetching calendar events:', error);
+      res.status(500).json({ message: "Failed to fetch calendar events" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts
