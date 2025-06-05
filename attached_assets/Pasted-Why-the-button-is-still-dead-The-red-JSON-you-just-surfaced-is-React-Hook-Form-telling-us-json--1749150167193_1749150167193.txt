@@ -1,0 +1,105 @@
+Why the button is still “dead”
+
+The red JSON you just surfaced is React-Hook-Form telling us:
+
+json
+Copy
+Edit
+{
+  "quoteId": {
+    "message": "Required",
+    "type": "invalid_type"
+  }
+}
+That means your Zod (or Yup) schema says quoteId is required and must be a number, but the form never supplies it.
+Because RHF validation fails, handleSubmit() never calls your onSubmit and the network request is skipped — the UI just feels unresponsive.
+
+1 Decide what you really want
+Scenario	What to do with quoteId
+Every survey must be linked to a quote	Pass the quote’s id into the form when you open the modal (or select it in a field).
+Surveys can exist without a quote	Make quoteId optional in the schema and nullable in the DB.
+You schedule from inside a Quote screen (so you already have the id)	Inject it silently as a hidden field or merge it into the payload before you mutate.
+
+2 Fix -- Option A: supply the quoteId
+a. Pass it down when you open the modal
+tsx
+Copy
+Edit
+// surveys-page.tsx (or wherever you open the modal)
+<SurveyForm
+  quoteId={selectedQuoteId}        // 👈 NEW
+  onSuccess={handleSurveyCreated}
+/>
+b. Accept it in SurveyForm and feed it to RHF
+tsx
+Copy
+Edit
+export function SurveyForm({
+  quoteId,
+  onSuccess,
+  surveyId,
+  children
+}: {
+  quoteId?: number;               // <– prop
+  onSuccess?: (s: Survey) => void;
+  surveyId?: number;
+  children?: ReactNode;
+}) {
+  const form = useForm<SurveyInput>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      quoteId,                    // 👈 seed RHF
+      status: "Scheduled"
+    }
+  });
+  ...
+}
+Now RHF sends a number and validation passes.
+
+3 Fix -- Option B: make it optional
+Schema
+
+ts
+Copy
+Edit
+const schema = z.object({
+  quoteId: z.number().int().positive().nullable().optional(),  // 👈
+  scheduledDate: z.coerce.date(),
+  status: z.enum(["Scheduled", "In Progress", "Completed"]),
+  assignedTo: z.number().nullable(),
+  notes: z.string().optional()
+});
+DB column
+
+prisma
+Copy
+Edit
+model Survey {
+  id          Int      @id @default(autoincrement())
+  quoteId     Int?     // nullable FK
+  quote       Quote?   @relation(fields: [quoteId], references: [id])
+  ...
+}
+Server route
+
+Nothing to change—Prisma will happily accept quoteId: null.
+
+4 Hidden field (if you prefer not to expose it)
+tsx
+Copy
+Edit
+<input type="hidden" value={quoteId} {...form.register("quoteId")} />
+5 Retest
+Fill the modal, click Schedule Survey.
+
+You should no longer see the error dump.
+
+DevTools ▸ Network shows POST /api/surveys → 201.
+
+New survey row appears in the table.
+
+If the request goes out but you get a 400/500 back, copy the response body or server log — but the front-end “dead button” problem will be gone.
+
+TL;DR
+The button doesn’t fire because validation stops it: quoteId is missing.
+Either pass a real quoteId, mark it optional, or inject it as a hidden field, and the Schedule Survey flow will behave exactly like Schedule Installation.
