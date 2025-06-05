@@ -127,11 +127,8 @@ export default function CalendarPage() {
 
   // Debug: Check what data arrives from API
   if (events.length > 0) {
-    console.table(events.map(e => ({
-      id: e.id,
-      fromAPI: e.event_date,
-      mapperStart: e.event_date,
-    })));
+    console.table(events, ['id', 'type', 'event_date']);
+    console.log('Sample event data:', events[0]);
   }
 
   // Filter events based on type
@@ -145,12 +142,8 @@ export default function CalendarPage() {
     
     const dayStr = day.date.toISOString().split('T')[0];
     
-    return filteredEvents.filter(event => {
-      if (!event.event_date) return false;
-      
-      // Direct string comparison - no parsing needed
-      return event.event_date === dayStr;
-    });
+    // Direct string comparison - no timezone conversion
+    return filteredEvents.filter(event => event.event_date === dayStr);
   };
   
   // Navigate to previous month
