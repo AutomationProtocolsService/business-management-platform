@@ -324,6 +324,10 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
           )}
         />
 
+        {form.formState.isSubmitSuccessful === false && Object.keys(form.formState.errors).length > 0 && (
+          <pre className="text-red-500 text-xs mb-4">{JSON.stringify(form.formState.errors, null, 2)}</pre>
+        )}
+
         {children || (
           <Button type="submit" disabled={isSubmitting} data-testid="schedule-survey-submit">
             {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
