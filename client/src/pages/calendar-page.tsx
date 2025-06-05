@@ -33,7 +33,7 @@ interface CalendarEvent {
   type: 'survey' | 'installation';
   tenant_id: number;
   project_id: number;
-  start_date: string; // YYYY-MM-DD format only
+  event_date: string; // YYYY-MM-DD format only
   end_date: string | null;
   status: string;
 }
@@ -137,10 +137,10 @@ export default function CalendarPage() {
     const dayStr = day.date.toISOString().split('T')[0];
     
     return filteredEvents.filter(event => {
-      if (!event.start_date) return false;
+      if (!event.event_date) return false;
       
       // Direct string comparison - no parsing needed
-      return event.start_date === dayStr;
+      return event.event_date === dayStr;
     });
   };
   

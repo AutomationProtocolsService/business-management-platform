@@ -1,0 +1,113 @@
+① Make the back-end emit date-only text for both entities
+Rule: the API must never expose a timestamp—only a literal
+"YYYY-MM-DD" string called event_date.
+
+Migration / view (Postgres)
+sql
+Copy
+Edit
+-- migrations/20240607_calendar_date_only.sql
+CREATE OR REPLACE VIEW calendar_events AS
+/* ───── Surveys ───── */
+SELECT
+  ('sur-'||id)::text        AS id,
+  'survey'                  AS type,
+  project_id,
+  to_char(scheduled_date, 'YYYY-MM-DD') AS event_date,
+  status
+FROM surveys
+
+UNION ALL
+
+/* ───── Installations ───── */
+SELECT
+  ('ins-'||id)::text,
+  'installation',
+  project_id,
+  to_char(start_time, 'YYYY-MM-DD')      AS event_date,   -- ★ the fix
+  status
+FROM installations;
+
+CREATE INDEX IF NOT EXISTS calendar_events_date_idx
+ON calendar_events(event_date);
+to_char(timestamp,'YYYY-MM-DD') strips both the clock and timezone.
+You do not need to touch your tables – the view handles everything.
+
+② Return that field in the API (Express)
+ts
+Copy
+Edit
+// types.ts
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  event_date: string;              // 'YYYY-MM-DD'
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
+}
+
+// routes/calendar.ts
+router.get('/', async (req, res, next) => {
+  const { start, end } = req.query;               // '2025-06-01'..'2030-12-31'
+  const rows = await prisma.$queryRaw<CalendarEvent[]>`
+    SELECT * FROM calendar_events
+    WHERE event_date BETWEEN ${start} AND ${end}
+  `;
+  res.json(rows);
+});
+③ Map directly to FullCalendar without parsing
+tsx
+Copy
+Edit
+const fcEvents = (events ?? []).map((e) => ({
+  id:    e.id,
+  title: e.type === 'survey' ? 'Survey' : 'Installation',
+  start: e.event_date,   // ← literal date string
+  allDay: true,          // ← tells FC to hide time and stay on that square
+  backgroundColor: e.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     e.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+
+<FullCalendar
+  events={fcEvents}
+  displayEventTime={false}     // just in case
+  height="auto"
+/>
+No new Date(), no parseISO() — the browser never converts the string, so nothing can shift.
+
+④ Invalidate calendar cache after create / update
+You already call:
+
+ts
+Copy
+Edit
+queryClient.invalidateQueries({ queryKey: ['calendar'] });
+Keep that; newly scheduled rows will pop in immediately.
+
+🔎 Two-line verification
+Add once:
+
+tsx
+Copy
+Edit
+console.table(events, ['id','event_date']);
+console.table(fcEvents, ['id','start']);
+Both tables should show the exact same date string (2025-07-02).
+If you still see a T or Z, the back-end change hasn’t been picked up.
+
+Why this never drifts
+Database converts timestamp → text — no TZ.
+
+API ships text.
+
+React forwards text.
+
+FullCalendar renders text on that local-day block.
+
+There is literally no Date object left in the pipeline, so the client’s time-zone cannot move the event.
+
+Implement the three snippets above and reload:
+
+Survey tiles stay on 4 / 18 / 24 Jun
+
+Installation tiles move to 11 Jun and 2 Jul—with no “12 AM” or offset ever again.
