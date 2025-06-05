@@ -136,8 +136,11 @@ export default function CalendarPage() {
     return filteredEvents.filter(event => {
       if (!event.start_time) return false;
       
-      // Extract date part from event start_time (format: "2025-06-04 00:00:00")
-      const eventDateStr = event.start_time.split(' ')[0];
+      // Handle date-only format (YYYY-MM-DD)
+      const eventDateStr = event.start_time.includes(' ') 
+        ? event.start_time.split(' ')[0]  // Old format with time
+        : event.start_time;               // New date-only format
+      
       return eventDateStr === dayStr;
     });
   };

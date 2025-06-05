@@ -1,0 +1,96 @@
+Below is the minimal, repeat-able recipe that guarantees your calendar shows only the day-square (no clock, no “12 AM”, no accidental +1 day) for both Surveys and Installations.
+
+1 Database (or raw SQL): always return DATE, never TIMESTAMP
+sql
+Copy
+Edit
+-- v_calendar_events view
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  id::text        AS id,
+  'survey'        AS type,
+  project_id,
+  scheduled_date              AS start_date,   -- already DATE
+  status
+FROM surveys
+UNION ALL
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  start_time::date            AS start_date,   -- cast removes time + TZ
+  status
+FROM installations;
+Every row now has start_date like 2025-07-02 – no hours, no zone.
+
+2 API route (tiny tweak)
+ts
+Copy
+Edit
+// server/routes/calendar.ts
+router.get('/', async (req, res, next) => {
+  const { start, end } = req.query; // expect YYYY-MM-DD
+  const events = await prisma.$queryRaw<CalendarEvent[]>`
+    SELECT *
+    FROM v_calendar_events
+    WHERE start_date BETWEEN ${start}::date AND ${end}::date
+  `;
+  res.json(events);
+});
+ts
+Copy
+Edit
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  start_date: string;      // 'YYYY-MM-DD'
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
+}
+3 React mapper – feed date-only & mark all-day
+tsx
+Copy
+Edit
+const fcEvents = (events ?? []).map((ev) => ({
+  id:    ev.id,
+  title: ev.type === 'survey' ? 'Survey' : 'Installation',
+  start: ev.start_date,   // ✅ date string, no time
+  allDay: true,           // ✅ tells FullCalendar to hide time
+  display: 'block',       // nice square block
+  backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     ev.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+Tip: If you use another grid component, still pass plain YYYY-MM-DD
+and render without any time label.
+
+4 FullCalendar options (optional but tidy)
+tsx
+Copy
+Edit
+<FullCalendar
+  events={fcEvents}
+  eventTimeFormat={false as any}   // suppresses “12:00 AM”
+  dayMaxEvents
+  height="auto"
+  ...
+/>
+If your build complains about the false cast, omit eventTimeFormat; the
+allDay: true flag already hides time.
+
+5 Invalidate cache after create / edit (already in place)
+ts
+Copy
+Edit
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['calendar'] });
+}
+Result
+Survey on Jun 04 → blue block on 4 (no time text)
+
+Installation on Jul 02 → yellow block on 2
+
+No more 12 AM / 7 PM, no off-by-one, locale-independent.
+
+Implement the three snippets above (view, route, mapper) and everything the
+client schedules will line up exactly on the calendar day-squares—date only,
+time gone.
