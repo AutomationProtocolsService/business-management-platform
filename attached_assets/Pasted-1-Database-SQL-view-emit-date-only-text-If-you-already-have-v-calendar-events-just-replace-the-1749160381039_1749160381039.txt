@@ -1,0 +1,74 @@
+1 Database / SQL view – emit date-only text
+(If you already have v_calendar_events, just replace the second SELECT.)
+
+sql
+Copy
+Edit
+-- prisma/migrations/20240606_installations_date_only.sql
+CREATE OR REPLACE VIEW v_calendar_events AS
+/* ───── Surveys (already correct) ───── */
+SELECT
+  id::text                       AS id,
+  'survey'                       AS type,
+  project_id,
+  to_char(scheduled_date, 'YYYY-MM-DD') AS start_date,  -- TEXT
+  status
+FROM surveys
+
+UNION ALL
+
+/* ───── Installations (fix) ───── */
+SELECT
+  id::text,
+  'installation',
+  project_id,
+  to_char(start_time, 'YYYY-MM-DD')      AS start_date,  -- TEXT, no time
+  status
+FROM installations;
+to_char(start_time,'YYYY-MM-DD') converts whatever timestamp is in the row
+into the literal string “2025-06-11”. No more hours, no timezone.
+
+2 Shared type & API route
+ts
+Copy
+Edit
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  start_date: string;            // 'YYYY-MM-DD'
+  status: 'Scheduled' | 'Completed' | 'Cancelled';
+}
+ts
+Copy
+Edit
+// server/routes/calendar.ts  (unchanged except field name)
+res.json(
+  await prisma.$queryRaw<CalendarEvent[]>`
+    SELECT *
+    FROM v_calendar_events
+    WHERE start_date BETWEEN ${start} AND ${end}
+  `
+);
+3 Front-end mapper (same as surveys)
+tsx
+Copy
+Edit
+const fcEvents = events.map((ev) => ({
+  id: ev.id,
+  title: ev.type === 'survey' ? 'Survey' : 'Installation',
+  start: ev.start_date,   // <─ date string only
+  allDay: true,           // <─ hide clock, one square
+  backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     ev.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+Nothing else changes—your create-/update-Installation mutation already
+invalidates ['calendar'], so new rows pop in immediately.
+
+After applying
+Table date	Calendar tile
+Jun 11 2025	🟡 Installation (square on 11)
+Jul 02 2025	🟡 Installation (square on 2)
+
+Surveys remain blue and correct; installations are now fixed with the
+identical date-only approach.
