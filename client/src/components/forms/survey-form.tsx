@@ -311,9 +311,11 @@ export default function SurveyForm({ defaultValues, surveyId, onSuccess, childre
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting} data-testid="schedule-survey-submit">
-          {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
-        </Button>
+        {children || (
+          <Button type="submit" disabled={isSubmitting} data-testid="schedule-survey-submit">
+            {isSubmitting ? "Saving..." : surveyId ? "Update Survey" : "Schedule Survey"}
+          </Button>
+        )}
       </form>
     </Form>
   );
