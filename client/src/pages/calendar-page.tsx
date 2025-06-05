@@ -27,17 +27,15 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date-utils";
 
-// Add types for calendar events
+// Add types for calendar events - matching API response
 interface CalendarEvent {
   id: string;
-  title: string;
-  start: string;
-  end: string;
   type: 'survey' | 'installation';
+  tenant_id: number;
+  project_id: number;
+  start_time: string;
+  end_time: string | null;
   status: string;
-  projectId: number;
-  projectName: string;
-  assignedTo?: number | number[];
 }
 
 // Helper function to get days in a month
@@ -115,7 +113,9 @@ export default function CalendarPage() {
         throw new Error("Failed to fetch calendar events");
       }
       
-      return res.json();
+      const data = await res.json();
+      console.log("📅 Calendar API Response:", data);
+      return data;
     }
   });
   
@@ -124,22 +124,32 @@ export default function CalendarPage() {
     ? events 
     : events.filter(event => event.type === filterType);
   
+  console.log("📊 Filtered Events:", filteredEvents);
+  
   // Get events for a specific day
   const getEventsForDay = (day: any) => {
     if (!day.date) return [];
     
     const dayStr = day.date.toISOString().split('T')[0];
-    return filteredEvents.filter(event => {
+    const dayEvents = filteredEvents.filter(event => {
       // Defensive parsing - handle null, undefined, or invalid dates
-      const iso = typeof event.start === 'string'
-        ? event.start                       // already ISO
-        : event.start instanceof Date
-        ? event.start.toISOString()         // cast Date → ISO
+      const iso = typeof event.start_time === 'string'
+        ? event.start_time                  // already ISO
+        : event.start_time instanceof Date
+        ? event.start_time.toISOString()    // cast Date → ISO
         : null;                             // bad value
 
       if (!iso) return false;               // skip invalid rows
-      return iso.split('T')[0] === dayStr;
+      const eventDateStr = iso.split('T')[0];
+      console.log(`🔍 Comparing ${eventDateStr} === ${dayStr}:`, eventDateStr === dayStr);
+      return eventDateStr === dayStr;
     });
+    
+    if (dayEvents.length > 0) {
+      console.log(`📅 Found ${dayEvents.length} events for ${dayStr}:`, dayEvents);
+    }
+    
+    return dayEvents;
   };
   
   // Navigate to previous month
