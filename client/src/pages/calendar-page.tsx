@@ -125,6 +125,17 @@ export default function CalendarPage() {
   
 
 
+  // Debug: Check what data arrives from API
+  if (events.length > 0) {
+    console.table(events.map(e => ({
+      id: e.id,
+      fromAPI: (e as any).event_date ?? (e as any).start_time,
+      mapperStart: typeof e.event_date === 'string'
+        ? e.event_date
+        : (e as any).start_time,
+    })));
+  }
+
   // Filter events based on type
   const filteredEvents = filterType === "all" 
     ? events 

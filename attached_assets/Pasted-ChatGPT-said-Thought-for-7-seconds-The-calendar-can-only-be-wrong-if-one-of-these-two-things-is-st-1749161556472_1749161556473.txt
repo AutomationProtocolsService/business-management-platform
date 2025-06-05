@@ -1,0 +1,68 @@
+ChatGPT said:
+
+Thought for 7 seconds
+The calendar can only be wrong if one of these two things is still true
+Layer	What should arrive	What is evidently arriving
+API → browser	"event_date": "2025-06-11" (pure text)	a value that still contains a time ("2025-06-11T19:37:00Z" or a Date object)
+Mapper → FullCalendar	start: row.event_date, allDay: true	mapper is still feeding row.start_time or some other field
+
+Because Survey and Installation dates are now both off, the most likely cause is the mapper was changed for one type but not for the other, or the API still sends start_time instead of event_date.
+
+1 Prove which arrow is broken in 20 seconds
+Put this once in CalendarPage.tsx, right before you build fcEvents:
+
+tsx
+Copy
+Edit
+console.table(events.map(e => ({
+  id: e.id,
+  fromAPI: (e as any).event_date ?? (e as any).start_time,
+  mapperStart: typeof e.event_date === 'string'
+    ? e.event_date
+    : (e as any).start_time,
+})));
+What you should see
+yaml
+Copy
+Edit
+┌─────────┬────────────┬────────────────────────────┐
+│ (index) │  fromAPI   │        mapperStart         │
+├─────────┼────────────┼────────────────────────────┤
+│    0    │ 2025-06-11 │ 2025-06-11                 │
+│    1    │ 2025-07-02 │ 2025-07-02                 │
+└─────────┴────────────┴────────────────────────────┘
+If either column shows a T, a Z, or anything longer than 10 chars, that’s the culprit.
+
+2 One-line fixes depending on what the table prints
+Console shows	Fix
+fromAPI = 2025-06-11T19:37:00Z	API is wrong → in your view / SQL:
+to_char(start_time, 'YYYY-MM-DD') AS event_date
+fromAPI = 2025-06-11, but mapperStart = 2025-06-11T19:37:00Z	Mapper still using the old field → replace line in mapper:
+start: e.event_date, allDay: true
+Both columns already show 2025-06-11 but tile still on 12th	A stale build/cached JS is running. Hard-refresh / clear service-worker / restart Vite.
+
+Until the console table shows exactly the same 10-char string for each row,
+FullCalendar will keep shifting.
+
+3 Canonical mapper (copy-paste)
+tsx
+Copy
+Edit
+const fcEvents = (events ?? []).map((row) => ({
+  id: row.id,
+  title: row.type === 'survey' ? 'Survey' : 'Installation',
+  start: row.event_date,        // « THE ONLY DATE WE PASS
+  allDay: true,                 // don’t let FC compute time
+  backgroundColor: row.type === 'survey' ? '#147aff' : '#ffc400',
+  borderColor:     row.type === 'survey' ? '#147aff' : '#ffc400',
+}));
+4 Once fixed, lock it in
+Database view only exposes event_date (TEXT).
+
+TypeScript interface has no start_time.
+
+Mapper uses only row.event_date.
+
+With no timestamps left anywhere, browser time-zone cannot affect placement; both Surveys and Installations will appear on 4 / 11 / 18 / 24 / 2 Jul exactly as in the list views.
+
+Run the console-table check, apply the one-line patch it points to, and the tiles will finally line up.
