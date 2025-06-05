@@ -1,0 +1,101 @@
+Below is the quickest “check → patch → see it appear” loop I use whenever a list view (Surveys / Installations) shows the data but the Calendar grid stays empty.
+
+1 Sanity-check the data path
+Step	How to test	You should see	If not
+/calendar API	DevTools ▸ Network ▸ XHR	GET /api/calendar?start=…&end=… → 200 with an array containing the three ISO dates 2025-06-04, 18, 24	Your view/route isn’t returning rows – re-check v_calendar_events view or the date-range filter.
+React-Query cache	window.__REACT_QUERY_DEVTOOLS_GLOBAL_HOOK__.$getQueryCache().findAll({ queryKey:['calendar']})	Data array length > 0	Hook or params wrong – confirm you pass the visible range.
+Component props	console.log(events) just before you render the calendar	Same array in the console	The Calendar component isn’t getting the data – verify props / hook call.
+
+Until the array is present in the console, the issue is in the fetch layer; once it’s present but not painted, it’s in the render layer.
+
+2 Typical render-layer slipups (pick the one that matches)
+2-A Day-grid match logic expects Date, gets string
+tsx
+Copy
+Edit
+// bad
+const eventDate = new Date(event.start).toISOString().split('T')[0];
+If event.start is already a Date you converted earlier, new Date(Date) is Invalid Date.
+
+Fix
+
+tsx
+Copy
+Edit
+import { parseISO, isSameDay } from 'date-fns';
+
+return events.filter((ev) =>
+  isSameDay(
+    typeof ev.start_time === 'string' ? parseISO(ev.start_time) : ev.start_time,
+    day.date
+  )
+);
+2-B You limited events to the current Week but request returns Month
+If you filter with eventsInRange.filter(e => e.start_time >= viewStart && …) but the query already limited by range, you might double-filter out everything.
+
+2-C FullCalendar needs events prop, not children
+tsx
+Copy
+Edit
+<FullCalendar events={fcEvents} /* not <Event> children */ />
+2-D Time-zone shift pushes the date to previous/next day
+Store in DB as timestamp with time zone and send ISO like 2025-06-04T00:00:00.000Z.
+Then in JS:
+
+ts
+Copy
+Edit
+const start = new Date(ev.start_time);           // always UTC
+start.setHours(12);                              // centre in day to resist TZ shifts
+3 Reference implementation that “just works”
+tsx
+Copy
+Edit
+import { parseISO, isSameDay, formatISO } from 'date-fns';
+import FullCalendar from '@fullcalendar/react';
+import dayGridPlugin from '@fullcalendar/daygrid';
+import { useCalendarEvents } from '@/hooks/useCalendarEvents';
+
+export default function CalendarPage() {
+  const [range, setRange] = useState<{ start: Date; end: Date }>(() => {
+    const start = new Date();
+    start.setDate(1);
+    const end = new Date(start);
+    end.setMonth(end.getMonth() + 1);
+    return { start, end };
+  });
+
+  const { data: events = [] } = useCalendarEvents(range.start, range.end);
+
+  const fcEvents = events.map((e) => ({
+    id: e.id,
+    title: e.type === 'survey' ? 'Survey' : 'Install',
+    start:
+      typeof e.start_time === 'string'
+        ? e.start_time
+        : formatISO(e.start_time),
+    end:
+      e.end_time && typeof e.end_time !== 'string'
+        ? formatISO(e.end_time)
+        : e.end_time ?? undefined,
+    backgroundColor: e.type === 'survey' ? '#147aff' : '#ffc400',
+    borderColor: e.type === 'survey' ? '#147aff' : '#ffc400',
+  }));
+
+  return (
+    <FullCalendar
+      plugins={[dayGridPlugin]}
+      initialView="dayGridMonth"
+      events={fcEvents}
+      datesSet={(info) => setRange({ start: info.start, end: info.end })}
+      height="auto"
+    />
+  );
+}
+4 Invalidate cache after create / update (already added earlier)
+ts
+Copy
+Edit
+onSuccess: () => {
+  queryClient.invalidateQueries({ queryKey: ['calendar'] });
+}
