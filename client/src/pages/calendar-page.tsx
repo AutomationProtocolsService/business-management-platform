@@ -129,10 +129,8 @@ export default function CalendarPage() {
   if (events.length > 0) {
     console.table(events.map(e => ({
       id: e.id,
-      fromAPI: (e as any).event_date ?? (e as any).start_time,
-      mapperStart: typeof e.event_date === 'string'
-        ? e.event_date
-        : (e as any).start_time,
+      fromAPI: e.event_date,
+      mapperStart: e.event_date,
     })));
   }
 
