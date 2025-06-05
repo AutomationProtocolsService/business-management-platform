@@ -1,0 +1,145 @@
+1 Database – expose a single events view
+Keep the existing Survey and Installation tables; add a read-only view (or
+SQL SELECT … UNION ALL …) that normalises the fields you need for the
+calendar.
+
+sql
+Copy
+Edit
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  id::text            AS id,
+  'survey'            AS type,
+  project_id,
+  scheduled_date      AS start_time,
+  NULL                AS end_time,
+  status
+FROM surveys
+UNION ALL
+SELECT
+  id::text            AS id,
+  'installation'      AS type,
+  project_id,
+  start_time,
+  end_time,
+  status
+FROM installations;
+id::text ensures every row has a unique string ID even though the two source
+tables both start at 1.
+
+2 API route – filter by date range
+ts
+Copy
+Edit
+// server/src/routes/calendar.ts
+router.get('/', async (req, res) => {
+  const { start, end } = req.query;               // ISO strings
+  const events = await prisma.$queryRaw<
+    CalendarEvent[]
+  >`
+    SELECT *
+    FROM v_calendar_events
+    WHERE start_time BETWEEN ${new Date(start)} AND ${new Date(end)}
+  `;
+  res.json(events);
+});
+Type
+
+ts
+Copy
+Edit
+export interface CalendarEvent {
+  id: string;
+  type: 'survey' | 'installation';
+  project_id: number;
+  start_time: string;   // ISO
+  end_time:   string | null;
+  status:     'Scheduled' | 'In Progress' | 'Completed' | 'Cancelled';
+}
+3 Client hook – fetch & cache with React-Query
+ts
+Copy
+Edit
+export function useCalendarEvents(range: { start: Date; end: Date }) {
+  return useQuery({
+    queryKey: ['calendar', range.start.toISOString(), range.end.toISOString()],
+    queryFn: () =>
+      api
+        .get<CalendarEvent[]>('/calendar', {
+          params: { start: range.start.toISOString(), end: range.end.toISOString() }
+        })
+        .then((r) => r.data)
+  });
+}
+4 Calendar page – render with FullCalendar or your custom grid
+tsx
+Copy
+Edit
+const { data: events = [] } = useCalendarEvents(visibleRange);
+
+const fcEvents = events.map((e) => ({
+  id: e.id,
+  title:
+    e.type === 'survey'
+      ? 'Survey - ' + e.status
+      : 'Install - ' + e.status,
+  start: e.start_time,
+  end:   e.end_time,
+  color:
+    e.type === 'survey'
+      ? '#0080ff'
+      : '#ffc400'          // optional colour mapping
+}));
+
+return <FullCalendar events={fcEvents} ... />;
+If you’re not using FullCalendar, map to your grid component’s event shape.
+
+5 Invalidate the cache after a create / update
+Surveys
+ts
+Copy
+Edit
+const createSurvey = useMutation({
+  mutationFn: (payload: SurveyInput) => api.post('/surveys', payload),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['calendar'] });    // 🔄
+    queryClient.invalidateQueries({ queryKey: ['surveys'] });     // existing
+    toast.success('Survey scheduled');
+  }
+});
+Installations
+ts
+Copy
+Edit
+const createInstallation = useMutation({
+  mutationFn: (payload) => api.post('/installations', payload),
+  onSuccess: () => {
+    queryClient.invalidateQueries({ queryKey: ['calendar'] });
+    queryClient.invalidateQueries({ queryKey: ['installations'] });
+    toast.success('Installation scheduled');
+  }
+});
+Because the query key contains the date range, React-Query will refetch only
+the ranges currently in view.
+
+6 Optional realtime polish
+Use supabase_realtime or a tiny Socket.IO channel to push calendar:event
+messages; the Calendar page can queryClient.setQueryData instantly instead
+of waiting for an HTTP refetch.
+
+Add a colour legend (you already have the pills in the screenshot).
+
+End-to-end flow
+sql
+Copy
+Edit
+User clicks “Schedule Survey”
+            ↓
+/surveys (POST) → 201
+            ↓  onSuccess
+queryClient.invalidate(['calendar'])   ← one line
+            ↓
+Calendar component’s useQuery refetches
+            ↓
+New event appears in the grid ⬤
+Implement the view, the /calendar route, the useCalendarEvents hook, and the invalidateQueries calls and you’ll have live, unified scheduling on the Calendar sidebar.
