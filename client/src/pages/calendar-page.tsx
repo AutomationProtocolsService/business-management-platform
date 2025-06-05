@@ -125,11 +125,16 @@ export default function CalendarPage() {
   
 
 
-  // Debug: Check what data arrives from API
-  if (events.length > 0) {
-    console.table(events, ['id', 'type', 'event_date']);
-    console.log('Sample event data:', events[0]);
-  }
+  // Create FullCalendar events with pure date strings
+  const fcEvents = (events ?? []).map((ev) => ({
+    id: ev.id,
+    title: ev.type === 'survey' ? 'Survey' : 'Installation',
+    start: ev.event_date,    // Pure YYYY-MM-DD string - no timezone conversion
+    allDay: true,            // Force single-day tile with no clock
+    display: 'block',        // Clean block display
+    backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+    borderColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+  }));
 
   // Filter events based on type
   const filteredEvents = filterType === "all" 
