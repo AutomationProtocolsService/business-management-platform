@@ -1,0 +1,80 @@
+What to do next
+Run the page, open DevTools → Console and copy the log lines
+You should see something like
+
+yaml
+Copy
+Edit
+┌─────────┬──────────────┬───────────┬──────────┐
+│ (index) │ id           │ event_date│ date_type│
+├─────────┼──────────────┼───────────┼──────────┤
+│ 0       │ survey-1     │ 2025-06-04│ string   │
+│ 1       │ install-3    │ 2025-06-11T00:00:00.000Z │ string │
+└─────────┴──────────────┴───────────┴──────────┘
+
+Processing event install-3: 2025-06-11T00:00:00.000Z → 2025-06-11
+Paste those few lines here.
+They tell us whether the API really is mixing date-only rows with timestamp-with-Z rows.
+
+If you see any “T00:00:00.000Z” in event_date
+
+The bug is 100 % in the query / view for installations (surveys already send pure dates).
+
+Patch the view/mat-view (or Prisma select) so it always emits a date-only string:
+
+sql
+Copy
+Edit
+-- migrations/20240607_flat_calendar.sql
+CREATE OR REPLACE VIEW v_calendar_events AS
+SELECT
+  'survey-'||id    AS id,
+  'survey'         AS type,
+  to_char(scheduled_date, 'YYYY-MM-DD')  AS event_date,
+  status,
+  project_id
+FROM surveys
+
+UNION ALL
+SELECT
+  'install-'||id,
+  'installation',
+  to_char(start_time, 'YYYY-MM-DD'),      -- ⚠️ was start_time::text before
+  status,
+  project_id
+FROM installations;
+No change is needed in React – your dateOnly = ev.event_date.split('T')[0] is fine but won’t be hit any more.
+
+If every row is already pure YYYY-MM-DD but the tile is still one day off
+
+Then the drift happens after you map to FullCalendar:
+
+Make sure the timeZone prop stays "local" and
+displayEventTime={false} (otherwise FullCalendar silently appends 00:00 and re-parses).
+
+Strip any leftover start_time fields you may be passing to FC via the spread operator.
+
+tsx
+Copy
+Edit
+<FullCalendar
+  timeZone="local"
+  displayEventTime={false}
+  events={fcEvents}
+  ...
+/>
+Installation rows now follow the survey path
+
+After the SQL fix you should see in the console
+
+csharp
+Copy
+Edit
+install-3  2025-06-11   string
+and the yellow Installation badge will appear exactly on 11 Jun – never 12 Jun – in every browser and time-zone.
+
+Why this matters
+A literal “YYYY-MM-DD” string is time-zone-free.
+
+2025-06-11T00:00:00.000Z means “midnight UTC”, which is +1 day for anyone east of London.
+By emitting date-only strings from the back-end we remove the last source of drift.
