@@ -1,0 +1,137 @@
+1 Reproduce & capture the failing response
+Open the Employees modal and hit Save so the red toast appears.
+
+DevTools → Network (tab)
+
+Filter by XHR/Fetch
+
+Locate the POST /api/employees (or whatever URL we call).
+
+Click it – copy:
+
+Status code
+
+Response headers (esp. Content-Type)
+
+Response body (will start with <!DOCTYPE html> – proof the server returned an HTML error page).
+
+DevTools → Console
+We should see something like:
+
+text
+Copy
+Edit
+SyntaxError: Unexpected token '<', "<!DOCTYPE "… is not valid JSON   at createEmployee…
+Paste that info into the log window so the agent can “see” the mismatch.
+
+2 Server-side fixes (Express / Prisma)
+2-a Confirm the route really exists
+ts
+Copy
+Edit
+// server/routes/employee.ts
+router.post('/', async (req, res, next) => {
+  try {
+    const data = employeeSchema.parse(req.body);      // Zod/Yup validation
+    const saved = await prisma.employee.create({ data });
+    res.status(201).json(saved);                      // 💡 ALWAYS return JSON
+  } catch (err) {
+    next(err);                                        // Let error-handler send JSON
+  }
+});
+If that file is missing, create it and mount in index.ts:
+
+ts
+Copy
+Edit
+app.use('/api/employees', employeeRouter);
+2-b Global JSON-only error handler
+ts
+Copy
+Edit
+app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
+  console.error(err);
+  res
+    .status(err.status ?? 500)
+    .json({ success: false, message: err.message ?? 'Internal error' });
+});
+Now even validation/database errors come back as JSON, never <html>.
+
+2-c Prisma model / migration
+prisma
+Copy
+Edit
+model Employee {
+  id          Int      @id @default(autoincrement())
+  tenantId    Int
+  name        String
+  email       String   @unique
+  phone       String?
+  position    String?
+  department  String?
+  status      String   @default("active")
+  createdAt   DateTime @default(now())
+}
+Run npx prisma migrate deploy (or push).
+
+3 Front-end mutation & toast handling
+3-a API helper
+ts
+Copy
+Edit
+export async function apiPost<T>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+  // Always parse as JSON; if HTML sneaks through, we throw explicit error
+  const text = await res.text();
+  let json: any;
+  try { json = JSON.parse(text); } catch {
+    throw new Error(`Server returned non-JSON: ${text.slice(0, 120)}`);
+  }
+
+  if (!res.ok) throw new Error(json.message ?? 'Request failed');
+  return json as T;
+}
+3-b React-Query mutation
+ts
+Copy
+Edit
+const createEmployee = useMutation({
+  mutationFn: (data: NewEmployeeDTO) => apiPost<Employee>('/api/employees', data),
+  onSuccess: () => {
+    queryClient.invalidateQueries(['employees']);
+    toast({ title: 'Employee created 🎉' });
+    closeDialog();
+  },
+  onError: (err: any) => {
+    toast({ variant: 'destructive', title: 'Error', description: err.message });
+  },
+});
+Form onSubmit just calls createEmployee.mutate(values).
+
+4 Regression guard
+Backend test (Jest / supertest):
+
+ts
+Copy
+Edit
+it('returns JSON on validation error', async () => {
+  const res = await request(app).post('/api/employees').send({}); // missing fields
+  expect(res.headers['content-type']).toMatch(/json/);
+  expect(res.status).toBe(400);
+  expect(res.body).toHaveProperty('message');
+});
+Front-end Cypress / Playwright: fill form, submit, expect toast “Employee created” and new row in table.
+
+Expected outcome
+Modal Save → network shows 201 Created with JSON payload.
+
+Toast shows success.
+
+Row appears in Employees table without page refresh.
+
+Any later error surfaces as a red toast with the exact message (no <!DOCTYPE).

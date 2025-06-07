@@ -17,11 +17,10 @@ import {
   insertInvoiceSchema,
   insertInvoiceItemSchema,
   insertProjectSchema,
-  insertJobSchema,
   insertCatalogItemSchema,
   insertCompanySettingsSchema,
   insertTenantSchema,
-  insertUserRoleSchema
+  insertEmployeeSchema
 } from "../shared/schema";
 import { storage } from "./storage";
 import { getWebSocketManager } from "./websocket";
@@ -1728,6 +1727,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error fetching calendar events:', error);
       res.status(500).json({ message: "Failed to fetch calendar events" });
+    }
+  });
+
+  // Employee routes
+  app.get("/api/employees", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const employees = await storage.getAllEmployees({ tenantId });
+      res.json(employees);
+    } catch (error) {
+      console.error('Error fetching employees:', error);
+      res.status(500).json({ message: "Failed to fetch employees" });
+    }
+  });
+
+  app.post("/api/employees", requireAuth, validateBody(insertEmployeeSchema), async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const employeeData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+      
+      const employee = await storage.createEmployee(employeeData);
+      res.status(201).json(employee);
+    } catch (error) {
+      console.error('Error creating employee:', error);
+      res.status(500).json({ message: "Failed to create employee" });
+    }
+  });
+
+  app.get("/api/employees/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const employee = await storage.getEmployee(employeeId);
+      
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Check tenant access
+      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(employee);
+    } catch (error) {
+      console.error('Error fetching employee:', error);
+      res.status(500).json({ message: "Failed to fetch employee" });
+    }
+  });
+
+  app.put("/api/employees/:id", requireAuth, validateBody(insertEmployeeSchema), async (req: Request, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const employee = await storage.getEmployee(employeeId);
+      
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Check tenant access
+      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedEmployee = await storage.updateEmployee(employeeId, req.body, tenantId);
+      res.json(updatedEmployee);
+    } catch (error) {
+      console.error('Error updating employee:', error);
+      res.status(500).json({ message: "Failed to update employee" });
+    }
+  });
+
+  app.delete("/api/employees/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const employeeId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const employee = await storage.getEmployee(employeeId);
+      
+      if (!employee) {
+        return res.status(404).json({ message: "Employee not found" });
+      }
+      
+      // Check tenant access
+      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteEmployee(employeeId, tenantId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete employee" });
+      }
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      res.status(500).json({ message: "Failed to delete employee" });
     }
   });
 
