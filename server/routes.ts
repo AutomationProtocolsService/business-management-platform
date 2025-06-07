@@ -1733,8 +1733,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Employee routes
   app.get("/api/employees", requireAuth, async (req: Request, res: Response) => {
     try {
-      const tenantId = getTenantIdFromRequest(req);
-      const employees = await storage.getAllEmployees({ tenantId });
+      const tenantFilter = getTenantFilterFromRequest(req);
+      const employees = await storage.getAllEmployees(tenantFilter);
       res.json(employees);
     } catch (error) {
       console.error('Error fetching employees:', error);
@@ -1771,7 +1771,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check tenant access
-      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+      if (tenantId !== undefined && employee.tenantId !== tenantId) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -1794,7 +1794,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check tenant access
-      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+      if (tenantId !== undefined && employee.tenantId !== tenantId) {
         return res.status(403).json({ message: "Access denied" });
       }
       
@@ -1818,7 +1818,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Check tenant access
-      if (req.isTenantResource && !req.isTenantResource(employee.tenantId)) {
+      if (tenantId !== undefined && employee.tenantId !== tenantId) {
         return res.status(403).json({ message: "Access denied" });
       }
       

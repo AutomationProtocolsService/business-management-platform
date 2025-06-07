@@ -2599,22 +2599,42 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
 
-  async updateEmployee(id: number, employeeData: Partial<Employee>): Promise<Employee | undefined> {
-    const result = await db.update(schema.employees)
+  async updateEmployee(id: number, employeeData: Partial<Employee>, tenantId?: number): Promise<Employee | undefined> {
+    let query = db.update(schema.employees)
       .set(employeeData)
-      .where(eq(schema.employees.id, id))
-      .returning();
+      .where(eq(schema.employees.id, id));
+    
+    // Add tenant filter if provided
+    if (tenantId !== undefined) {
+      query = query.where(eq(schema.employees.tenantId, tenantId));
+    }
+    
+    const result = await query.returning();
     return result[0];
   }
 
-  async deleteEmployee(id: number): Promise<boolean> {
-    const result = await db.delete(schema.employees)
-      .where(eq(schema.employees.id, id))
-      .returning();
+  async deleteEmployee(id: number, tenantId?: number): Promise<boolean> {
+    let query = db.delete(schema.employees)
+      .where(eq(schema.employees.id, id));
+    
+    // Add tenant filter if provided
+    if (tenantId !== undefined) {
+      query = query.where(eq(schema.employees.tenantId, tenantId));
+    }
+    
+    const result = await query.returning();
     return result.length > 0;
   }
 
-  async getAllEmployees(): Promise<Employee[]> {
+  async getAllEmployees(filter?: TenantFilter): Promise<Employee[]> {
+    const tenantId = filter?.tenantId;
+    
+    if (tenantId !== undefined) {
+      return await db.query.employees.findMany({
+        where: eq(schema.employees.tenantId, tenantId)
+      });
+    }
+    
     return await db.query.employees.findMany();
   }
 
