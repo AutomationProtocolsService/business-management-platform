@@ -128,6 +128,8 @@ export default function CalendarPage() {
 
 
   // Debug: Log exact data received from API
+  console.log('📅 Calendar API Response Status:', isLoading ? 'Loading...' : events ? `Received ${events.length} events` : 'No events');
+  
   if (events?.length > 0) {
     console.log('📅 Raw API response (first 2):');
     console.table(events.slice(0, 2).map(e => ({
