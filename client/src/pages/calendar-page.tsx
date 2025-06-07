@@ -127,10 +127,12 @@ export default function CalendarPage() {
 
   // Debug: Log exact data received from API
   if (events?.length > 0) {
-    console.log('Raw API response:', events);
-    console.log('First event:', events[0]);
-    console.log('Event date field type:', typeof events[0].event_date);
-    console.log('Event date value:', events[0].event_date);
+    console.table(events.map(e => ({
+      id: e.id,
+      type: e.type,
+      event_date: e.event_date,
+      date_type: typeof e.event_date
+    })));
   }
 
   // Create FullCalendar events with pure date strings
