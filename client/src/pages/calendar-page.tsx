@@ -60,10 +60,12 @@ function generateCalendarDays(year: number, month: number) {
     days.push({ date: null, isCurrentMonth: false });
   }
   
-  // Add days of current month
+  // Add days of current month with date strings to avoid timezone issues
   for (let day = 1; day <= daysInMonth; day++) {
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     days.push({ 
       date: new Date(year, month, day), 
+      dateStr: dateStr,  // Pure YYYY-MM-DD string for event matching
       isCurrentMonth: true,
       day
     });
@@ -127,7 +129,8 @@ export default function CalendarPage() {
 
   // Debug: Log exact data received from API
   if (events?.length > 0) {
-    console.table(events.map(e => ({
+    console.log('📅 Raw API response (first 2):');
+    console.table(events.slice(0, 2).map(e => ({
       id: e.id,
       type: e.type,
       event_date: e.event_date,
@@ -162,12 +165,18 @@ export default function CalendarPage() {
   
   // Get events for a specific day
   const getEventsForDay = (day: any) => {
-    if (!day.date || !filteredEvents.length) return [];
+    if (!day.dateStr || !filteredEvents.length) return [];
     
-    const dayStr = day.date.toISOString().split('T')[0];
+    // Direct string comparison using pure YYYY-MM-DD strings
+    const dayEvents = filteredEvents.filter(event => {
+      const match = event.event_date === day.dateStr;
+      if (match) {
+        console.log(`✅ Match: ${event.id} (${event.event_date}) === ${day.dateStr}`);
+      }
+      return match;
+    });
     
-    // Direct string comparison - no timezone conversion
-    return filteredEvents.filter(event => event.event_date === dayStr);
+    return dayEvents;
   };
   
   // Navigate to previous month
