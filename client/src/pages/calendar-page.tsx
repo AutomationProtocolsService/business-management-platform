@@ -125,16 +125,33 @@ export default function CalendarPage() {
   
 
 
+  // Debug: Log exact data received from API
+  if (events?.length > 0) {
+    console.log('Raw API response:', events);
+    console.log('First event:', events[0]);
+    console.log('Event date field type:', typeof events[0].event_date);
+    console.log('Event date value:', events[0].event_date);
+  }
+
   // Create FullCalendar events with pure date strings
-  const fcEvents = (events ?? []).map((ev) => ({
-    id: ev.id,
-    title: ev.type === 'survey' ? 'Survey' : 'Installation',
-    start: ev.event_date,    // Pure YYYY-MM-DD string - no timezone conversion
-    allDay: true,            // Force single-day tile with no clock
-    display: 'block',        // Clean block display
-    backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
-    borderColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
-  }));
+  const fcEvents = (events ?? []).map((ev) => {
+    // Ensure we have a pure date string regardless of what API sends
+    const dateOnly = typeof ev.event_date === 'string' 
+      ? ev.event_date.split('T')[0]  // Extract YYYY-MM-DD if timestamp
+      : ev.event_date;
+
+    console.log(`Processing event ${ev.id}: ${ev.event_date} -> ${dateOnly}`);
+
+    return {
+      id: ev.id,
+      title: ev.type === 'survey' ? 'Survey' : 'Installation',
+      start: dateOnly,         // Guaranteed YYYY-MM-DD string
+      allDay: true,            // Force single-day tile with no clock
+      display: 'block',        // Clean block display
+      backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+      borderColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+    };
+  });
 
   // Filter events based on type
   const filteredEvents = filterType === "all" 
