@@ -190,6 +190,7 @@ export const invoiceItems = pgTable("invoice_items", {
 // Employees
 export const employees = pgTable("employees", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // For multi-tenant isolation
   userId: integer("user_id").references(() => users.id).unique(),
   fullName: text("full_name"),
   email: text("email"),
@@ -202,6 +203,7 @@ export const employees = pgTable("employees", {
   salary: doublePrecision("salary"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
+  createdBy: integer("created_by").references(() => users.id),
 });
 
 // Timesheets
