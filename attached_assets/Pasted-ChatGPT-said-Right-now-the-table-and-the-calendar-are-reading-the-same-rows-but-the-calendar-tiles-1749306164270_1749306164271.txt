@@ -1,0 +1,59 @@
+ChatGPT said:
+Right now the table and the calendar are reading the same rows, but the calendar tiles are being shifted +1 day for Survey events (4 → 5, 24 → 25 …) while the Installation date is correct.
+That happens when the client feeds FullCalendar a mid-night-UTC timestamp instead of a date-only string:
+
+pgsql
+Copy
+Edit
+start = "2025-06-04T00:00:00.000Z"     ⟶  browser parses to local time
+(user UTC+05:30)                      ⟶  becomes 3 Jun 19:30
+FullCalendar renders on 5 Jun
+The fix: give the calendar a pure YYYY-MM-DD string and mark it all-day
+tsx
+Copy
+Edit
+// calendar-page.tsx – inside the map
+const dateOnly = (typeof ev.start_time === 'string'
+  ? ev.start_time                       // already '2025-06-04' if API changed
+  : ev.start_time.toISOString().slice(0, 10));  // keep only YYYY-MM-DD
+
+return {
+  id:      ev.id,
+  title:   ev.type === 'survey' ? 'Survey' : 'Installation',
+  start:   dateOnly,   // <-- no time, no Z suffix
+  allDay:  true,
+  display: 'block',
+  backgroundColor: ev.type === 'survey' ? '#147aff' : '#ffc400',
+};
+(Even cleaner) make the API return date-only
+sql
+Copy
+Edit
+-- v_calendar_events view
+SELECT
+  start_time::date AS start_time   -- 2025-06-04 (no TZ)
+and update the shared type:
+
+ts
+Copy
+Edit
+interface CalendarEvent {
+  start_time: string;   // 'YYYY-MM-DD'
+  ...
+}
+No matter what the user’s timezone is, FullCalendar now plots the block on the same square your Surveys / Installations table shows.
+
+One-shot prompt for Ghostwriter
+text
+Copy
+Edit
+Calendar shows Survey on 5/18/25 but table shows 4/18/24 → TZ shift.
+
+Need patch that:
+1. Casts start_time to ::date in v_calendar_events
+2. Adjusts CalendarPage mapper: start = ev.start_time (YYYY-MM-DD), allDay:true
+3. Leaves Installation times intact if end_time is present.
+
+Files: sql migration for view, server/routes/calendar.ts (type tweak),
+client/pages/CalendarPage.tsx.
+Paste that (plus the current CalendarPage snippet) into the agent and you’ll get a concise diff; once applied, the blue “Survey” blocks will line up exactly with Jun 4 / 18 / 24 and stay anchored regardless of locale.
