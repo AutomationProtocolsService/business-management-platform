@@ -1,0 +1,75 @@
+1. Find and remove any early return before your hooks
+Look in your PurchaseOrdersPage (or any component it renders) for code like this:
+
+tsx
+Copy
+Edit
+export default function PurchaseOrdersPage() {
+  // Oops—an early return before our hooks!
+  if (!currentTenant) {
+    return <Navigate to="/login" />;
+  }
+
+  // These never get called if we returned above:
+  const { data, isLoading } = useQuery(...);
+  const [filter, setFilter]       = useState(...);
+  // …
+}
+Instead, pull all your hooks up to the top, then do your guards:
+
+tsx
+Copy
+Edit
+export default function PurchaseOrdersPage() {
+  // 1) Hooks must always be called unconditionally:
+  const { data, isLoading, isError } = useQuery(
+    ["purchaseOrders", currentTenant?.id],
+    () => fetch(`/api/purchase-orders?tenant=${currentTenant!.id}`).then(r => r.json()),
+    { enabled: !!currentTenant }
+  );
+  const [statusFilter, setStatusFilter] = useState<Status>("all");
+
+  // 2) Now you can safely bail out if you need to
+  if (!currentTenant) {
+    return <Navigate to="/login" />;
+  }
+
+  if (isLoading) {
+    return <div className="p-8 text-center"><Spinner /></div>;
+  }
+
+  if (isError) {
+    return (
+      <div className="p-8 text-center text-red-600">
+        Error loading purchase orders. <Button onClick={() => queryClient.invalidateQueries(["purchaseOrders"])}>Retry</Button>
+      </div>
+    );
+  }
+
+  // 3) And finally your real UI:
+  return (
+    <div>
+      {/* …filters, search bar, “New Purchase Order” button… */}
+      <PurchaseOrderTable data={data!} filter={statusFilter} />
+    </div>
+  );
+}
+Why this fixes it
+React enforces that hooks run in the same order every render. By moving all hooks to the top and only then doing your if (…){ return… } checks, you guarantee that you never accidentally skip a hook call.
+
+2. Unlock your stuck spinner
+Once the hooks error is gone, that stuck spinner on the screen will resolve itself—React will actually reach the isLoading or normal-UI code path. Here’s a quick sanity checklist:
+
+enabled: !!currentTenant on your useQuery call means React Query only runs the fetch after you have a tenant ID. If you omit that, the query might never fire (or fire with an invalid URL) and stay “pending” forever.
+
+Confirm your fetch URL is correct:
+
+ts
+Copy
+Edit
+fetch(`/api/purchase-orders?tenant=${currentTenant.id}`)
+Open DevTools → Network → look for that GET. If it’s 404, fix your route name.
+
+Make sure the response is JSON, not HTML (or a redirect). If your server is returning your index.html (with a 200 OK), React Query will hang on parsing. Look for Content-Type: application/json in the response headers.
+
+Finally, check your React Query cache key matches your invalidates. We used ["purchaseOrders", currentTenant.id] everywhere.

@@ -81,8 +81,35 @@ export default function PurchaseOrdersPage() {
   });
   
   // Get suppliers for email functionality
-  const { data: suppliers = [] } = useQuery({
+  const { data: suppliers = [] } = useQuery<any[]>({
     queryKey: ["/api/suppliers"],
+  });
+
+  // Email purchase order mutation - MUST be declared before any early returns
+  const emailPurchaseOrder = useMutation({
+    mutationFn: async (data: { id: number; email: string; subject: string; body: string; includePdf: boolean }) => {
+      // Send email with provided parameters
+      await apiRequest("POST", `/api/purchase-orders/${data.id}/email`, {
+        recipientEmail: data.email,
+        subject: data.subject,
+        body: data.body,
+        includePdf: data.includePdf
+      });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Purchase order emailed",
+        description: "Purchase order has been emailed successfully.",
+      });
+      setIsEmailDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
   });
 
   // Filter purchase orders based on search term and status
@@ -132,6 +159,7 @@ export default function PurchaseOrdersPage() {
     }
   };
 
+  // Early return for error state - now safely after all hooks
   if (isError) {
     return (
       <div className="container py-10">
@@ -147,39 +175,12 @@ export default function PurchaseOrdersPage() {
     );
   }
 
-  // Email purchase order mutation
-  const emailPurchaseOrder = useMutation({
-    mutationFn: async (data: { id: number; email: string; subject: string; body: string; includePdf: boolean }) => {
-      // Send email with provided parameters
-      await apiRequest("POST", `/api/purchase-orders/${data.id}/email`, {
-        recipientEmail: data.email,
-        subject: data.subject,
-        body: data.body,
-        includePdf: data.includePdf
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Purchase order emailed",
-        description: "Purchase order has been emailed successfully.",
-      });
-      setIsEmailDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
   // Initialize email dialog fields when opening the dialog
   const handleEmailDialogOpen = (po: PurchaseOrder) => {
     setSelectedPO(po);
     
     // Try to find supplier email from suppliers data
-    const supplier = suppliers.find((s: any) => s.id === po.supplierId);
+    const supplier = (suppliers as any[]).find((s: any) => s.id === po.supplierId);
     const supplierEmail = supplier?.email || "";
     
     setRecipientEmail(supplierEmail);
