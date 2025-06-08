@@ -1,0 +1,118 @@
+1. Verify the client is actually requesting the right URL
+Open DevTools → Network tab, then click on the Purchase Orders menu item.
+
+Look for a GET (or POST if you’re using a different method) to something like:
+
+bash
+Copy
+Edit
+GET /api/purchase-orders?tenant=1
+What’s the status code?
+
+200 with Content-Type: application/json is what you want.
+
+404 means the route doesn’t exist on the server.
+
+500 (or any 4xx/5xx) means your server threw an error.
+
+If you don’t see any request at all, double-check that:
+
+tsx
+Copy
+Edit
+// PurchaseOrdersPage.tsx (or similar)
+const { data, isLoading, isError } = useQuery(
+  ["purchaseOrders", currentTenant?.id],
+  () => fetch(`/api/purchase-orders?tenant=${currentTenant!.id}`).then((r) => r.json()),
+  { enabled: !!currentTenant }
+);
+– that enabled: !!currentTenant guard makes sure we only fire once we know who the tenant is. If currentTenant is undefined, React-Query will never run the fetch and will stay in “loading” (or error) forever.
+
+2. Confirm your Express route actually exists
+On the server side you need something like:
+
+ts
+Copy
+Edit
+// server/routes/purchaseOrders.ts
+import { Router } from "express";
+const router = Router();
+
+router.get("/", async (req, res) => {
+  const tenantId = Number(req.query.tenant);
+  if (!tenantId) {
+    return res.status(400).json({ message: "Missing tenant" });
+  }
+  try {
+    const orders = await prisma.purchaseOrder.findMany({
+      where: { tenantId },
+      include: { supplier: true, items: true },
+    });
+    res.json(orders);
+  } catch (err) {
+    console.error("Error fetching POs", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+export default router;
+And in your main index.ts you must have:
+
+ts
+Copy
+Edit
+import purchaseOrdersRouter from "./routes/purchaseOrders";
+app.use("/api/purchase-orders", purchaseOrdersRouter);
+If you forgot to register the router under /api/purchase-orders, your client will get a 404 and end up in that isError branch.
+
+3. Surface the real error instead of the generic banner
+Right now your UI probably looks like:
+
+tsx
+Copy
+Edit
+if (isError) {
+  return (
+    <Alert variant="destructive">
+      Error loading purchase orders. Please try again.
+    </Alert>
+  );
+}
+Temporarily change that to:
+
+tsx
+Copy
+Edit
+if (isError) {
+  return (
+    <div style={{ padding: 20, color: "red" }}>
+      <h2>Purchase Orders Error</h2>
+      <pre>{(error as Error).message}</pre>
+      <Button onClick={() => queryClient.invalidateQueries(["purchaseOrders", currentTenant?.id])}>
+        Retry
+      </Button>
+    </div>
+  );
+}
+– make sure your useQuery declaration pulls back the error object:
+
+ts
+Copy
+Edit
+const { data, isLoading, isError, error } = useQuery( /* … */ );
+That error.message will often show you exactly what went wrong (e.g. “404 Not Found” or a JSON‐parsing exception if your server returned HTML instead of JSON).
+
+Quick Recap
+Network → confirm the GET to /api/purchase-orders?tenant=… is actually being sent and check its response code & payload.
+
+Server → confirm you have an Express route mounted on /api/purchase-orders that returns application/json.
+
+Client → temporarily render the real error.message so you can see the underlying exception instead of just the generic banner.
+
+Once you’ve done that, the path forward will be crystal clear:
+
+If it’s a 404, you’ll add (or correct) the server route.
+
+If it’s a 500, you’ll see the stack-trace in your server console and fix whatever bug is throwing.
+
+If it’s a parsing error, you’ll notice HTML or XML coming back instead of JSON and can correct your server’s res.json(...).

@@ -75,7 +75,8 @@ export default function PurchaseOrdersPage() {
   const { 
     data: purchaseOrders = [], 
     isLoading, 
-    isError 
+    isError,
+    error 
   } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
   });
@@ -169,6 +170,21 @@ export default function PurchaseOrdersPage() {
           </CardHeader>
           <CardContent>
             <p>There was a problem loading the purchase order data. Please try again.</p>
+            <div className="mt-4 p-4 bg-gray-100 rounded">
+              <h4 className="font-semibold">Debug Information:</h4>
+              <pre className="text-sm mt-2 text-red-600">
+                {error ? String(error) : 'Unknown error'}
+              </pre>
+            </div>
+            <Button 
+              className="mt-4" 
+              onClick={() => {
+                console.log("Retrying purchase orders query...");
+                queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+              }}
+            >
+              Retry
+            </Button>
           </CardContent>
         </Card>
       </div>
