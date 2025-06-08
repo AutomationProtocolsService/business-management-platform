@@ -1,0 +1,116 @@
+1. Confirm exactly what the browser is sending & receiving
+Open DevTools → Network tab.
+
+Click Create Timesheet and locate the POST request (likely to /api/timesheets).
+
+Click that request and inspect:
+
+Request URL (is it exactly /api/timesheets or something else?)
+
+Response tab (are you seeing your JSON error or an HTML page starting with <!DOCTYPE?)
+
+Status Code (404, 200, 500?)
+
+If the response body is HTML, you know for sure you’re not hitting a valid JSON endpoint.
+
+2. Verify your front-end fetch is pointing to the right place
+Open your timesheet form component (e.g. client/src/components/forms/timesheet-form.tsx) and find your submission code, it will look roughly like:
+
+ts
+Copy
+Edit
+const onSubmit = async (values) => {
+  try {
+    const res = await fetch('/api/timesheets', {
+      method: 'POST',
+      headers: {
+        // <— this is essential
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(values),
+    });
+    const payload = await res.json();  // throws if response is HTML
+    // …
+  } catch(e) { /* show toast */ }
+};
+Make sure you have
+
+ts
+Copy
+Edit
+headers: { 'Content-Type': 'application/json' }
+Make sure the URL matches your server route (no extra trailing slash, correct spelling).
+
+Save & reload, then re-test in the network tab.
+
+3. Confirm your server actually has a matching POST /api/timesheets route
+On your backend (e.g. server/routes/timesheets.ts or wherever you register it), you should see something like:
+
+ts
+Copy
+Edit
+import express from 'express';
+const router = express.Router();
+
+router.post('/', async (req, res, next) => {
+  // You’ll need express.json() middleware to parse req.body
+  // Make sure server/index.ts has `app.use(express.json())`
+  const { employeeId, date, startTime, endTime, … } = req.body;
+  // create in DB…
+  res.status(201).json(newRecord);
+});
+
+export default router;
+And in your main server/index.ts:
+
+ts
+Copy
+Edit
+import timesheetRoutes from './routes/timesheets';
+// …
+app.use('/api/timesheets', express.json(), timesheetRoutes);
+Check that express.json() is enabled before your routes.
+
+Check that you’re mounting the router exactly at /api/timesheets.
+
+Add a quick console.log at the top of that POST handler:
+
+ts
+Copy
+Edit
+router.post('/', (req, res) => {
+  console.log('🔥 Received timesheet create:', req.body);
+  // …
+});
+Restart your server, submit the form again, and look at your server console. If you never see that log, your client is hitting the wrong place.
+
+4. If you still see HTML, adjust your dev-server proxy (Vite) or CORS
+Vite: in vite.config.js you might need:
+
+js
+Copy
+Edit
+export default defineConfig({
+  server: {
+    proxy: {
+      '/api': 'http://localhost:5000'  // forward all /api calls
+    }
+  }
+});
+CORS: if your front-end is on port 5173 and backend on 5000, ensure Express allows it:
+
+ts
+Copy
+Edit
+import cors from 'cors';
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
+Quick recap
+Network tab → confirm you’re actually hitting /api/timesheets and see if the response is HTML (that triggers the JSON parse error).
+
+Client fetch → ensure URL + headers + body are correct.
+
+Server route → ensure it’s registered (app.use('/api/timesheets', express.json(), router)) and you see console.log on each call.
+
+Dev-server proxy or CORS → if you never hit the server, fix your proxy/CORS settings.
+
+Follow these steps, and you’ll pinpoint whether the problem lives in your React fetch, your Express routing, or your proxy configuration—then you can correct it so you get back real JSON and your “Create Timesheet” finally works.
