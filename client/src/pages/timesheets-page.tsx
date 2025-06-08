@@ -270,7 +270,7 @@ function EditTimesheetDialog({ timesheetId, open, onClose, onSuccess }: {
         <TimesheetForm 
           initialData={timesheet}
           onSuccess={onSuccess}
-          onSubmit={(data) => updateTimesheet.mutate(data)}
+          customSubmit={(data) => updateTimesheet.mutate(data)}
           submitLabel="Update Timesheet"
           isLoading={updateTimesheet.isPending}
         />
