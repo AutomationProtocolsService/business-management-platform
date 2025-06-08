@@ -205,7 +205,9 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={(e) => {
+      <form id="expense-form" onSubmit={(e) => {
+        e.preventDefault();
+        console.log("🧪 Expense form submit fired");
         console.log("🔥 form onSubmit event triggered");
         console.log("Form errors:", form.formState.errors);
         form.handleSubmit(onSubmit)(e);
@@ -479,6 +481,11 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
             type="submit"
             disabled={createMutation.isPending || updateMutation.isPending}
             className="flex items-center gap-1"
+            onClick={() => {
+              console.log("🎯 Create Expense button clicked!");
+              console.log("Form state:", form.formState);
+              console.log("Form values:", form.getValues());
+            }}
           >
             {(createMutation.isPending || updateMutation.isPending) && (
               <Loader2 className="h-4 w-4 animate-spin" />
