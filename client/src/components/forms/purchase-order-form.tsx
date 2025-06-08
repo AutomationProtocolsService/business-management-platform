@@ -168,43 +168,18 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     fetchAttachments();
   }, [purchaseOrder?.id]);
 
-  // Calculate totals
-  const calculateSubtotal = () => {
-    return lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  };
+  // Tax rate constant
+  const TAX_RATE = 0.20;
 
-  // Apply tax
-  const calculateTax = () => {
-    return calculateSubtotal() * 0.2; // 20% tax rate
-  };
+  // Compute reactive totals from line items
+  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+  const taxAmount = subtotal * TAX_RATE;
+  const total = subtotal + taxAmount;
 
-  // Calculate total
-  const calculateTotal = () => {
-    return calculateSubtotal() + calculateTax();
-  };
-  
-  // Get values from the financial fields
-  const getFinancialValues = () => {
-    // Get the manually entered values from the form inputs
-    const subtotalInputEl = document.querySelector('input[name="subtotal"]') as HTMLInputElement;
-    const taxInputEl = document.querySelector('input[name="tax"]') as HTMLInputElement;
-    const totalInputEl = document.querySelector('input[name="total"]') as HTMLInputElement;
-    
-    // Use the manual values if provided, otherwise calculate them
-    const subtotal = subtotalInputEl && !isNaN(parseFloat(subtotalInputEl.value)) 
-      ? parseFloat(subtotalInputEl.value) 
-      : calculateSubtotal();
-      
-    const tax = taxInputEl && !isNaN(parseFloat(taxInputEl.value)) 
-      ? parseFloat(taxInputEl.value) 
-      : calculateTax();
-      
-    const total = totalInputEl && !isNaN(parseFloat(totalInputEl.value)) 
-      ? parseFloat(totalInputEl.value) 
-      : calculateTotal();
-      
-    return { subtotal, tax, total };
-  };
+  // Helper functions for backward compatibility
+  const calculateSubtotal = () => subtotal;
+  const calculateTax = () => taxAmount;
+  const calculateTotal = () => total;
 
   // Create mutation
   const createMutation = useMutation({
@@ -677,11 +652,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <div className="flex items-center">
                       <span className="text-xl mr-2">$</span>
                       <Input 
-                        type="number"
-                        step="0.01"
-                        className="text-2xl font-bold" 
+                        readOnly
+                        className="text-2xl font-bold bg-gray-50" 
                         value={calculateSubtotal().toFixed(2)}
-                        onChange={(e) => console.log('Subtotal changed:', e.target.value)}
                         name="subtotal"
                       />
                     </div>
@@ -695,11 +668,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <div className="flex items-center">
                       <span className="text-xl mr-2">$</span>
                       <Input 
-                        type="number"
-                        step="0.01"
-                        className="text-2xl font-bold" 
+                        readOnly
+                        className="text-2xl font-bold bg-gray-50" 
                         value={calculateTax().toFixed(2)}
-                        onChange={(e) => console.log('Tax changed:', e.target.value)}
                         name="tax"
                       />
                     </div>
@@ -713,11 +684,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <div className="flex items-center">
                       <span className="text-xl mr-2">$</span>
                       <Input 
-                        type="number"
-                        step="0.01"
-                        className="text-2xl font-bold text-primary" 
+                        readOnly
+                        className="text-2xl font-bold text-primary bg-primary/10" 
                         value={calculateTotal().toFixed(2)}
-                        onChange={(e) => console.log('Total changed:', e.target.value)}
                         name="total"
                       />
                     </div>
