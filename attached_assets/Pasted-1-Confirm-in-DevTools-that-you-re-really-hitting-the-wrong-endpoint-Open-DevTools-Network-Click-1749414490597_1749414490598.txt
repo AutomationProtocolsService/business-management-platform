@@ -1,0 +1,66 @@
+1) Confirm in DevTools that you’re really hitting the wrong endpoint
+Open DevTools → Network.
+
+Click Expenses in your sidebar.
+
+Find the request for GET /api/expenses.
+
+Status should be 200 but the Response tab shows HTML (<!DOCTYPE html>).
+
+If it’s 404 or 500, note the status and error.
+
+If you see HTML, that means Express never matched your Expenses route and instead fell back to your static catch-all.
+
+2) Re-order your Express middleware so your API wins
+In your server/index.ts (or wherever you wire up Express), make sure you:
+
+Mount all of your /api routers before you register any static file-serving or catch-all:
+
+ts
+Copy
+Edit
+import express from 'express';
+import path from 'path';
+import apiRouter from './routes';        // your /api/* routers
+import expensesRouter from './routes/expenses';
+// … other routers
+
+const app = express();
+
+// 1) JSON body parsing, sessions, etc.
+app.use(express.json());
+// … any auth/session middleware
+
+// 2) Mount your API routers FIRST
+app.use('/api/expenses', expensesRouter);
+app.use('/api/suppliers', suppliersRouter);
+// … mount all other /api routes
+
+// 3) THEN serve your React build
+app.use(express.static(path.join(__dirname, '../web/build')));
+
+// 4) Finally, any unmatched route should send index.html
+app.get('/*', (_req, res) => {
+  res.sendFile(path.join(__dirname, '../web/build/index.html'));
+});
+
+app.listen(5000, () => console.log('Listening on 5000'));
+What often happens: you have the express.static + app.get('*') above your API mounts, so /api/expenses gets caught by the “serve index.html” logic instead of your expenses router.
+
+3) Restart & re-test
+Stop your server and restart (npm run dev or tsx server/index.ts).
+
+Hard-refresh your browser (Ctrl+Shift+R).
+
+Open Network → click Expenses.
+
+Now GET /api/expenses should return JSON (e.g. 200 OK and a JSON array).
+
+Your React Query hook will then render the table instead of the error banner.
+
+Still seeing HTML or an error?
+If you get a 404: double-check that your expensesRouter is default-exported and imported correctly.
+
+If you get a 500: inspect the server console for the stack trace.
+
+Let me know what the Network panel now shows for /api/expenses (status, response snippet) and whether your server logs “HIT /api/expenses” (you can sprinkle a console.log at the top of that route handler). Once /api/expenses is consistently returning JSON, your Expenses page will spring to life.
