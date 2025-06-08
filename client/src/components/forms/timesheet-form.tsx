@@ -208,7 +208,7 @@ export default function TimesheetForm({
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-6">
         <div className="bg-muted/50 p-4 rounded-lg mb-4">
           <p className="text-sm text-muted-foreground">
             You can schedule a timesheet now and fill in the actual start/end times later.
