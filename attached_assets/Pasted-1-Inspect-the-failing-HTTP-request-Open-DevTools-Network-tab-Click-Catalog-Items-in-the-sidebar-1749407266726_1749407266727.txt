@@ -1,0 +1,98 @@
+1. Inspect the failing HTTP request
+Open DevTools → Network tab.
+
+Click Catalog Items in the sidebar.
+
+Look for the request to your API (should be something like GET /api/catalog-items or /api/catalog).
+
+Note:
+
+URL that was called
+
+Status code (404, 500, 200 with HTML, etc.)
+
+Response body (are you getting JSON or the index.html page?)
+
+Hint: if you see HTML coming back (“<html>…”), your front-end is calling the wrong path (and your server is falling back to serving the SPA shell).
+
+2. Verify your server’s route
+Open your server code (e.g. server/routes/catalog-items.ts or wherever you mounted it) and confirm:
+
+ts
+Copy
+Edit
+// Example in Express + Prisma
+router.get('/catalog-items', async (req, res, next) => {
+  try {
+    const items = await prisma.catalogItem.findMany({ where: { tenantId: req.tenant } });
+    res.json(items);
+  } catch (err) {
+    next(err);
+  }
+});
+Path (/catalog-items vs /catalog vs /items) must match exactly what your front-end calls.
+
+If you’re using a prefix (app.use('/api', ...)), include that in the URL.
+
+3. Test the endpoint directly
+In your terminal, run:
+
+bash
+Copy
+Edit
+curl -i http://localhost:5000/api/catalog-items
+(or whatever URL you found in Step 1)
+
+You should get a 200 and a JSON array.
+
+If you get a 404 or HTML page instead, you know the server isn’t exposing that path.
+
+4. Fix the front-end useQuery call
+In your React page (e.g. client/src/pages/catalog-items.tsx), confirm that you’re fetching the exact same URL:
+
+tsx
+Copy
+Edit
+const { data: items = [], isError } = useQuery<CatalogItem[]>({
+  queryKey: ['catalog-items'],
+  queryFn: () =>
+    fetch('/api/catalog-items')   // ← must match server route exactly
+      .then(res => {
+        if (!res.ok) throw new Error('Network error');
+        return res.json();
+      }),
+});
+If you discovered the server route is actually /api/catalog (no “-items”), change the fetch URL to '/api/catalog'.
+
+If you’re serving under a different base (e.g. /api/v1/catalog-items), update it here.
+
+5. Handle errors and retries
+Add a simple UI so if it still fails you immediately see the network error:
+
+tsx
+Copy
+Edit
+if (isError) {
+  return <Alert type="error">Failed to load catalog items. Please try again later.</Alert>;
+}
+That way you won’t be stuck staring at an endless skeleton loader.
+
+6. Confirm tenancy/auth headers
+Since this is multi-tenant, make sure your request is sending the right cookie or Authorization header so the server actually returns data—and doesn’t reject with a 401 or 400 and then fall back to HTML.
+
+7. Final smoke test
+Restart your server.
+
+Hard-reload your browser (⌘ ⇧ R / Ctrl ⇧ R).
+
+Navigate to Catalog Items.
+
+Verify in Network that:
+
+You call the correct URL.
+
+It returns 200 JSON.
+
+You should see your grid of items instead of an error.
+
+Once you align the front-end URL with your actual back-end route and confirm the server is returning JSON (not HTML), the page will load correctly. Let me know if you hit a different status code or error body in Step 1 or 3—that will point us to the next fix.

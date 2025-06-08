@@ -2021,6 +2021,113 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Catalog Items routes
+  app.get("/api/catalog-items", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT catalog-items route, tenant:', tenantId);
+      
+      const catalogItems = await storage.getAllCatalogItems(tenantId);
+      res.json(catalogItems);
+    } catch (error) {
+      console.error('Error fetching catalog items:', error);
+      res.status(500).json({ message: "Failed to fetch catalog items" });
+    }
+  });
+
+  app.post("/api/catalog-items", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      const catalogItemData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+
+      const newCatalogItem = await storage.createCatalogItem(catalogItemData);
+      res.status(201).json(newCatalogItem);
+    } catch (error) {
+      console.error('Error creating catalog item:', error);
+      res.status(500).json({ message: "Failed to create catalog item" });
+    }
+  });
+
+  app.get("/api/catalog-items/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const catalogItemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      
+      // Security check - ensure catalog item belongs to the tenant
+      if (catalogItem.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(catalogItem);
+    } catch (error) {
+      console.error('Error fetching catalog item:', error);
+      res.status(500).json({ message: "Failed to fetch catalog item" });
+    }
+  });
+
+  app.put("/api/catalog-items/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const catalogItemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      
+      // Security check - ensure catalog item belongs to the tenant
+      if (catalogItem.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedCatalogItem = await storage.updateCatalogItem(catalogItemId, req.body);
+      res.json(updatedCatalogItem);
+    } catch (error) {
+      console.error('Error updating catalog item:', error);
+      res.status(500).json({ message: "Failed to update catalog item" });
+    }
+  });
+
+  app.delete("/api/catalog-items/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const catalogItemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const catalogItem = await storage.getCatalogItem(catalogItemId);
+      
+      if (!catalogItem) {
+        return res.status(404).json({ message: "Catalog item not found" });
+      }
+      
+      // Security check - ensure catalog item belongs to the tenant
+      if (catalogItem.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteCatalogItem(catalogItemId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting catalog item:', error);
+      res.status(500).json({ message: "Failed to delete catalog item" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts
