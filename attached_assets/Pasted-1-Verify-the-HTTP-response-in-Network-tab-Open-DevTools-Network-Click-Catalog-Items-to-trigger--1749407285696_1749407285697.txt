@@ -1,0 +1,105 @@
+1. Verify the HTTP response in Network tab
+Open DevTools → Network.
+
+Click Catalog Items to trigger the load.
+
+Find the request whose Name is /api/catalog-items (or whatever you expect).
+
+Click it and look at:
+
+Status (404? 200?)
+
+Response tab (do you see JSON or HTML?)
+
+What you should see:
+• Status 200
+• Response of the form [{ "id":1, "name":"Widget A", … }, …]
+
+If you instead see your index.html markup (lots of <html> tags), the front-end call is not being forwarded to Express, but is being served by your dev server.
+
+2. Add a console.log in your server route
+In your server code, locate the catalog-items route handler (e.g. server/routes/catalog-items.ts or similar) and at the top insert:
+
+ts
+Copy
+Edit
+router.get('/catalog-items', async (req, res, next) => {
+  console.log('>>> HIT catalog-items route, tenant:', req.tenant);
+  // …existing code…
+});
+Restart your server (npm run dev).
+
+Trigger the Catalog Items page again.
+
+Check your server console for that “>>> HIT catalog-items route” message.
+
+If you see it, the request is hitting Express correctly.
+
+If you do not see it, your front-end call is never reaching Express — it’s likely being swallowed by the static file handler.
+
+3. Fix your proxy (Vite or Create-React-App)
+If you’re using Vite, you need a proxy so /api/... on the front-end goes to your Express back-end:
+
+js
+Copy
+Edit
+// vite.config.js
+export default defineConfig({
+  // …other config…
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+});
+If you’re using CRA, in your package.json:
+
+json
+Copy
+Edit
+  "proxy": "http://localhost:5000",
+After adding that, hard-reload your front-end (Ctrl–Shift–R), then re-open Catalog Items. Now /api/catalog-items should be forwarded to Express instead of being served by the static server.
+
+4. Confirm with a direct curl
+To be absolutely sure the back-end is healthy, from your terminal run:
+
+bash
+Copy
+Edit
+curl -i http://localhost:5000/api/catalog-items
+You should see HTTP/1.1 200 OK, and a JSON array body.
+
+If you get a 404 or HTML, adjust your Express route path until this works.
+
+5. Update your front-end fetch
+Once the proxy & server route align, double-check your React Query call is pointing to exactly the same path (including /api prefix):
+
+ts
+Copy
+Edit
+// in client/src/pages/catalog-items.tsx
+useQuery<CatalogItem[]>({
+  queryKey: ['catalog-items'],
+  queryFn: () =>
+    fetch('/api/catalog-items')      // ← must match Express exactly
+      .then(r => {
+        if (!r.ok) throw new Error('Network error');
+        return r.json();
+      }),
+});
+Quick recap:
+Network: Are you getting HTML or JSON?
+
+Server log: Does your console.log fire?
+
+Proxy: Make sure /api/* goes to localhost:5000.
+
+curl: Verify the server endpoint independently.
+
+Fetch: Match the exact URL in React.
+
+Once /api/catalog-items truly returns JSON, your React page will render the grid instead of hanging on the skeleton or error. Let me know what you see in steps 1 & 2 and we’ll take it from there.
