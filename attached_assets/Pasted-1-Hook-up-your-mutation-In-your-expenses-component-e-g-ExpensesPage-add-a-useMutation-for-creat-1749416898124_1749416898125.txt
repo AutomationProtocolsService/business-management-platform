@@ -1,0 +1,153 @@
+1. Hook up your mutation
+In your expenses component (e.g. ExpensesPage), add a useMutation for creating an expense:
+
+ts
+Copy
+Edit
+// src/pages/expenses-page.tsx (or wherever you define it)
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
+
+export default function ExpensesPage() {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  const createExpense = useMutation(
+    async (newExpense: {
+      amount: number;
+      date: string;
+      category: string;
+      paymentMethod: string;
+      supplierId?: number;
+      reimbursable: boolean;
+      // ...and any other required fields
+    }) => {
+      const res = await fetch("/api/expenses", {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(newExpense),
+      });
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText);
+      }
+      return res.json();
+    },
+    {
+      onSuccess: () => {
+        toast({ title: "Expense created!", variant: "success" });
+        queryClient.invalidateQueries(["expenses"]);
+        // close the modal here (see next section)
+      },
+      onError: (error: Error) => {
+        toast({ title: "Error creating expense", description: error.message, variant: "destructive" });
+      },
+    }
+  );
+
+  // ...
+}
+2. Wrap your inputs in a <form> and submit
+Inside your dialog/modal content, find where you render inputs and the “Create Expense” button. Change it to:
+
+tsx
+Copy
+Edit
+// still inside ExpensesPage
+const [open, setOpen] = useState(false);
+const [formState, setFormState] = useState({
+  amount: 0,
+  date: new Date().toISOString().split("T")[0],
+  category: "",
+  paymentMethod: "",
+  supplierId: undefined,
+  reimbursable: false,
+  notes: "",
+});
+
+return (
+  <>
+    <Button onClick={() => setOpen(true)}>Add Expense</Button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Add Expense</DialogTitle>
+        </DialogHeader>
+
+        {/* 1) Wrap all fields in a <form> */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            createExpense.mutate({
+              ...formState,
+              amount: Number(formState.amount),
+            });
+          }}
+        >
+          {/* 2) Your inputs, each bound to formState */}
+          <Input
+            label="Amount"
+            type="number"
+            value={formState.amount}
+            onValueChange={(amount) => setFormState(fs => ({ ...fs, amount }))}
+            required
+          />
+
+          <Input
+            label="Date"
+            type="date"
+            value={formState.date}
+            onChange={(e) => setFormState(fs => ({ ...fs, date: e.target.value }))}
+            required
+          />
+
+          <Select
+            label="Category"
+            value={formState.category}
+            onValueChange={(val) => setFormState(fs => ({ ...fs, category: val }))}
+            required
+          >
+            {/* your <SelectItem>s here */}
+          </Select>
+
+          {/* ...other fields... */}
+
+          <Checkbox
+            label="Reimbursable"
+            checked={formState.reimbursable}
+            onCheckedChange={(checked) => setFormState(fs => ({ ...fs, reimbursable: !!checked }))}
+          />
+
+          {/* 3) Submit button must be type="submit" */}
+          <Button type="submit" disabled={createExpense.isLoading}>
+            {createExpense.isLoading ? "Creating..." : "Create Expense"}
+          </Button>
+        </form>
+      </DialogContent>
+    </Dialog>
+  </>
+);
+Key points
+
+The <form onSubmit> is what fires your mutation.
+
+Your button must be type="submit" (not onClick) so the form handler runs.
+
+Close the dialog (setOpen(false)) inside the onSuccess of your mutation.
+
+3. Confirm end-to-end
+Fill out your fields and click Create Expense.
+
+The button text changes to “Creating…”, then the dialog closes on success.
+
+The table of expenses reloads with your new entry.
+
+If it still doesn’t fire:
+
+Open DevTools → Network → click Create Expense → verify a POST /api/expenses appears.
+
+If you see the request hit and return 201, but the UI still hangs, then your mutation’s onSuccess isn’t closing the modal or invalidating.
+
