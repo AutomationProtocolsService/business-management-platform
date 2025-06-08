@@ -298,7 +298,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
         status: data.status || 'draft',
         notes: data.notes,
         terms: data.terms, // Make sure we're using the correct field name
-        ...getFinancialValues(),
+        subtotal: subtotal,
+        tax: taxAmount,
+        total: total,
         // No supplierName as it's linked through supplierId
         updatedBy: user.id,
       };
@@ -331,7 +333,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
         status: data.status || 'draft',
         notes: data.notes || "",
         terms: data.terms || "", // Make sure we're using the correct field name
-        ...getFinancialValues(),
+        subtotal: subtotal,
+        tax: taxAmount,
+        total: total,
         // No longer need supplierName as it's linked through supplierId
         createdBy: user?.id || 0,
         // Make sure we have at least one item
