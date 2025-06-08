@@ -2236,6 +2236,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Purchase Orders routes
+  app.get("/api/purchase-orders", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT purchase-orders route, tenant:', tenantId);
+      
+      const purchaseOrders = await storage.getAllPurchaseOrders({ tenantId });
+      res.json(purchaseOrders);
+    } catch (error) {
+      console.error('Error fetching purchase orders:', error);
+      res.status(500).json({ message: "Failed to fetch purchase orders" });
+    }
+  });
+
+  app.post("/api/purchase-orders", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT purchase-orders POST route, body:', req.body);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      const purchaseOrderData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+
+      const newPurchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
+      res.status(201).json(newPurchaseOrder);
+    } catch (error) {
+      console.error('Error creating purchase order:', error);
+      res.status(500).json({ message: "Failed to create purchase order" });
+    }
+  });
+
+  app.get("/api/purchase-orders/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, { tenantId });
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(purchaseOrder);
+    } catch (error) {
+      console.error('Error fetching purchase order:', error);
+      res.status(500).json({ message: "Failed to fetch purchase order" });
+    }
+  });
+
+  app.put("/api/purchase-orders/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, { tenantId });
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedPurchaseOrder = await storage.updatePurchaseOrder(purchaseOrderId, req.body);
+      res.json(updatedPurchaseOrder);
+    } catch (error) {
+      console.error('Error updating purchase order:', error);
+      res.status(500).json({ message: "Failed to update purchase order" });
+    }
+  });
+
+  app.delete("/api/purchase-orders/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, { tenantId });
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deletePurchaseOrder(purchaseOrderId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting purchase order:', error);
+      res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+
   // Expenses routes
   app.get("/api/expenses", requireAuth, async (req: Request, res: Response) => {
     try {
