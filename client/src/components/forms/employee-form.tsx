@@ -26,18 +26,18 @@ import { insertEmployeeSchema, Employee, User } from "@shared/schema";
 import { useToast } from "@/hooks/use-toast";
 import { getInputDateString } from "@/lib/date-utils";
 
-// Extend the insert schema with client-side validation
-const employeeFormSchema = insertEmployeeSchema.extend({
-  userId: z.number().optional(),
-  fullName: z.string().min(2, "Employee name must be at least 2 characters.").optional(),
-  email: z.string().email("Must be a valid email address").optional(),
+// Create a simplified form schema based on the database structure
+const employeeFormSchema = z.object({
+  userId: z.number().optional().nullable(),
+  fullName: z.string().optional(),
+  email: z.string().optional(),
   phone: z.string().optional(),
-  position: z.string().min(2, "Position must be at least 2 characters.").optional(),
+  position: z.string().optional(),
   department: z.string().optional(),
   hireDate: z.string().optional(),
   terminationDate: z.string().optional(),
-  hourlyRate: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
-  salary: z.string().optional().transform(val => val ? parseFloat(val) : undefined),
+  hourlyRate: z.number().optional().nullable(),
+  salary: z.number().optional().nullable(),
   notes: z.string().optional(),
 });
 
@@ -67,8 +67,8 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
       position: "",
       department: "",
       hireDate: getInputDateString(new Date()),
-      hourlyRate: "",
-      salary: "",
+      hourlyRate: undefined,
+      salary: undefined,
       notes: "",
     },
   });
@@ -122,9 +122,14 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
 
   // Form submission handler
   function onSubmit(values: EmployeeFormValues) {
+    console.log("Form submitted with values:", values);
+    console.log("Form errors:", form.formState.errors);
+    
     if (employeeId) {
+      console.log("Updating employee with ID:", employeeId);
       updateEmployee.mutate(values);
     } else {
+      console.log("Creating new employee");
       createEmployee.mutate(values);
     }
   }
@@ -281,7 +286,16 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
               <FormItem>
                 <FormLabel>Hourly Rate ($)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" placeholder="Enter hourly rate" {...field} />
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="Enter hourly rate" 
+                    value={field.value?.toString() || ''}
+                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -295,7 +309,16 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
               <FormItem>
                 <FormLabel>Annual Salary ($)</FormLabel>
                 <FormControl>
-                  <Input type="number" step="0.01" placeholder="Enter annual salary" {...field} />
+                  <Input 
+                    type="number" 
+                    step="0.01" 
+                    placeholder="Enter annual salary" 
+                    value={field.value?.toString() || ''}
+                    onChange={(e) => field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -317,7 +340,15 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
           )}
         />
 
-        <Button type="submit" disabled={isSubmitting}>
+        <Button 
+          type="submit" 
+          disabled={isSubmitting}
+          onClick={(e) => {
+            console.log("Button clicked!", e);
+            console.log("Form valid:", form.formState.isValid);
+            console.log("Form errors:", form.formState.errors);
+          }}
+        >
           {isSubmitting ? "Saving..." : employeeId ? "Update Employee" : "Create Employee"}
         </Button>
       </form>

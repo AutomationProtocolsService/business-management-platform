@@ -1,0 +1,61 @@
+1 Browser-side: does the click fire any network call?
+Open DevTools → Network → Fetch/XHR.
+
+Click Create Employee once.
+
+If you see no request:
+
+The form is never submitting.
+
+Jump to section 2 (React/HTML wiring).
+
+If you see a request (e.g. POST /api/employees) but it’s ⌛ pending or red:
+
+Note the status code and response in Preview/ Response.
+
+Jump to section 3 (Express/Prisma).
+
+2 React/HTML wiring – common silent killers
+Symptom	Fix
+Button has no type="submit"	<Button type="submit" …>
+Button outside <form> tag	Wrap the whole modal body in <form onSubmit={handleSubmit}>…</form>
+onSubmit={form.handleSubmit(...)} missing	Import and wire React-Hook-Form the same way as the Survey form.
+Mutation not called	In the submit handler add await createEmployeeMutation.mutateAsync(data) (console-log right before it to ensure it runs).
+Modal’s Save button is disabled (grey) forever	RHF validation failing – add console.log(formState.errors) to see which field is unhappy.
+
+Quick test: add a console.log("clicked") to the button’s onClick.
+If it prints but the network tab is still empty, the early return is inside handleSubmit (validation).
+
+3 Express / Prisma – request arrives but fails
+Look at the first red request line in Network:
+
+Status	Probable cause	Patch
+404	Route not mounted	app.use('/api/employees', employeeRouter)
+401	No session	The Employees screen missed useAuth(); log out/in or send credentials with fetch.
+415	Content-Type missing	headers: { 'Content-Type': 'application/json' } in fetcher
+400 "employee name is required"	Backend zod schema stricter than form – add that field or mark it optional	
+500	Console / server log shows stack trace. Most frequent:
+• invalid tenant_id
+• duplicate email unique constraint
+• date cast error	Use the exact error message:
+prisma.employee.create({ data }) expects strings for dates; convert in handler.
+Add tenant_id: req.tenantId before calling Prisma.
+
+Every backend error is now JSON by the global handler, so the toast text equals the server message – you can copy-paste it here if unclear.
+
+4 No refresh after success?
+If the request returns 200 but the table stays empty:
+
+In the mutation’s .onSuccess callback call
+queryClient.invalidateQueries(['employees']).
+
+Check the Employees component’s useQuery key is exactly ['employees'].
+
+What to send back if it still fails
+Please copy-paste:
+
+the Network > Headers & Response of the failed request
+
+the matching server log line (look for the same timestamp / requestId)
+
+any console.error in the browser
