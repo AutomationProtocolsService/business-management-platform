@@ -1,0 +1,105 @@
+1. Confirm you’re calling the right URL (Network tab)
+Open DevTools → Network.
+
+Click Suppliers then Add Supplier to trigger the POST.
+
+Find the network request (look for /api/suppliers or whatever your front-end is calling).
+
+Inspect:
+
+Status code (200? 404? 500?)
+
+Response (HTML or JSON?)
+
+You want to see a JSON response like { id: 42, name: "Acme", … }.
+If you see a bunch of <html> tags, the request never hit your Express API.
+
+2. Verify your Express route is wired up
+In your server code (e.g. server/routes/suppliers.ts), add a quick log:
+
+ts
+Copy
+Edit
+router.post('/suppliers', async (req, res, next) => {
+  console.log('>>> HIT suppliers POST route, body:', req.body);
+  // … existing create logic …
+});
+Restart your server (npm run dev).
+
+Try creating a supplier again.
+
+Do you see >>> HIT suppliers POST route… in your server console?
+
+• Yes? Great—the route exists. JSON errors must be in the front-end fetch.
+• No? The request isn’t reaching Express at all (likely being served by your dev server fallback).
+
+3. Ensure your front-end proxies /api → localhost:5000
+If you’re on Vite (vite.config.js):
+js
+Copy
+Edit
+import { defineConfig } from 'vite';
+export default defineConfig({
+  // …other settings…
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+});
+If you’re on Create-React-App (package.json):
+jsonc
+Copy
+Edit
+{
+  // …
+  "proxy": "http://localhost:5000"
+}
+After adding that, do a hard reload (Ctrl-Shift-R) of your front-end.
+
+4. Test the API directly with curl
+From your terminal:
+
+bash
+Copy
+Edit
+curl -i http://localhost:5000/api/suppliers \
+  -H "Content-Type: application/json" \
+  -d '{"name":"TestCo","email":"test@co.com","phone":"123"}'
+You should get HTTP/1.1 200 OK (or 201) and a JSON body.
+
+If you still get HTML, double-check your Express route path and router mount.
+
+5. Align your React fetch exactly to the API
+In your supplier page’s React Query (or fetch) code, be sure you’re pointing at exactly the same endpoint:
+
+ts
+Copy
+Edit
+await fetch('/api/suppliers', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ /* your supplier fields */ }),
+})
+  .then(r => {
+    if (!r.ok) throw new Error(`Status ${r.status}`);
+    return r.json();
+  });
+Even a missing /api prefix or a typo in /suppliers will fall back to your static SPA and return HTML.
+
+6. Final sanity check
+Network tab now shows your /api/suppliers request returning JSON.
+
+Server log shows your >>> HIT suppliers POST route… message.
+
+curl returns JSON.
+
+React no longer throws “Unexpected token <”.
+
+Once all four line up, your “Add Supplier” form will get back valid JSON and the red error banner will disappear.
+
+Let me know what shows up in steps 1 & 2, and we’ll drill in further if needed!
