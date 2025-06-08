@@ -1,0 +1,134 @@
+1. Hold your line‐items in component state
+In your <PurchaseOrderCreateModal /> (or whatever component renders the “Line Items” tab) add:
+
+tsx
+Copy
+Edit
+interface LineItem {
+  inventoryId: number | null
+  description: string
+  quantity: number
+  unitPrice: number
+}
+
+export function PurchaseOrderCreateModal(/* props… */) {
+  // ① keep an array of added items
+  const [lineItems, setLineItems] = useState<LineItem[]>([]);
+
+  // ② keep the current form fields for the next item
+  const [inventoryId, setInventoryId] = useState<number | null>(null);
+  const [description, setDescription] = useState("");
+  const [quantity, setQuantity] = useState(1);
+  const [unitPrice, setUnitPrice] = useState(0);
+
+  // …
+2. Wire up your “Add Item” handler
+Under your form fields:
+
+tsx
+Copy
+Edit
+const handleAddItem = () => {
+  if (!description.trim() || quantity <= 0 || unitPrice <= 0) {
+    return toast({ title: "Invalid line item", description: "Please fill out all fields" });
+  }
+
+  // ③ append to the array
+  setLineItems((prev) => [
+    ...prev,
+    { inventoryId, description, quantity, unitPrice },
+  ]);
+
+  // ④ reset the inputs for the next item
+  setInventoryId(null);
+  setDescription("");
+  setQuantity(1);
+  setUnitPrice(0);
+};
+And change your button to:
+
+tsx
+Copy
+Edit
+<Button onClick={handleAddItem}>Add Item</Button>
+3. Render the list of added items
+Below the “No items added yet” placeholder, swap in a table or simple list:
+
+tsx
+Copy
+Edit
+{lineItems.length > 0 ? (
+  <Table>
+    <thead>…</thead>
+    <tbody>
+      {lineItems.map((item, i) => (
+        <tr key={i}>
+          <td>{item.description}</td>
+          <td>{item.quantity}</td>
+          <td>{item.unitPrice.toFixed(2)}</td>
+          <td>
+            <Button size="sm" onClick={() =>
+              setLineItems(lineItems.filter((_, idx) => idx !== i))
+            }>Remove</Button>
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  </Table>
+) : (
+  <EmptyPlaceholder>
+    <EmptyPlaceholder.Icon name="box" />
+    <EmptyPlaceholder.Title>No items added yet</EmptyPlaceholder.Title>
+    <EmptyPlaceholder.Description>
+      Add items to this purchase order using the form above.
+    </EmptyPlaceholder.Description>
+  </EmptyPlaceholder>
+)}
+4. Block submission until you’ve added something
+When you click “Create Purchase Order,” your submit handler should check:
+
+tsx
+Copy
+Edit
+const handleSubmit = async () => {
+  if (lineItems.length === 0) {
+    return toast({
+      title: "No items added",
+      description: "Please add at least one item to the purchase order.",
+      variant: "destructive",
+    });
+  }
+
+  // collect all your other fields: supplierId, orderDate, etc.
+  const payload = { /* …other fields… */, items: lineItems };
+
+  await createPurchaseOrder(payload);
+  closeModal();
+};
+5. Hook it into your UI
+Replace the orphaned <Button>Create Purchase Order</Button> with:
+
+tsx
+Copy
+Edit
+<Button onClick={handleSubmit}>Create Purchase Order</Button>
+Remove any stale “No items added…” error banners—they were only placeholders before.
+
+Why this works
+You now have a real array in React state that grows every time “Add Item” is clicked.
+
+You reset the small line‐item form so users can keep adding multiple rows.
+
+You render those rows in a table (and even allow removal).
+
+Finally, you guard your final “Create” call so that items.length > 0, otherwise you show the same toast you saw before but for the right reason.
+
+Once you’ve wired it exactly like this, you’ll be able to:
+
+Select an inventory item (or type a description)
+
+Enter quantity & unit price
+
+Click Add Item → see it appear
+
+Click Create Purchase Order → payload contains your lineItems and the API succeeds!
