@@ -114,7 +114,11 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       const res = await apiRequest("POST", "/api/expenses", data);
       return await res.json();
     },
+    onMutate: (payload) => {
+      console.log("🚀 creating expense with", payload);
+    },
     onSuccess: () => {
+      console.log("✅ expense created successfully");
       toast({
         title: "Expense created",
         description: "The expense has been added successfully.",
@@ -124,6 +128,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
       if (onSuccess) onSuccess();
     },
     onError: (error: Error) => {
+      console.log("❌ expense creation failed", error);
       toast({
         title: "Error creating expense",
         description: error.message,
@@ -158,7 +163,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   // Handle form submission
   const onSubmit = async (data: FormValues) => {
-    console.log("🔥 form submit handler fired", data);
+    console.log("🔔 form submitted!", data);
     
     if (!user) {
       console.log("❌ No user found, authentication required");
