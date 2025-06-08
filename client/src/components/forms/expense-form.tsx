@@ -389,7 +389,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                           variant="outline"
                           size="sm"
                           className="mt-2"
-                          onClick={() => window.open(expense.receiptUrl, "_blank")}
+                          onClick={() => expense.receiptUrl && window.open(expense.receiptUrl, "_blank")}
                         >
                           View Receipt
                         </Button>
