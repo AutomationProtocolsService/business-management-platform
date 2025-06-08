@@ -388,17 +388,18 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     const inventoryItem = inventoryItems.find(item => item.id === itemData.inventoryItemId);
     
     // Calculate the total price from quantity and unit price
-    const calculatedTotalPrice = itemData.quantity * itemData.unitPrice;
+    const calculatedTotal = itemData.quantity * itemData.unitPrice;
     
     const newItem: PurchaseOrderItem & { tempId?: string } = {
       ...itemData,
       id: itemData.id || undefined,
       tempId: itemData.tempId || `temp-${Date.now()}`,
       purchaseOrderId: purchaseOrder?.id || 0,
-      totalPrice: calculatedTotalPrice,
-      inventoryItemName: inventoryItem?.name || "Unknown Item",
-      createdAt: new Date(),
-      createdBy: user?.id || 0,
+      total: calculatedTotal, // Use 'total' to match schema
+      sku: itemData.sku || null,
+      unit: itemData.unit || "each",
+      receivedQuantity: 0,
+      notes: itemData.notes || null,
     };
     
     if (editingItem) {
@@ -841,12 +842,29 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
 
                       <div className="pt-4">
                         <Button 
-                          type="submit" 
+                          type="button" 
                           className="w-full bg-primary hover:bg-primary/90 text-white"
-                          onClick={(e) => {
+                          onClick={async (e) => {
                             e.preventDefault();
-                            console.log("Add/Update Item button clicked", lineItemForm.getValues());
-                            lineItemForm.handleSubmit(addLineItem)(e);
+                            console.log("Add/Update Item button clicked");
+                            console.log("Form values:", lineItemForm.getValues());
+                            console.log("Form errors:", lineItemForm.formState.errors);
+                            
+                            // Validate the form before submission
+                            const isValid = await lineItemForm.trigger();
+                            console.log("Form validation result:", isValid);
+                            
+                            if (isValid) {
+                              const formData = lineItemForm.getValues();
+                              addLineItem(formData);
+                            } else {
+                              console.error("Form validation failed:", lineItemForm.formState.errors);
+                              toast({
+                                title: "Validation Error",
+                                description: "Please check all required fields",
+                                variant: "destructive",
+                              });
+                            }
                           }}
                         >
                           {editingItem ? "Update Item" : "Add Item"}
