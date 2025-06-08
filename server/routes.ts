@@ -2236,6 +2236,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Expenses routes
+  app.get("/api/expenses", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT expenses route, tenant:', tenantId);
+      
+      const expenses = await storage.getAllExpenses(tenantId);
+      res.json(expenses);
+    } catch (error) {
+      console.error('Error fetching expenses:', error);
+      res.status(500).json({ message: "Failed to fetch expenses" });
+    }
+  });
+
+  app.post("/api/expenses", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT expenses POST route, body:', req.body);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      const expenseData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+
+      const newExpense = await storage.createExpense(expenseData);
+      res.status(201).json(newExpense);
+    } catch (error) {
+      console.error('Error creating expense:', error);
+      res.status(500).json({ message: "Failed to create expense" });
+    }
+  });
+
+  app.get("/api/expenses/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const expenseId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const expense = await storage.getExpense(expenseId);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      // Security check - ensure expense belongs to the tenant
+      if (expense.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(expense);
+    } catch (error) {
+      console.error('Error fetching expense:', error);
+      res.status(500).json({ message: "Failed to fetch expense" });
+    }
+  });
+
+  app.put("/api/expenses/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const expenseId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const expense = await storage.getExpense(expenseId);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      // Security check - ensure expense belongs to the tenant
+      if (expense.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedExpense = await storage.updateExpense(expenseId, req.body);
+      res.json(updatedExpense);
+    } catch (error) {
+      console.error('Error updating expense:', error);
+      res.status(500).json({ message: "Failed to update expense" });
+    }
+  });
+
+  app.delete("/api/expenses/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const expenseId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const expense = await storage.getExpense(expenseId);
+      
+      if (!expense) {
+        return res.status(404).json({ message: "Expense not found" });
+      }
+      
+      // Security check - ensure expense belongs to the tenant
+      if (expense.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteExpense(expenseId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting expense:', error);
+      res.status(500).json({ message: "Failed to delete expense" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts

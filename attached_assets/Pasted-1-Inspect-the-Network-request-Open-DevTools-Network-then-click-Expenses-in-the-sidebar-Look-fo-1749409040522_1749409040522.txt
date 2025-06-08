@@ -1,0 +1,128 @@
+1. Inspect the Network request
+Open DevTools → Network, then click Expenses in the sidebar.
+
+Look for the call to GET /api/expenses (or whatever your expenses endpoint is).
+
+Check:
+
+Status code: 200? 404? 500?
+
+Response tab: Is it a JSON array/object, or is it HTML (<!DOCTYPE html>)?
+
+If you see HTML, it means your front-end is hitting the dev-server fallback instead of your Express API.
+
+2. Verify the Express route exists & is mounted
+In your backend, open the file where you define expenses routes (e.g. server/routes/expenses.ts):
+
+ts
+Copy
+Edit
+import { Router } from 'express';
+const router = Router();
+
+router.get('/', async (req, res, next) => {
+  console.log('>>> HIT /api/expenses');             // <<< add this
+  try {
+    const expenses = await getExpensesForTenant(...);
+    res.json(expenses);
+  } catch (err) {
+    next(err);
+  }
+});
+
+export default router;
+Then in your main server setup (often server/index.ts or server/app.ts):
+
+ts
+Copy
+Edit
+import expensesRouter from './routes/expenses';
+// …
+app.use('/api/expenses', expensesRouter);
+Restart your server (npm run dev or tsx server/index.ts), then hit Expenses again and watch your server console for “>>> HIT /api/expenses”.
+
+If you see the log: the route is wired up.
+
+If not: either the file isn’t imported, or the mount path is wrong.
+
+3. Test the API directly with curl
+From a terminal:
+
+bash
+Copy
+Edit
+curl -i http://localhost:5000/api/expenses
+You should get back something like:
+
+bash
+Copy
+Edit
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+[...]
+
+[ { "id":1, "amount": 123.45, ... }, … ]
+If you instead get HTML (your app’s index.html), the Express route still isn’t being reached.
+
+4. Ensure your front-end proxy is forwarding /api correctly
+If you’re using Vite:
+In vite.config.js:
+
+js
+Copy
+Edit
+export default defineConfig({
+  // …
+  server: {
+    proxy: {
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
+If you’re on Create-React-App:
+In your package.json:
+
+json
+Copy
+Edit
+"proxy": "http://localhost:5000"
+After making changes, hard-refresh (Ctrl+Shift+R) your browser.
+
+5. Double-check your React data-fetch code
+In your Expenses page (wherever you call useQuery or fetch):
+
+ts
+Copy
+Edit
+const { data, error, isLoading } = useQuery<Expense[]>({
+  queryKey: ['/api/expenses'],
+  queryFn: async () => {
+    const res = await fetch('/api/expenses', {
+      headers: { 'Cache-Control': 'no-cache' }
+    });
+    if (!res.ok) throw new Error(`Status ${res.status}`);
+    return res.json();
+  }
+});
+Ensure the path exactly matches your Express mount ('/api/expenses').
+
+If you accidentally do fetch('/expenses') or /api/expense (singular), you’ll fall back to your SPA’s HTML.
+
+6. Confirm in Network & remove the red box
+In Network, re-load Expenses.
+
+GET /api/expenses should now return JSON (200 OK).
+
+Your React Query should populate data and render the table instead of showing the error banner.
+
+If it still fails…
+Note the status code (404 means route not found; 500 means server-side crash).
+
+Check the server console for any stack trace.
+
+Share that error here and we’ll dig into it.
+
+Once GET /api/expenses is returning JSON, your Expenses page will load just like Suppliers, Catalog Items, and Timesheets do. Let me know what you see in Step 1 (Network + Response) and Step 2 (server log) and we’ll wrap it up!

@@ -3314,7 +3314,12 @@ export class DatabaseStorage implements IStorage {
     return result.length > 0;
   }
 
-  async getAllExpenses(): Promise<Expense[]> {
+  async getAllExpenses(tenantId?: number): Promise<Expense[]> {
+    if (tenantId !== undefined) {
+      return await db.query.expenses.findMany({
+        where: eq(schema.expenses.tenantId, tenantId)
+      });
+    }
     return await db.query.expenses.findMany();
   }
 
