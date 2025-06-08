@@ -325,6 +325,7 @@ export const catalogItems = pgTable("catalog_items", {
 // Suppliers
 export const suppliers = pgTable("suppliers", {
   id: serial("id").primaryKey(),
+  tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   name: text("name").notNull(),
   contactName: text("contact_name"),
   email: text("email"),

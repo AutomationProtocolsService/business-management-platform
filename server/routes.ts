@@ -2128,6 +2128,114 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Suppliers routes
+  app.get("/api/suppliers", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT suppliers route, tenant:', tenantId);
+      
+      const suppliers = await storage.getAllSuppliers(tenantId);
+      res.json(suppliers);
+    } catch (error) {
+      console.error('Error fetching suppliers:', error);
+      res.status(500).json({ message: "Failed to fetch suppliers" });
+    }
+  });
+
+  app.post("/api/suppliers", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      console.log('>>> HIT suppliers POST route, body:', req.body);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      const supplierData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+
+      const newSupplier = await storage.createSupplier(supplierData);
+      res.status(201).json(newSupplier);
+    } catch (error) {
+      console.error('Error creating supplier:', error);
+      res.status(500).json({ message: "Failed to create supplier" });
+    }
+  });
+
+  app.get("/api/suppliers/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const supplierId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const supplier = await storage.getSupplier(supplierId);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      // Security check - ensure supplier belongs to the tenant
+      if (supplier.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(supplier);
+    } catch (error) {
+      console.error('Error fetching supplier:', error);
+      res.status(500).json({ message: "Failed to fetch supplier" });
+    }
+  });
+
+  app.put("/api/suppliers/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const supplierId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const supplier = await storage.getSupplier(supplierId);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      // Security check - ensure supplier belongs to the tenant
+      if (supplier.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedSupplier = await storage.updateSupplier(supplierId, req.body);
+      res.json(updatedSupplier);
+    } catch (error) {
+      console.error('Error updating supplier:', error);
+      res.status(500).json({ message: "Failed to update supplier" });
+    }
+  });
+
+  app.delete("/api/suppliers/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const supplierId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const supplier = await storage.getSupplier(supplierId);
+      
+      if (!supplier) {
+        return res.status(404).json({ message: "Supplier not found" });
+      }
+      
+      // Security check - ensure supplier belongs to the tenant
+      if (supplier.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      await storage.deleteSupplier(supplierId);
+      res.status(204).send();
+    } catch (error) {
+      console.error('Error deleting supplier:', error);
+      res.status(500).json({ message: "Failed to delete supplier" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts
