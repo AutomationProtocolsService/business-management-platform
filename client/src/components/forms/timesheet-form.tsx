@@ -44,13 +44,21 @@ interface TimesheetFormProps {
   timesheetId?: number; // Only for editing existing timesheet
   employeeId?: number; // Pre-select employee (for employee-specific views)
   onSuccess?: (data: Timesheet) => void;
+  initialData?: any; // For editing existing timesheet
+  customSubmit?: (data: any) => void; // Custom submit handler
+  submitLabel?: string; // Custom submit button label
+  isLoading?: boolean; // Loading state for submit button
 }
 
 export default function TimesheetForm({ 
   defaultValues, 
   timesheetId, 
   employeeId: preselectedEmployeeId,
-  onSuccess 
+  onSuccess,
+  initialData,
+  customSubmit,
+  submitLabel = "Create Timesheet",
+  isLoading = false
 }: TimesheetFormProps) {
   const { toast } = useToast();
 
@@ -59,10 +67,22 @@ export default function TimesheetForm({
     queryKey: ["/api/employees"],
   });
 
-  // Initialize form
-  const form = useForm<TimesheetFormValues>({
-    resolver: zodResolver(timesheetFormSchema),
-    defaultValues: defaultValues || {
+  // Initialize form with proper default values for both create and edit modes
+  const getFormDefaults = () => {
+    if (initialData) {
+      // Convert initial data to form format
+      return {
+        employeeId: initialData.employeeId || 0,
+        date: initialData.date ? getInputDateString(new Date(initialData.date)) : getInputDateString(new Date()),
+        startTime: initialData.startTime ? getInputDateTimeString(new Date(initialData.startTime)) : "",
+        endTime: initialData.endTime ? getInputDateTimeString(new Date(initialData.endTime)) : "",
+        breakDuration: initialData.breakDuration || 30,
+        notes: initialData.notes || "",
+        status: initialData.status || "pending",
+      };
+    }
+    
+    return defaultValues || {
       employeeId: preselectedEmployeeId || 0,
       date: getInputDateString(new Date()),
       startTime: "", // Leave blank for employee to fill in
@@ -70,7 +90,12 @@ export default function TimesheetForm({
       breakDuration: 30,
       notes: "",
       status: "pending",
-    },
+    };
+  };
+
+  const form = useForm<TimesheetFormValues>({
+    resolver: zodResolver(timesheetFormSchema),
+    defaultValues: getFormDefaults(),
   });
 
   // Set employee ID if provided via props
@@ -79,6 +104,16 @@ export default function TimesheetForm({
       form.setValue("employeeId", preselectedEmployeeId);
     }
   }, [preselectedEmployeeId, form]);
+
+  // Update form values when initialData changes (for edit mode)
+  useEffect(() => {
+    if (initialData) {
+      const formData = getFormDefaults();
+      Object.entries(formData).forEach(([key, value]) => {
+        form.setValue(key as keyof TimesheetFormValues, value);
+      });
+    }
+  }, [initialData, form]);
 
   // Create timesheet mutation
   const createTimesheet = useMutation({
@@ -138,7 +173,7 @@ export default function TimesheetForm({
   });
 
   // Form submission handler
-  function onSubmit(values: TimesheetFormValues) {
+  function handleSubmit(values: TimesheetFormValues) {
     // Just format the date values but keep them as strings
     // This avoids sending full Date objects to the server which can cause validation issues
     const formattedValues = {
@@ -154,6 +189,13 @@ export default function TimesheetForm({
 
     console.log("Submitting timesheet with values:", formattedValues);
     
+    // Use custom submit handler if provided (for edit mode)
+    if (customSubmit) {
+      customSubmit(formattedValues);
+      return;
+    }
+
+    // Otherwise use the built-in mutations
     if (timesheetId) {
       updateTimesheet.mutate(formattedValues);
     } else {
