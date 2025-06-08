@@ -1,0 +1,90 @@
+Let’s tackle the Purchase Orders screen like we did the others—your React UI is getting an HTML page back instead of JSON because the /api/purchase-orders endpoint isn’t wired through your dev server to your Express backend (so Vite is serving up your React shell instead). Follow these steps:
+
+1. Front-end: call the right URL (with leading slash + tenant)
+In your PurchaseOrders page (where you do the useQuery), make sure you are:
+
+ts
+Copy
+Edit
+// PurchaseOrdersPage.tsx
+const tenantId = /* however you grab it from auth/session */;
+
+const { data, isError, error } = useQuery(
+  ['purchaseOrders', tenantId],
+  () =>
+    fetch(`/api/purchase‐orders?tenant=${tenantId}`, {
+      headers: { 'Cache-Control': 'no-cache' },
+    }).then((res) => {
+      if (!res.ok) throw new Error(`API ${res.status} ${res.statusText}`);
+      return res.json();
+    }),
+  { enabled: !!tenantId }
+);
+Leading slash on /api/... ensures the browser doesn’t try to re-resolve it off your current path.
+
+Add enabled: !!tenantId so you only fire the query once your tenant context is set.
+
+Always throw on !res.ok so you see exactly if it’s 404, 500, or CORS.
+
+2. Vite config: proxy all /api calls to your Express port
+Open vite.config.ts and add:
+
+ts
+Copy
+Edit
+import { defineConfig } from 'vite';
+import react from '@vitejs/plugin-react';
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      // forward /api/* to Express running on :5000
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+        secure: false,
+      },
+    },
+  },
+});
+Now when your React app asks for /api/purchase‐orders, Vite dev server will tunnel that to localhost:5000/api/purchase‐orders.
+
+3. Express: mount your Purchase Orders router before the SPA fallback
+In your server/index.ts (or wherever you set up Express), ensure:
+
+ts
+Copy
+Edit
+import express from 'express';
+import purchaseOrdersRouter from './routes/purchaseOrders';
+
+const app = express();
+
+// 1️⃣ BODY‐PARSERS, CORS, SESSIONS, etc.
+
+// 2️⃣ Mount all your API routes **first**
+app.use('/api/purchase-orders', purchaseOrdersRouter);
+// … other API routers …
+
+// 3️⃣ Then your static files + SPA catch‐all:
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+If you reverse that order, a GET to /api/purchase-orders will match the * and return your index.html (which is why you saw <!DOCTYPE…> instead of JSON).
+
+4. Verify in the browser (Network tab)
+Open DevTools → Network
+
+Click on “Purchase Orders” in the sidebar
+
+Look for GET /api/purchase-orders?tenant=…
+
+Status should be 200
+
+Response should be a JSON array of POs
+
+If you still see a 404 or a 200 HTML response, that tells you which layer (client proxy vs. server mount order) is still mis-configured.
+
+Once /api/purchase-orders actually returns JSON, your React-Query hook will succeed and the error banner will disappear. Let me know what the Network tab shows after these changes!
