@@ -1835,6 +1835,168 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Timesheet routes
+  app.get("/api/timesheets", requireAuth, async (req, res) => {
+    try {
+      const { employeeId, status, date } = req.query;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      let timesheets;
+      if (employeeId) {
+        timesheets = await storage.getTimesheetsByEmployee(Number(employeeId), tenantId);
+      } else {
+        timesheets = await storage.getAllTimesheets(tenantId ? { tenantId } : undefined);
+      }
+      
+      // Additional filtering by status or date if provided
+      if (status && typeof status === 'string') {
+        timesheets = timesheets.filter(t => t.status === status);
+      }
+      if (date && typeof date === 'string') {
+        timesheets = timesheets.filter(t => t.date === date);
+      }
+      
+      res.json(timesheets);
+    } catch (error) {
+      console.error('Error fetching timesheets:', error);
+      res.status(500).json({ message: "Failed to fetch timesheets" });
+    }
+  });
+
+  app.post("/api/timesheets", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+      
+      // Add tenant ID to the timesheet data
+      const timesheetData = {
+        ...req.body,
+        tenantId
+      };
+      
+      console.log('Creating timesheet with data:', timesheetData);
+      
+      const newTimesheet = await storage.createTimesheet(timesheetData);
+      res.status(201).json(newTimesheet);
+    } catch (error) {
+      console.error('Error creating timesheet:', error);
+      res.status(500).json({ message: "Failed to create timesheet" });
+    }
+  });
+
+  app.get("/api/timesheets/:id", requireAuth, async (req, res) => {
+    try {
+      const timesheetId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const timesheet = await storage.getTimesheet(timesheetId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Security check - ensure timesheet belongs to the tenant
+      if (timesheet.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(timesheet);
+    } catch (error) {
+      console.error('Error fetching timesheet:', error);
+      res.status(500).json({ message: "Failed to fetch timesheet" });
+    }
+  });
+
+  app.put("/api/timesheets/:id", requireAuth, async (req, res) => {
+    try {
+      const timesheetId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const timesheet = await storage.getTimesheet(timesheetId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Security check - ensure timesheet belongs to the tenant
+      if (timesheet.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedTimesheet = await storage.updateTimesheet(timesheetId, req.body, tenantId);
+      res.json(updatedTimesheet);
+    } catch (error) {
+      console.error('Error updating timesheet:', error);
+      res.status(500).json({ message: "Failed to update timesheet" });
+    }
+  });
+
+  app.delete("/api/timesheets/:id", requireAuth, async (req, res) => {
+    try {
+      const timesheetId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const timesheet = await storage.getTimesheet(timesheetId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Security check - ensure timesheet belongs to the tenant
+      if (timesheet.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteTimesheet(timesheetId, tenantId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete timesheet" });
+      }
+    } catch (error) {
+      console.error('Error deleting timesheet:', error);
+      res.status(500).json({ message: "Failed to delete timesheet" });
+    }
+  });
+
+  app.post("/api/timesheets/:id/approve", requireAuth, async (req, res) => {
+    try {
+      const timesheetId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      const userId = req.user?.id;
+      
+      if (!userId) {
+        return res.status(400).json({ message: "User context required" });
+      }
+      
+      const timesheet = await storage.getTimesheet(timesheetId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Security check - ensure timesheet belongs to the tenant
+      if (timesheet.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const approvedTimesheet = await storage.updateTimesheet(timesheetId, {
+        status: 'approved',
+        approvedBy: userId,
+        approvedAt: new Date().toISOString()
+      }, tenantId);
+      
+      res.json(approvedTimesheet);
+    } catch (error) {
+      console.error('Error approving timesheet:', error);
+      res.status(500).json({ message: "Failed to approve timesheet" });
+    }
+  });
+
   // Register additional API routes here
 
   // We'll create a server in index.ts
