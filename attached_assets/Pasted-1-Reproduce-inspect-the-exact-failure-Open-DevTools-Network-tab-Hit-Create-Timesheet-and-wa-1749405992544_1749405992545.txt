@@ -1,0 +1,119 @@
+1. Reproduce & inspect the exact failure
+Open DevTools → Network tab.
+
+Hit “Create Timesheet” and watch the POST to /api/timesheets.
+
+Inspect:
+
+Request URL – is it exactly /api/timesheets or are you accidentally hitting your HTML fallback?
+
+Request Payload – does it include employeeId, date, etc., and in the shape your API expects?
+
+Response Body – are you getting back JSON or an HTML error page (which is why JSON.parse sees <)?
+
+Response Status – 4xx? 5xx?
+
+If the response is HTML (e.g. your React app’s index.html), you’re almost certainly POSTing to the frontend route, not your JSON API, or you’re unauthenticated and getting redirected to a login page.
+
+2. Fix the front-end request
+In your TimesheetForm component (or wherever you do fetch('/api/timesheets', …)), make sure:
+
+ts
+Copy
+Edit
+await fetch('/api/timesheets', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Accept':       'application/json',
+  },
+  credentials: 'include',            // if you rely on cookies/session
+  body: JSON.stringify({
+    employeeId:  selectedEmployeeId, // numeric ID, not the role string!
+    date:        selectedDate,       // e.g. "2025-06-09"
+    startTime:   startTime || null,  // ISO string or null
+    endTime:     endTime   || null,
+    breakMinutes,
+    notes,
+    status,
+  }),
+});
+credentials: 'include' ensures your auth cookie goes along.
+
+JSON headers avoid the HTML fallback.
+
+3. Verify your employee dropdown is sending the right value
+Right now you said it’s showing the “role” (e.g. "admin") instead of the employee’s name. That means you probably mapped your <Select> options like:
+
+tsx
+Copy
+Edit
+<SelectItem value={emp.role}>{emp.role}</SelectItem>
+but you need:
+
+tsx
+Copy
+Edit
+<SelectItem value={emp.id.toString()}>{emp.name}</SelectItem>
+and then parse Number(value) on submit into employeeId.
+
+4. Check your backend route signature
+In server/routes/timesheets.ts (or wherever):
+
+ts
+Copy
+Edit
+router.post('/', async (req, res) => {
+  const {
+    employeeId,
+    date,
+    startTime,
+    endTime,
+    breakMinutes,
+    notes,
+    status
+  } = req.body;
+
+  // Basic validation
+  if (![employeeId, date, status].every(x => x !== undefined)) {
+    return res.status(400).json({ message: 'Missing required fields' });
+  }
+
+  // Call your ORM / service
+  try {
+    const created = await prisma.timesheet.create({
+      data: {
+        employeeId,
+        date:         new Date(date),
+        startTime:   startTime ? new Date(startTime) : null,
+        endTime:     endTime   ? new Date(endTime)   : null,
+        breakMinutes,
+        notes,
+        status,
+        tenantId:    req.user.tenantId,     // if multi-tenant
+        createdBy:   req.user.id,
+      },
+    });
+    res.status(201).json(created);
+  } catch (err) {
+    console.error("Error creating timesheet:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+Watch your server logs when you click “Create Timesheet” — you should see either your console.error or the success path.
+
+5. Iterate quickly
+Network tab → verify you’re hitting the right URL and getting JSON back.
+
+Console logs → sprinkle a console.log(req.body) at the top of the route.
+
+Toast on errors → if you get a 400 or 500, show the JSON message (err.response?.message) instead of a generic “Failed to create”.
+
+6. Final sanity checks
+Make sure you’re logged in (otherwise the API will redirect or 401).
+
+Make sure your frontend base‐URL isn’t rewriting /api/* to static HTML.
+
+Ensure your React‐Query invalidation is pointing at the same key you fetched (so new rows show up).
+
+Once your POST returns 201 { …timesheet… } and you see the new row in the response, your UI will reflect it immediately. Let me know what the first failing network response shows, and we’ll zero in on any remaining mismatch!
