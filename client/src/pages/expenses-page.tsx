@@ -198,7 +198,7 @@ export default function ExpensesPage() {
               <PlusCircle className="h-4 w-4" /> Add Expense
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
+          <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
                 {selectedExpense ? "Edit Expense" : "Add New Expense"}
