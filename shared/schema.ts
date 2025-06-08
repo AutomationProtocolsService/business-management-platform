@@ -640,7 +640,12 @@ export const insertInvoiceItemSchema = createInsertSchema(invoiceItems).omit({
   id: true,
 });
 
-export const insertEmployeeSchema = createInsertSchema(employees).omit({
+export const insertEmployeeSchema = createInsertSchema(employees, {
+  hireDate: z.string().optional(),
+  terminationDate: z.string().optional(),
+  tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
+  createdBy: z.number().optional(), // Allow server to set createdBy from authenticated user
+}).omit({
   id: true,
   createdAt: true,
 });
