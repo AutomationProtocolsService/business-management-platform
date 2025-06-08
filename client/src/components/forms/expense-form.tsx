@@ -158,7 +158,10 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   // Handle form submission
   const onSubmit = async (data: FormValues) => {
+    console.log("🔥 form submit handler fired", data);
+    
     if (!user) {
+      console.log("❌ No user found, authentication required");
       toast({
         title: "Authentication required",
         description: "You must be logged in to create expenses.",
@@ -182,6 +185,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
     const expenseData = {
       ...data,
+      date: data.date.toISOString().split('T')[0], // Convert Date to YYYY-MM-DD string
       receiptUrl,
       createdBy: user.id,
     };
@@ -201,7 +205,11 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+      <form onSubmit={(e) => {
+        console.log("🔥 form onSubmit event triggered");
+        console.log("Form errors:", form.formState.errors);
+        form.handleSubmit(onSubmit)(e);
+      }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
             {/* Description */}
@@ -421,8 +429,8 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                 <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
                   <FormControl>
                     <Checkbox
-                      checked={field.value}
-                      onChange={(e) => field.onChange(e.target.checked)}
+                      checked={!!field.value}
+                      onCheckedChange={field.onChange}
                     />
                   </FormControl>
                   <div className="space-y-1 leading-none">
@@ -448,7 +456,8 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
                     <Textarea 
                       placeholder="Add any additional details about this expense" 
                       className="min-h-[100px]"
-                      {...field} 
+                      {...field}
+                      value={field.value || ""}
                     />
                   </FormControl>
                   <FormMessage />

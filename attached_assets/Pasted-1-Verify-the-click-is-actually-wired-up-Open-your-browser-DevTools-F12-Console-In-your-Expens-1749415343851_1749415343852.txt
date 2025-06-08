@@ -1,0 +1,100 @@
+1. Verify the click is actually wired up
+Open your browser DevTools (F12 → Console).
+
+In your Expenses modal component, find the JSX for the Create Expense button. It should look roughly like:
+
+tsx
+Copy
+Edit
+<Button type="submit" form="expense-form">
+  Create Expense
+</Button>
+or
+
+tsx
+Copy
+Edit
+<Button onClick={handleCreateExpense}>
+  Create Expense
+</Button>
+Add a quick console.log in the handler (or right inside your JSX):
+
+tsx
+Copy
+Edit
+{/* if you’re using a form’s onSubmit */}
+<form
+  id="expense-form"
+  onSubmit={e => {
+    e.preventDefault();
+    console.log("🔥 form submit handler fired");
+    return handleCreateExpense(e);
+  }}
+>
+  …fields…
+  <Button type="submit">Create Expense</Button>
+</form>
+or if you’re using an onClick:
+
+tsx
+Copy
+Edit
+<Button
+  onClick={() => {
+    console.log("🔥 create-expense clicked");
+    handleCreateExpense();
+  }}
+>
+  Create Expense
+</Button>
+Re-open the modal, click your “Create Expense” button, and watch the Console.
+
+If you see your 🔥 log, your button is wired correctly—move on to step 2.
+
+If you don’t see anything, your button isn’t hooked up. Make sure you’re using type="submit" inside a form or that your onClick={…} is on the right <Button> element.
+
+2. Inspect the network request
+Once the handler fires, it should be calling your API:
+
+Switch to the Network tab in DevTools.
+
+Click “Create Expense” and watch for a new XHR/fetch request.
+
+If you see a request: click it and inspect
+
+URL & method (should be /api/expenses POST)
+
+Request payload (JSON body of all your form fields)
+
+Response (status code & body)
+
+If you see no request: your handler isn’t invoking the fetch/axios call—open that function and ensure you actually call fetch(...) or api.post(...).
+
+3. Handle JSON / HTML errors
+Earlier you were getting “Unexpected token ‘<’” which means your frontend tried to parse an HTML error page as JSON. If your new button wiring is correct but you still see that:
+
+In Network → Response, if the server returns HTML (your app’s login page or an Express error page) instead of JSON, that’s why parsing fails.
+
+Check your server logs—are you hitting an authentication guard or missing tenantId?
+
+Ensure your request includes the same cookies/headers as your working “Add Supplier”, “Add Catalog Item”, etc. (you may need to pass credentials: 'include' to your fetch).
+
+4. Common gotchas & fixes
+Forgot type="submit" on your button? Then clicking it does nothing.
+
+Missing e.preventDefault() in your onSubmit handler? The form might be reloading the whole page.
+
+Wrong form id passed to form="expense-form" on the button? The button isn’t tied to the form.
+
+API route name mismatch (e.g. you post to /api/expense but your route is /api/expenses).
+
+CORS or authentication middleware rejecting the request and sending back HTML.
+
+Final sanity check
+Add the console.logs in step 1 and confirm the click reaches your handler.
+
+Watch the Network panel—confirm a proper JSON POST goes out and a JSON success (2xx) comes back.
+
+If you still see HTML in the response, check your Express route (does it send res.json(...) or render an HTML error page?).
+
+Once you see a clean JSON response in DevTools, your frontend will parse it and update the UI. Let me know exactly which of these sub-steps still fails, and we’ll zero in on the fix!
