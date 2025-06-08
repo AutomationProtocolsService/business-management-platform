@@ -207,10 +207,32 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
     <Form {...form}>
       <form id="expense-form" onSubmit={(e) => {
         e.preventDefault();
-        console.log("🧪 Expense form submit fired");
-        console.log("🔥 form onSubmit event triggered");
-        console.log("Form errors:", form.formState.errors);
-        form.handleSubmit(onSubmit)(e);
+        console.log("📝 form submit fired");
+        // Raw fetch test
+        (async () => {
+          try {
+            const resp = await fetch("/api/expenses", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                amount: 42,
+                date: "2025-06-08",
+                category: "Materials",
+                description: "Test expense",
+                tenantId: 1,
+                createdBy: 4
+              }),
+            });
+            console.log("🚀 raw fetch status:", resp.status);
+            const text = await resp.text();
+            console.log("🚀 raw fetch response body:", text);
+            alert(`Raw POST returned ${resp.status}. See console.`);
+          } catch (err) {
+            console.error("🔥 fetch threw:", err);
+            alert("Fetch threw—see console");
+          }
+        })();
       }} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
@@ -477,14 +499,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           >
             Cancel
           </Button>
-          {/* Hello World smoke test */}
-          <Button
-            type="button"
-            onClick={() => {
-              console.log("🔥 raw click!");
-              alert("🔥 raw click!");
-            }}
-          >
+          <Button type="submit">
             Create Expense
           </Button>
         </div>

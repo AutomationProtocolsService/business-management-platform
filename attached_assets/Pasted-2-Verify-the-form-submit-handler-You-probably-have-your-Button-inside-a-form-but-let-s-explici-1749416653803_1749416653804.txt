@@ -1,0 +1,151 @@
+2. Verify the form submit handler
+You probably have your <Button> inside a <form>, but let’s explicitly wire up onSubmit and log it.
+
+Locate the JSX block where you render the expense form.
+
+Wrap all of your inputs and the “Create Expense” button in a <form> tag with an onSubmit:
+
+tsx
+Copy
+Edit
+<form
+  onSubmit={e => {
+    e.preventDefault();
+    console.log("📝 form submit fired");
+    // after confirming the log, call your real create handler:
+    handleCreateExpense();
+  }}
+>
+  {/* … all your <Input>, <Select>, etc. … */}
+  <Button type="submit">Create Expense</Button>
+</form>
+Action: Click “Create Expense” again.
+
+Expect to see “📝 form submit fired” in the console.
+
+If you don’t see it, your <Button> is not inside that <form>.
+→ Move the button into the form or give it its own onClick that calls handleCreateExpense() directly.
+
+Once you confirm the submit handler fires, remove the console.log and let it call your real handleCreateExpense().
+
+3. Bypass React-Query / mutation for a raw POST
+Now let’s prove the API endpoint itself is reachable from this page:
+
+Inside that same submit handler (right after console.log), paste:
+
+ts
+Copy
+Edit
+(async () => {
+  try {
+    const resp = await fetch("/api/expenses", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: 42,
+        date:   "2025-06-08",
+        category: "Materials",
+        // include any other **required** fields minimally
+      }),
+    });
+    console.log("🚀 raw fetch status:", resp.status);
+    const text = await resp.text();
+    console.log("🚀 raw fetch response body:", text);
+    alert(`Raw POST returned ${resp.status}. See console.`);
+  } catch (err) {
+    console.error("🔥 fetch threw:", err);
+    alert("Fetch threw—see console");
+  }
+})();
+Click Create Expense.
+
+Inspect:
+
+Status 201 + JSON body → back-end is working!
+
+Status ≠200 or body starts with < → server is returning HTML (likely an error page).
+
+If you get HTML, check your server route:
+
+ts
+Copy
+Edit
+// server/src/routes/expenses.ts
+router.post("/api/expenses", async (req, res) => {
+  try {
+    const e = await prisma.expense.create({ data: req.body });
+    return res.status(201).json(e);
+  } catch (error) {
+    console.error(error);
+    return res.status(400).json({ message: error.message });
+  }
+});
+Ensure no stray res.sendFile() or catch-all that serves your SPA’s index.html.
+
+4. Inspect the Network panel
+If the raw fetch still fails:
+
+Open DevTools → Network.
+
+Click “Create Expense” and locate the /api/expenses request.
+
+Check Request:
+
+URL & method are correct.
+
+Request Headers include your cookie/session via Cookie: header.
+
+Check Response:
+
+If it’s a 302 to /login, you’re unauthenticated—ensure credentials: "include" and that CORS (if any) allows cookies.
+
+If it’s a 500, open your server logs to see the stack trace.
+
+5. Re-wire your React-Query mutation
+Only after the raw fetch succeeds, switch back to your useMutation:
+
+ts
+Copy
+Edit
+const createExpense = useMutation(
+  async (data: NewExpense) => {
+    const res = await fetch("/api/expenses", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  {
+    onSuccess: () => queryClient.invalidateQueries(["expenses"]),
+    onError: (err: Error) => {
+      toast.error({ title: "Error creating expense", description: err.message });
+    },
+  }
+);
+And in your onSubmit:
+
+ts
+Copy
+Edit
+createExpense.mutate({
+  amount,
+  date,
+  category,
+  // …other form values…
+});
+Summary
+Button click → confirmed.
+
+Form submit → add onSubmit log to ensure React sees it.
+
+Raw fetch → proves the API endpoint.
+
+Network debug → reveals HTTP or auth hiccups.
+
+Restore mutation → once the plumbing is solid.
+
+Follow these steps one by one and note exactly where the chain breaks. Report back on which console logs or network behaviors you observe, and we’ll drill into that specific failure
