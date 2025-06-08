@@ -1,0 +1,171 @@
+1. “Hello World” smoke test
+First, prove that anything you click can fire code. We’ll attach a raw onClick to that button, bypassing your form, fetch, or mutation logic entirely.
+
+Right next to where you render the blue button, drop this:
+
+tsx
+Copy
+Edit
+<Button
+  type="button"
+  onClick={() => {
+    console.log("🔥 raw click!");
+    alert("🔥 raw click!");
+  }}
+>
+  Create Expense
+</Button>
+What you should see: immediately on click, a console log and a browser alert.
+
+If you don’t: the button is literally not clickable—likely buried in a scroll container or overlay.
+→ Fix the modal CSS so the button lives in the modal’s interactive layer (no pointer-events: none; on any parent).
+
+Once you’re seeing that, remove the alert/log and restore your real <form> or <Button type="submit">.
+
+2. Wire up the form submit properly
+Next, let’s make sure your form is actually catching the submit event:
+
+tsx
+Copy
+Edit
+<form
+  onSubmit={e => {
+    e.preventDefault();
+    console.log("📝 form submit fired");
+    // call your real handler:
+    handleCreateExpense();
+  }}
+>
+  {/* …all your <Input> fields… */}
+  <Button type="submit">Create Expense</Button>
+</form>
+Click Create Expense.
+
+Do you see 📝 form submit fired?
+
+No: your <Button> isn’t inside the <form>—move it or add its own onClick.
+
+Yes: great! Remove that console and let it fall through to your real handler.
+
+3. Bypass react-query / mutation: raw fetch
+Your next suspicion: React-Query’s mutation might not be running, or your fetch is misconfigured. Let’s call your API directly:
+
+Inside that same onSubmit, after the console.log, paste:
+
+ts
+Copy
+Edit
+(async () => {
+  try {
+    const resp = await fetch("/api/expenses", {
+      method: "POST",
+      credentials: "include",        // ← very important for session cookies!
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        amount: 123,
+        date:   "2025-06-08",
+        category: "Materials",
+        // … any minimal required fields …
+      }),
+    });
+    console.log("Raw fetch status:", resp.status);
+    const text = await resp.text();
+    console.log("Raw fetch response:", text);
+    alert(`Status ${resp.status}, see console for body`);
+  } catch (err) {
+    console.error("Fetch error:", err);
+    alert("Fetch threw, see console");
+  }
+})();
+What to look for:
+
+Status 201 and a JSON body → back end is working.
+
+Non-2xx, or body starts with < → your server is returning HTML (maybe a 401 page).
+
+If you see HTML, check your Express route:
+
+ts
+Copy
+Edit
+// server/routes/expenses.ts
+router.post("/api/expenses", async (req, res) => {
+  try {
+    const e = await prisma.expense.create({ data: { /*…*/ } });
+    return res.status(201).json(e);
+  } catch (error) {
+    console.error(error);
+    return res.status(400).json({ message: error.message });
+  }
+});
+Ensure: no res.render() or res.send("<html>…") in that path.
+
+Ensure: you’re not accidentally hitting your front-end “catch-all” that serves index.html.
+
+4. Network tab inspection
+If the raw fetch still fails or returns HTML:
+
+Open Network in DevTools.
+
+Click “Create Expense.”
+
+Filter for “/api/expenses”.
+
+Click the request:
+
+Headers: confirm URL, method, and that Cookie: header carries your session.
+
+Response: see exactly what came back.
+
+Common gotchas:
+
+301/302 redirect to /login → means you’re unauthenticated.
+→ Add credentials: "include" and on the server enable CORS+cookies if cross-origin.
+
+404/500 → check server console for a stack trace.
+
+5. Restore your mutation
+Once the raw fetch works (201 + valid JSON), swap back your react-query mutation:
+
+ts
+Copy
+Edit
+const createExpense = useMutation(
+  async (payload: NewExpense) => {
+    const res = await fetch("/api/expenses", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    return res.json();
+  },
+  {
+    onSuccess: () => queryClient.invalidateQueries(["expenses"]),
+    onError:   (err) => toast.error({ title: "Error creating expense", description: (err as Error).message }),
+  }
+);
+And in your form submit:
+
+ts
+Copy
+Edit
+createExpense.mutate({
+  amount,
+  date,
+  category,
+  // …
+});
+Recap
+Raw button click → confirm UI is interactive.
+
+Form submit log → confirm your JSX wiring.
+
+Raw fetch → confirm the API endpoint works in isolation.
+
+Network tab → inspect request & response.
+
+Restore mutation → hook back into React-Query once the plumbing is sound.
+
+Follow those five steps to pinpoint exactly where the break is—then we can plug the specific leak. Let me know which step still trips you up, and we’ll hammer that one down to a one-line fix.

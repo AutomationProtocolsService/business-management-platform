@@ -477,20 +477,15 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
           >
             Cancel
           </Button>
-          <Button 
-            type="submit"
-            disabled={createMutation.isPending || updateMutation.isPending}
-            className="flex items-center gap-1"
+          {/* Hello World smoke test */}
+          <Button
+            type="button"
             onClick={() => {
-              console.log("🎯 Create Expense button clicked!");
-              console.log("Form state:", form.formState);
-              console.log("Form values:", form.getValues());
+              console.log("🔥 raw click!");
+              alert("🔥 raw click!");
             }}
           >
-            {(createMutation.isPending || updateMutation.isPending) && (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            )}
-            {expense ? "Update Expense" : "Create Expense"}
+            Create Expense
           </Button>
         </div>
       </form>
