@@ -192,7 +192,7 @@ export default function TimesheetForm({
                 <SelectContent>
                   {employees.map((employee) => (
                     <SelectItem key={employee.id} value={employee.id.toString()}>
-                      {employee.position ? `${employee.position}` : `Employee #${employee.id}`}
+                      {employee.fullName || `Employee #${employee.id}`}
                     </SelectItem>
                   ))}
                 </SelectContent>
