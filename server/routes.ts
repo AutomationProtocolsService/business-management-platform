@@ -1963,6 +1963,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/timesheets/:id", requireAuth, async (req, res) => {
+    try {
+      const timesheetId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const timesheet = await storage.getTimesheet(timesheetId);
+      
+      if (!timesheet) {
+        return res.status(404).json({ message: "Timesheet not found" });
+      }
+      
+      // Security check - ensure timesheet belongs to the tenant
+      if (timesheet.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedTimesheet = await storage.updateTimesheet(timesheetId, req.body, tenantId);
+      res.json(updatedTimesheet);
+    } catch (error) {
+      console.error('Error updating timesheet:', error);
+      res.status(500).json({ message: "Failed to update timesheet" });
+    }
+  });
+
   app.post("/api/timesheets/:id/approve", requireAuth, async (req, res) => {
     try {
       const timesheetId = Number(req.params.id);

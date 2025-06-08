@@ -1,0 +1,208 @@
+1. Expose the “Get One” API
+In your server (e.g. server/routes/timesheets.ts), add:
+
+ts
+Copy
+Edit
+// GET /api/timesheets/:id
+router.get('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const ts = await prisma.timesheet.findUnique({
+      where: { id },
+      include: { employee: true, project: true },
+    });
+    if (!ts) return res.status(404).json({ message: 'Not found' });
+    res.json(ts);
+  } catch (err) {
+    next(err);
+  }
+});
+–– restart your server and confirm GET /api/timesheets/123 returns the full record in JSON.
+
+2. Expose the “Update” API
+Right below, add:
+
+ts
+Copy
+Edit
+// PATCH /api/timesheets/:id
+router.patch('/:id', async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    const data = req.body;
+    const updated = await prisma.timesheet.update({
+      where: { id },
+      data,
+    });
+    res.json(updated);
+  } catch (err) {
+    next(err);
+  }
+});
+–– restart and confirm you can curl -X PATCH /api/timesheets/123 -d '{"notes":"foo"}' and see the field change.
+
+3. Build the “View Details” modal on the front-end
+Create TimesheetDetailsModal.tsx:
+
+tsx
+Copy
+Edit
+import React from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { Modal, Button } from '@/components/ui';
+
+interface Props { id: number; onClose: () => void; }
+
+export function TimesheetDetailsModal({ id, onClose }: Props) {
+  const { data, isLoading } = useQuery(
+    ['timesheet', id],
+    () => fetch(`/api/timesheets/${id}`).then(r => r.json())
+  );
+
+  return (
+    <Modal onClose={onClose} title="Timesheet Details">
+      {isLoading ? <p>Loading…</p> : (
+        <div>
+          <p><strong>Employee:</strong> {data.employee.name}</p>
+          <p><strong>Date:</strong> {new Date(data.date).toLocaleDateString()}</p>
+          <p><strong>Time:</strong> {data.startTime} – {data.endTime}</p>
+          <p><strong>Hours:</strong> {data.hours}</p>
+          <p><strong>Project:</strong> {data.project?.name ?? '–'}</p>
+          <p><strong>Status:</strong> {data.status}</p>
+          <p><strong>Notes:</strong> {data.notes ?? '–'}</p>
+        </div>
+      )}
+      <Button onClick={onClose}>Close</Button>
+    </Modal>
+  );
+}
+In your TimesheetsPage.tsx, import it and wire state:
+
+tsx
+Copy
+Edit
+const [viewId, setViewId] = useState<number|null>(null);
+
+// inside your JSX:
+{viewId != null && (
+  <TimesheetDetailsModal
+    id={viewId}
+    onClose={() => setViewId(null)}
+  />
+)}
+In your row’s Actions menu:
+
+tsx
+Copy
+Edit
+<DropdownMenuItem onClick={() => setViewId(row.id)}>
+  View Details
+</DropdownMenuItem>
+4. Build the “Edit” form/modal
+Reuse your New form as <EditTimesheetForm>:
+
+tsx
+Copy
+Edit
+import React, { useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Modal, Button, Input } from '@/components/ui';
+
+export function EditTimesheetForm({ id, onClose }) {
+  const qc = useQueryClient();
+
+  // 1) load existing
+  const { data, isLoading } = useQuery(
+    ['timesheet', id],
+    () => fetch(`/api/timesheets/${id}`).then(r => r.json())
+  );
+
+  // 2) send patch
+  const mutation = useMutation(
+    (updates: any) =>
+      fetch(`/api/timesheets/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      }).then(r => {
+        if (!r.ok) throw new Error('Update failed');
+        return r.json();
+      }),
+    {
+      onSuccess: () => {
+        qc.invalidateQueries(['timesheets']);
+        onClose();
+      }
+    }
+  );
+
+  if (isLoading) return <Modal onClose={onClose}><p>Loading…</p></Modal>;
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const updates = {
+      startTime: form.startTime.value,
+      endTime: form.endTime.value,
+      notes: form.notes.value,
+      status: form.status.value,
+    };
+    mutation.mutate(updates);
+  };
+
+  return (
+    <Modal onClose={onClose} title="Edit Timesheet">
+      <form onSubmit={handleSubmit}>
+        <label>
+          Start Time  
+          <Input name="startTime" defaultValue={data.startTime} />
+        </label>
+        <label>
+          End Time  
+          <Input name="endTime" defaultValue={data.endTime} />
+        </label>
+        <label>
+          Notes  
+          <Input name="notes" defaultValue={data.notes} />
+        </label>
+        <label>
+          Status  
+          <select name="status" defaultValue={data.status}>
+            <option>Pending</option>
+            <option>Approved</option>
+            <option>Rejected</option>
+          </select>
+        </label>
+        <Button type="submit" disabled={mutation.isLoading}>
+          {mutation.isLoading ? 'Saving…' : 'Save'}
+        </Button>
+      </form>
+    </Modal>
+  );
+}
+In TimesheetsPage.tsx, add:
+
+tsx
+Copy
+Edit
+const [editId, setEditId] = useState<number|null>(null);
+// render <EditTimesheetForm id={editId} onClose={()=>setEditId(null)} /> when editId != null
+Hook the menu:
+
+tsx
+Copy
+Edit
+<DropdownMenuItem onClick={() => setEditId(row.id)}>
+  Edit
+</DropdownMenuItem>
+5. Verify & polish
+Click View Details → should pop open your read-only modal.
+
+Click Edit → should pop open your pre-filled form, allow edits, and reflect changes in the table.
+
+Add toasts on success/failure for better UX.
+
+Ensure you invalidate both the ['timesheets'] and any individual ['timesheet', id] queries so your UI stays in sync.
+
+That completes full “View” and “Edit” CRUD actions tied to your dropdown menu. Let me know how it goes!
