@@ -1,0 +1,83 @@
+1) Make sure your front-end is calling exactly /api/...
+Open the file where you call React-Query’s fetch:
+
+ts
+Copy
+Edit
+// PurchaseOrdersPage.tsx (or wherever you load POs)
+const { data, isError, error } = useQuery(
+  ["purchaseOrders", tenantId],
+  () => fetch(`/api/purchase-orders?tenant=${tenantId}`)
+           .then(r => {
+             if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+             return r.json()
+           }),
+);
+Add a leading slash: fetch('/api/purchase-orders…') (not `'api/...')
+
+Add a guard so you only fire once you know tenantId exists:
+
+ts
+Copy
+Edit
+{ enabled: !!tenantId }
+2) In Vite dev-mode, proxy /api to your Express port
+Inside your vite.config.ts:
+
+ts
+Copy
+Edit
+import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
+
+export default defineConfig({
+  plugins: [react()],
+  server: {
+    proxy: {
+      // all /api/* calls get forwarded to your Express backend on port 5000
+      '/api': {
+        target: 'http://localhost:5000',
+        changeOrigin: true,
+      },
+    },
+  },
+});
+This ensures that when you run vite dev on port 5173 (for example), any request to /api/... will be transparently forwarded to your Express server on port 5000.
+
+3) On the Express side, mount your API routes before your static-fallback
+In your server/index.ts, do:
+
+ts
+Copy
+Edit
+import express from 'express';
+import purchaseOrdersRouter from './routes/purchaseOrders';
+const app = express();
+
+// 1️⃣ Mount all API routes first
+app.use('/api/purchase-orders', purchaseOrdersRouter);
+// … any other /api/* routers …
+
+// 2️⃣ Then static + SPA fallback
+app.use(express.static(path.join(__dirname, 'public')));
+app.get('*', (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+app.listen(5000, () => console.log('Listening on 5000'));
+If you reverse that order, /api/purchase-orders will never be seen by Express—it’ll hit the * catch-all and serve your React shell.
+
+Verify in the browser
+Open DevTools → Network
+
+Click Purchase Orders
+
+You should see a GET /api/purchase-orders?tenant=1
+
+Status 200
+
+Response a JSON array
+
+If you still see a 404 or an HTML document, that tells you exactly what’s still mis-wired.
+
+Once you have that returning real JSON, your React component will parse it just fine, and that ugly red banner will go away. Let me know what the Network tab shows!
