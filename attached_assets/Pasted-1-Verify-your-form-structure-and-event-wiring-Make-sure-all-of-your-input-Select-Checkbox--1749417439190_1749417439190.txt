@@ -1,0 +1,152 @@
+1) Verify your form structure and event wiring
+Make sure all of your <input>, <Select>, <Checkbox>, and the submit <Button> live inside the same <form> block. If your button is outside, the browser won’t call onSubmit.
+
+Wrap your dialog’s content like so:
+
+tsx
+Copy
+Edit
+export function ExpenseFormDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const createExpense = useMutation(/* … as above … */);
+
+  const [formState, setFormState] = useState({ /* your fields */ });
+
+  // a simple submit handler
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    console.log("🔔 form submitted!", formState);
+    createExpense.mutate(formState);
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[80vh] overflow-auto">
+        <DialogHeader>
+          <DialogTitle>Add Expense</DialogTitle>
+        </DialogHeader>
+        {/* <-- THE FORM STARTS HERE */}
+        <form onSubmit={handleSubmit}>
+          {/* All your form controls MUST be inside this <form> */}
+          <div className="grid gap-4">
+            <Input
+              label="Amount"
+              type="number"
+              value={formState.amount}
+              onValueChange={(amount) =>
+                setFormState((s) => ({ ...s, amount }))
+              }
+              required
+            />
+            <Input
+              label="Date"
+              type="date"
+              value={formState.date}
+              onChange={(e) =>
+                setFormState((s) => ({ ...s, date: e.target.value }))
+              }
+              required
+            />
+
+            {/* … your other inputs here … */}
+
+            <Checkbox
+              label="Reimbursable"
+              checked={formState.reimbursable}
+              onCheckedChange={(val) =>
+                setFormState((s) => ({ ...s, reimbursable: !!val }))
+              }
+            />
+          </div>
+
+          {/* <-- THE BUTTON IS INSIDE THE FORM */}
+          <div className="mt-6 flex justify-end gap-2">
+            <Button
+              variant="secondary"
+              onClick={() => onOpenChange(false)}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={createExpense.isLoading}>
+              {createExpense.isLoading ? "Creating…" : "Create Expense"}
+            </Button>
+          </div>
+        </form>
+        {/* <-- THE FORM ENDS HERE */}
+      </DialogContent>
+    </Dialog>
+  );
+}
+Checklist
+✅ Single <form> tag wrapping all fields and the submit button
+
+✅ Button has type="submit" (not just an onClick)
+
+✅ Your <DialogContent> uses overflow-auto (so the scroll bar works, and the button is reachable)
+
+2) Add debug logs
+In your handleSubmit add a console.log("🔔 form submitted", formState).
+
+In your mutation’s onMutate, log the payload:
+
+ts
+Copy
+Edit
+const createExpense = useMutation(
+  async (payload) => { /*…*/ },
+  {
+    onMutate(payload) {
+      console.log("🚀 creating expense with", payload);
+    },
+    onSuccess: () => { /*…*/ },
+    onError: (err) => { /*…*/ },
+  }
+);
+Then:
+
+Open DevTools → Console
+
+Click “Create Expense” → you should see “🔔 form submitted” and “🚀 creating expense…”
+
+If you don’t see those:
+
+Your form’s onSubmit isn’t wired correctly
+
+Or the button is outside the form
+
+Or a parent element (e.g. the dialog) is intercepting clicks (check CSS pointer-events)
+
+3) Verify the network call
+Once your console logs fire, switch to the Network tab:
+
+Click your submit button
+
+Make sure you see a POST /api/expenses request
+
+It should return 201 and the response JSON
+
+If the network call never happens, we know the problem is entirely front-end wiring. If it does happen but the dialog never closes:
+
+Ensure you call onOpenChange(false) in your mutation’s onSuccess:
+
+ts
+Copy
+Edit
+onSuccess() {
+  toast({ title: "Expense created!", variant: "success" });
+  queryClient.invalidateQueries(["expenses"]);
+  onOpenChange(false); // <— closes the modal
+}
+TL;DR
+Wrap all your inputs and the “Create Expense” button in one <form onSubmit={…}>.
+
+Make the button type="submit".
+
+Add console logs in your submit handler and mutation’s onMutate.
+
+Confirm you see those logs, then confirm the POST in Network.
+
+On success, close the modal and invalidate your query.
+
+That pattern always works—once your logs land, you’re done. Let me know which of those logs never appears and we’ll dig deeper!
