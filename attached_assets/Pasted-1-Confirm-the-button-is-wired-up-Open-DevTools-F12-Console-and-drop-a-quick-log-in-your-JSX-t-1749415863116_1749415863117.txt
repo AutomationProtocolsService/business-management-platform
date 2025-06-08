@@ -1,0 +1,86 @@
+1. Confirm the button is wired up
+Open DevTools (F12 → Console) and drop a quick log in your JSX:
+
+tsx
+Copy
+Edit
+{/* In your ExpensesModal.tsx (or wherever the form lives) */}
+<form id="expense-form" onSubmit={e => {
+  e.preventDefault();
+  console.log("🧪 Expense form submit fired");
+  return handleCreateExpense();
+}}>
+  {/* …all your inputs here… */}
+  <Button type="submit">Create Expense</Button>
+</form>
+Open the modal.
+
+Click “Create Expense.”
+
+Do you see 🧪 Expense form submit fired in Console?
+
+Yes → good, the form handler is firing. Move on to step 2.
+
+No → the <Button> isn’t inside the <form> or missing type="submit". Wrap it properly or switch to an onClick and log from there.
+
+2. Watch the network request
+Still in DevTools, switch to the Network tab:
+
+Click “Create Expense” again.
+
+Look for a new request—should be a POST to /api/expenses.
+
+If you don’t see any request: your handler doesn’t call the API. Ensure handleCreateExpense() actually invokes your useMutation or fetch.
+
+If you see one: click it and inspect…
+
+Request tab:
+
+URL & method correct?
+
+Payload matches your form fields?
+
+Response tab:
+
+Status 2xx with JSON? → perfect.
+
+Status 4xx/5xx or HTML error page (“Unexpected token <”)? That means the server rejected it or returned HTML (likely an auth redirect).
+
+3. Fix common pitfalls
+Symptom	Likely cause	Fix
+No console log on click	Button not in form or missing type="submit"	Ensure <Button type="submit"> inside <form> or add onClick={…}
+No network request	Handler never calls your API client (axios/fetch)	In handleCreateExpense, call mutation.mutate(data) or fetch(...)
+“Unexpected token <” in console	API route returned HTML (error page, redirect)	Check server logs, fix route (must res.json()), or add credentials: 'include' for sessions
+400/401/403 response	Missing tenant/user context	Confirm you’re logged in, session cookie sent, and your Express middleware allows /api/expenses
+500 error on server	Bug in server-side handler	Check your server console for stack trace, correct the Prisma/validation logic
+
+4. Verify the server side
+In your Express (or whichever) backend, ensure:
+
+ts
+Copy
+Edit
+// routes/expenses.ts
+router.post("/api/expenses", async (req, res) => {
+  // parse & validate body
+  const { amount, date, category, … } = req.body;
+  // must send JSON
+  const newExpense = await prisma.expense.create({
+    data: { /* …tenantId from session, …req.body…*/ }
+  });
+  res.status(201).json(newExpense);
+});
+No HTML render calls (res.render) on errors.
+
+In error cases use res.status(400).json({ message: "..." }).
+
+5. Final sanity check
+Console log confirms your click.
+
+Network shows a proper JSON POST/201 response.
+
+UI updates (you invalidate the React Query cache or append the new row).
+
+Once you see a clean 201 JSON in Network, you know the front-end parser will succeed, and your modal can close & refresh the list.
+
+Let me know which of those sub-steps still fails (no log, no request, HTML response, bad status code), and we’ll zero in on that exact piece!
