@@ -210,17 +210,7 @@ export default function ExpenseForm({ expense, onSuccess }: ExpenseFormProps) {
 
   return (
     <Form {...form}>
-      <form id="expense-form" onSubmit={(e) => {
-        e.preventDefault();
-        console.log("🔔 Raw form submit - bypassing validation");
-        console.log("Form errors:", form.formState.errors);
-        console.log("Form is valid:", form.formState.isValid);
-        console.log("Form values:", form.getValues());
-        
-        // Bypass validation temporarily for testing
-        const formData = form.getValues();
-        onSubmit(formData);
-      }} className="space-y-6">
+      <form id="expense-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="space-y-6">
             {/* Description */}
