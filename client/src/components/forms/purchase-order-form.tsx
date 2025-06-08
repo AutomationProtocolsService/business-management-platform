@@ -680,7 +680,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold" 
-                        defaultValue={calculateSubtotal().toFixed(2)}
+                        value={calculateSubtotal().toFixed(2)}
                         onChange={(e) => console.log('Subtotal changed:', e.target.value)}
                         name="subtotal"
                       />
@@ -698,7 +698,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold" 
-                        defaultValue={calculateTax().toFixed(2)}
+                        value={calculateTax().toFixed(2)}
                         onChange={(e) => console.log('Tax changed:', e.target.value)}
                         name="tax"
                       />
@@ -716,7 +716,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         type="number"
                         step="0.01"
                         className="text-2xl font-bold text-primary" 
-                        defaultValue={calculateTotal().toFixed(2)}
+                        value={calculateTotal().toFixed(2)}
                         onChange={(e) => console.log('Total changed:', e.target.value)}
                         name="total"
                       />
