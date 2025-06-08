@@ -1,0 +1,82 @@
+1. Compute Subtotal from your line-items
+In the same component where you’re managing lineItems (from my last message), add:
+
+tsx
+Copy
+Edit
+// ❶ a fixed tax rate of 20%
+const TAX_RATE = 0.20;
+
+// ❷ compute the subtotal whenever lineItems changes
+const subtotal = lineItems.reduce(
+  (sum, item) => sum + item.quantity * item.unitPrice,
+  0
+);
+
+// ❸ compute tax & total
+const taxAmount = subtotal * TAX_RATE;
+const total = subtotal + taxAmount;
+2. Render them as read-only computed fields
+Rather than leaving them as uncontrolled <Input type="number">, let’s make them read-only so the user sees “live” values based on the rows they’ve added:
+
+tsx
+Copy
+Edit
+<Card>
+  <CardHeader>
+    <CardTitle>Summary</CardTitle>
+  </CardHeader>
+  <CardContent className="grid grid-cols-3 gap-4">
+    <div className="space-y-1">
+      <Label>Subtotal</Label>
+      <Input
+        readOnly
+        value={subtotal.toFixed(2)}
+        prefix="$"
+      />
+    </div>
+
+    <div className="space-y-1">
+      <Label>Tax (20%)</Label>
+      <Input
+        readOnly
+        value={taxAmount.toFixed(2)}
+        prefix="$"
+      />
+    </div>
+
+    <div className="space-y-1">
+      <Label>Total</Label>
+      <Input
+        readOnly
+        value={total.toFixed(2)}
+        prefix="$"
+      />
+    </div>
+  </CardContent>
+</Card>
+Note:
+
+toFixed(2) ensures two decimal places.
+
+We put readOnly on each so they can’t be edited manually—they’re derived values.
+
+3. Wire “Next: Line Items” to open the Line-Items tab
+If you have a multi-step modal, update your “Next” button:
+
+tsx
+Copy
+Edit
+<Button onClick={() => setActiveTab("LineItems")}>
+  Next: Line Items
+</Button>
+And on the final step your “Create Purchase Order” handler (from my previous message) will include that computed total in the payload.
+
+Why this fixes it
+Inert number inputs → read-only computed fields: now they actually show meaningful data.
+
+No “dead” inputs: the arrows won’t appear on a disabled/read-only <Input> so users won’t try to spin them.
+
+Single source of truth: all totals come straight from lineItems, so nothing can get out of sync.
+
+Once you paste in the above snippet (adjusting your component and imports), you’ll see your Subtotal / Tax / Total update instantly as you Add / Remove items—and there’ll be no more “number inputs that do nothing” confusion.
