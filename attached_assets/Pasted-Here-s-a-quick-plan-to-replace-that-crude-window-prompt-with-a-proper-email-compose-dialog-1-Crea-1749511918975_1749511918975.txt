@@ -1,0 +1,160 @@
+Here’s a quick plan to replace that crude window.prompt with a proper email-compose dialog:
+
+1. Create an EmailDialog component
+tsx
+Copy
+// client/src/components/EmailDialog.tsx
+import React, { useState } from "react";
+import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+
+interface EmailDialogProps {
+  poId: number;
+  poNumber: string;
+  trigger: React.ReactNode;
+}
+
+export function EmailDialog({ poId, poNumber, trigger }: EmailDialogProps) {
+  const { toast } = useToast();
+  const [open, setOpen] = useState(false);
+  const [to, setTo] = useState("");
+  const [subject, setSubject] = useState(`Purchase Order ${poNumber}`);
+  const [body,   setBody]   = useState(`Hello,\n\nPlease find attached PO ${poNumber}.\n\nThanks!`);
+
+  const sendEmail = async () => {
+    try {
+      const res = await fetch(`/api/purchase-orders/${poId}/email`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ to, subject, body }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      toast({ title: "Email sent!", variant: "success" });
+      setOpen(false);
+    } catch (err: any) {
+      toast({ title: "Failed to send email", description: err.message, variant: "destructive" });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        {trigger}
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Email Purchase Order</DialogTitle>
+          <DialogDescription>
+            Compose and send PO #{poNumber} to your client.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 mt-4">
+          <div>
+            <label className="block text-sm font-medium">To</label>
+            <Input
+              type="email"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+              placeholder="client@example.com"
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Subject</label>
+            <Input
+              value={subject}
+              onChange={(e) => setSubject(e.target.value)}
+              className="w-full"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium">Message</label>
+            <Textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              rows={6}
+              className="w-full"
+            />
+          </div>
+        </div>
+        <div className="flex justify-end gap-2 mt-6">
+          <Button variant="outline" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={sendEmail} disabled={!to || !subject}>
+            Send Email
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+2. Swap out the old prompt
+In your PO list row, replace:
+
+tsx
+Copy
+<Button onClick={() => {
+  const to = window.prompt("Enter email address");
+  if (!to) return;
+  fetch(`/api/purchase-orders/${po.id}/email`, { method: "POST", body: JSON.stringify({ to }) })
+    .then(…);
+}}>
+  <Mail size={18} />
+</Button>
+with:
+
+tsx
+Copy
+import { EmailDialog } from "@/components/EmailDialog";
+
+<EmailDialog
+  poId={po.id}
+  poNumber={po.poNumber}
+  trigger={
+    <Button variant="ghost" size="icon" title="Email Purchase Order">
+      <Mail size={18} />
+    </Button>
+  }
+/>
+3. Update your email API to accept subject & body
+ts
+Copy
+// server/routes/purchaseOrders.ts
+router.post("/:id/email", async (req, res) => {
+  const { to, subject, body } = req.body as {
+    to: string;
+    subject: string;
+    body: string;
+  };
+  // …fetch PO & PDF buffer as before…
+
+  await transporter.sendMail({
+    from: `"Your Company" <${SMTP_USER}>`,
+    to,
+    subject,
+    text: body,
+    attachments: [
+      { filename: `PO-${po.poNumber}.pdf`, content: buffer },
+    ],
+  });
+
+  res.json({ success: true });
+});
+Why this works
+You now have a real form––no more ugly prompt()––so users can set To, Subject, Message.
+
+The dialog reuses your existing /api/.../email endpoint expanded to handle the full payload.
+
+You get proper toast feedback on success/failure.
+
+With those three changes—new EmailDialog component, swapping out the prompt, and broadening your API—you’ll turn that 🪦 “prompt only” flow into a polished email‐compose experience.
+
+
+
+
+
+

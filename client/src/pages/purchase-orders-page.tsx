@@ -51,6 +51,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { format } from "date-fns";
 import PurchaseOrderForm from "@/components/forms/purchase-order-form";
+import { EmailDialog } from "@/components/EmailDialog";
 
 export default function PurchaseOrdersPage() {
   const { toast } = useToast();
@@ -131,36 +132,7 @@ export default function PurchaseOrdersPage() {
     setIsDialogOpen(true);
   };
 
-  // Handle email purchase order
-  const handleEmailPO = async (po: PurchaseOrder) => {
-    try {
-      const email = prompt("Enter email address to send the purchase order:");
-      if (!email) return;
 
-      const response = await fetch(`/api/purchase-orders/${po.id}/email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ to: email }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Email sent successfully",
-          description: `Purchase order ${po.poNumber} has been sent to ${email}`,
-        });
-      } else {
-        throw new Error("Failed to send email");
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send email. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
 
   // Handle print PDF
   const handlePrintPDF = (po: PurchaseOrder) => {
@@ -391,13 +363,10 @@ export default function PurchaseOrdersPage() {
                           >
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEmailPO(po)}
-                          >
-                            <Mail className="h-4 w-4" />
-                          </Button>
+                          <EmailDialog 
+                            poId={po.id} 
+                            poNumber={po.poNumber}
+                          />
                           <Button
                             variant="ghost"
                             size="icon"
