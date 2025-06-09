@@ -174,7 +174,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   // Compute reactive totals from line items using useMemo
   const subtotal = useMemo(() => {
     const calc = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-    console.log("Calculating subtotal from items:", lineItems, "Result:", calc);
+    console.log("🧮 Calculating subtotal from", lineItems.length, "items:", lineItems, "Result:", calc);
     return calc;
   }, [lineItems]);
   
@@ -377,7 +377,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
 
   // Add a line item
   const addLineItem = (itemData: LineItemFormValues) => {
-    console.log("AddLineItem function called with data:", itemData);
+    console.log("🔥 AddLineItem function called with data:", itemData);
     const inventoryItem = inventoryItems.find(item => item.id === itemData.inventoryItemId);
     
     // Calculate the total price from quantity and unit price
@@ -397,15 +397,23 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     
     if (editingItem) {
       // Update existing item
-      setLineItems(prevItems => 
-        prevItems.map(item => 
+      console.log("🔄 Updating existing item");
+      setLineItems(prevItems => {
+        const updatedItems = prevItems.map(item => 
           item.tempId === editingItem.tempId || item.id === editingItem.id ? newItem : item
-        )
-      );
+        );
+        console.log("📝 Updated line items:", updatedItems);
+        return updatedItems;
+      });
       setEditingItem(null);
     } else {
       // Add new item
-      setLineItems(prevItems => [...prevItems, newItem]);
+      console.log("➕ Adding new item to line items");
+      setLineItems(prevItems => {
+        const newItems = [...prevItems, newItem];
+        console.log("📝 New line items array:", newItems);
+        return newItems;
+      });
     }
     
     // Reset the form
@@ -672,7 +680,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                       <Input 
                         readOnly
                         className="text-2xl font-bold bg-gray-50" 
-                        value={calculateSubtotal().toFixed(2)}
+                        value={subtotal.toFixed(2)}
                         name="subtotal"
                       />
                     </div>
@@ -688,7 +696,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                       <Input 
                         readOnly
                         className="text-2xl font-bold bg-gray-50" 
-                        value={calculateTax().toFixed(2)}
+                        value={taxAmount.toFixed(2)}
                         name="tax"
                       />
                     </div>
@@ -704,7 +712,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                       <Input 
                         readOnly
                         className="text-2xl font-bold text-primary bg-primary/10" 
-                        value={calculateTotal().toFixed(2)}
+                        value={total.toFixed(2)}
                         name="total"
                       />
                     </div>
