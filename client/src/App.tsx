@@ -25,6 +25,7 @@ import CatalogItemsPage from "@/pages/catalog-items-page";
 import SuppliersPage from "@/pages/suppliers-page";
 import ExpensesPage from "@/pages/expenses-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
+import POCreatePage from "@/pages/POCreatePage";
 import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
 import ProfilePage from "@/pages/profile-page";

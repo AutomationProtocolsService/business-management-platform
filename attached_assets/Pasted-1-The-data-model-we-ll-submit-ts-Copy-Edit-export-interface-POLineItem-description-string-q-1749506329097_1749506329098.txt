@@ -1,0 +1,269 @@
+1. The data model we’ll submit
+ts
+Copy
+Edit
+export interface POLineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+export interface NewPurchaseOrder {
+  supplierName: string;
+  orderDate: string;              // yyyy-mm-dd
+  expectedDeliveryDate?: string;
+  notes?: string;
+  items: POLineItem[];
+  subtotal: number;
+  tax: number;                    // 20 %
+  total: number;
+}
+2. Drop-in component (copy → src/pages/PoCreatePage.tsx)
+tsx
+Copy
+Edit
+import React, { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { toast } from "@/components/ui/use-toast";
+
+const TAX_RATE = 0.2; // 20 %
+
+export default function PoCreatePage() {
+  // ----- header fields -------------------------------------------------
+  const [supplierName, setSupplierName] = useState("");
+  const [orderDate, setOrderDate] = useState(
+    new Date().toISOString().split("T")[0]
+  );
+  const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("");
+  const [notes, setNotes] = useState("");
+
+  // ----- single line-item edit form ------------------------------------
+  const [liDesc, setLiDesc] = useState("");
+  const [liQty, setLiQty] = useState(1);
+  const [liPrice, setLiPrice] = useState(0);
+
+  // ----- accumulated items --------------------------------------------
+  const [items, setItems] = useState<POLineItem[]>([]);
+
+  const addItem = () => {
+    if (!liDesc.trim() || liQty <= 0 || liPrice <= 0) {
+      toast({ title: "Fill every line-item field" });
+      return;
+    }
+    setItems((prev) => [
+      ...prev,
+      { description: liDesc.trim(), quantity: liQty, unitPrice: liPrice },
+    ]);
+    setLiDesc("");
+    setLiQty(1);
+    setLiPrice(0);
+  };
+
+  const removeItem = (idx: number) =>
+    setItems((prev) => prev.filter((_, i) => i !== idx));
+
+  // ----- summary -------------------------------------------------------
+  const subtotal = useMemo(
+    () => items.reduce((s, i) => s + i.quantity * i.unitPrice, 0),
+    [items]
+  );
+  const tax = subtotal * TAX_RATE;
+  const total = subtotal + tax;
+
+  // ----- submit --------------------------------------------------------
+  const nav = useNavigate();
+  const handleSubmit = async () => {
+    if (!supplierName.trim()) {
+      toast({ title: "Supplier is required" });
+      return;
+    }
+    if (items.length === 0) {
+      toast({ title: "Add at least one line-item" });
+      return;
+    }
+    const payload: NewPurchaseOrder = {
+      supplierName: supplierName.trim(),
+      orderDate,
+      expectedDeliveryDate: expectedDeliveryDate || undefined,
+      notes,
+      items,
+      subtotal,
+      tax,
+      total,
+    };
+    try {
+      const r = await fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (!r.ok) throw new Error(`Status ${r.status}`);
+      toast({ title: "PO created 🎉" });
+      nav("/purchase-orders"); // or wherever your list page lives
+    } catch (err: any) {
+      toast({ title: "Server error", description: err.message });
+    }
+  };
+
+  // ---------------------------------------------------------------------
+  return (
+    <div className="mx-auto max-w-3xl space-y-8 p-6">
+      <h1 className="text-2xl font-semibold">New Purchase Order</h1>
+
+      {/* --- Header ---------------------------------------------------- */}
+      <section className="grid grid-cols-2 gap-4">
+        <div className="space-y-1">
+          <Label>Supplier *</Label>
+          <Input
+            value={supplierName}
+            onChange={(e) => setSupplierName(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>Order Date *</Label>
+          <Input
+            type="date"
+            value={orderDate}
+            onChange={(e) => setOrderDate(e.target.value)}
+          />
+        </div>
+        <div className="space-y-1">
+          <Label>Expected Delivery</Label>
+          <Input
+            type="date"
+            value={expectedDeliveryDate}
+            onChange={(e) => setExpectedDeliveryDate(e.target.value)}
+          />
+        </div>
+        <div className="col-span-2 space-y-1">
+          <Label>Notes</Label>
+          <Textarea
+            rows={3}
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+          />
+        </div>
+      </section>
+
+      {/* --- Line-item entry ------------------------------------------ */}
+      <section className="border p-4 rounded-md space-y-4">
+        <h2 className="font-medium">Add Line Item</h2>
+        <div className="grid grid-cols-4 gap-2">
+          <Input
+            className="col-span-2"
+            placeholder="Description"
+            value={liDesc}
+            onChange={(e) => setLiDesc(e.target.value)}
+          />
+          <Input
+            type="number"
+            min={1}
+            placeholder="Qty"
+            value={liQty}
+            onChange={(e) => setLiQty(Number(e.target.value))}
+          />
+          <Input
+            type="number"
+            min={0}
+            step={0.01}
+            placeholder="Unit Price"
+            value={liPrice}
+            onChange={(e) => setLiPrice(Number(e.target.value))}
+          />
+        </div>
+        <Button onClick={addItem}>Add Item</Button>
+
+        {/* items table */}
+        {items.length > 0 && (
+          <table className="mt-4 w-full text-sm border">
+            <thead className="bg-muted">
+              <tr>
+                <th className="px-2 py-1 text-left">Desc</th>
+                <th className="px-2 py-1">Qty</th>
+                <th className="px-2 py-1">Unit</th>
+                <th className="px-2 py-1">Line Total</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((it, i) => (
+                <tr key={i} className="border-t">
+                  <td className="px-2 py-1">{it.description}</td>
+                  <td className="px-2 py-1 text-center">{it.quantity}</td>
+                  <td className="px-2 py-1 text-center">
+                    {it.unitPrice.toFixed(2)}
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    {(it.quantity * it.unitPrice).toFixed(2)}
+                  </td>
+                  <td className="px-2">
+                    <Button size="sm" variant="ghost" onClick={() => removeItem(i)}>
+                      ✕
+                    </Button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </section>
+
+      {/* --- Summary -------------------------------------------------- */}
+      <section className="flex justify-end gap-6 text-right">
+        <div>
+          <Label>Subtotal</Label>
+          <div>${subtotal.toFixed(2)}</div>
+        </div>
+        <div>
+          <Label>Tax (20%)</Label>
+          <div>${tax.toFixed(2)}</div>
+        </div>
+        <div>
+          <Label className="font-semibold">Total</Label>
+          <div className="text-xl font-bold">${total.toFixed(2)}</div>
+        </div>
+      </section>
+
+      {/* --- Actions -------------------------------------------------- */}
+      <div className="flex justify-end gap-2">
+        <Button variant="secondary" onClick={() => nav(-1)}>
+          Cancel
+        </Button>
+        <Button onClick={handleSubmit}>Create Purchase Order</Button>
+      </div>
+    </div>
+  );
+}
+3. Hook it into your router
+tsx
+Copy
+Edit
+// src/App.tsx or routes.tsx
+import PoCreatePage from "@/pages/PoCreatePage";
+
+<Routes>
+  {/* ...other routes... */}
+  <Route path="/po/new" element={<PoCreatePage />} />
+</Routes>
+From your sidebar button:
+
+tsx
+Copy
+Edit
+<Button asChild>
+  <Link to="/po/new">New Purchase Order</Link>
+</Button>
+Why this “simple page” approach helps
+No modals, no tabs – everything on one scrollable page means fewer moving parts.
+
+Pure React state – subtotal, tax, total auto-update via useMemo.
+
+Single fetch – one POST with the complete NewPurchaseOrder payload.
+
+Zero dependencies on other pages’ context – totally isolated, easy to unit-test.
+
+Once you confirm this page works end-to-end (Network → 201 Created), you can gradually re-integrate pieces (e.g. use your Supplier list instead of a free-text supplierName, or move it back into a dialog) knowing the core logic is rock solid.
