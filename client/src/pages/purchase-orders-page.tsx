@@ -43,15 +43,13 @@ import {
   PlusCircle, 
   Search, 
   Filter,
-  FileText,
   Loader2,
   Eye,
   Pencil,
   Trash2,
   ClipboardCheck,
   ShoppingCart,
-  Truck,
-  Mail
+  Truck
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
@@ -66,12 +64,7 @@ export default function PurchaseOrdersPage() {
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [isEmailDialogOpen, setIsEmailDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
-  const [recipientEmail, setRecipientEmail] = useState("");
-  const [emailSubject, setEmailSubject] = useState("");
-  const [emailBody, setEmailBody] = useState("");
-  const [includePdf, setIncludePdf] = useState(true);
   
   // Get all purchase orders
   const { 
@@ -83,37 +76,7 @@ export default function PurchaseOrdersPage() {
     queryKey: ["/api/purchase-orders"],
   });
   
-  // Get suppliers for email functionality
-  const { data: suppliers = [] } = useQuery<any[]>({
-    queryKey: ["/api/suppliers"],
-  });
 
-  // Email purchase order mutation - MUST be declared before any early returns
-  const emailPurchaseOrder = useMutation({
-    mutationFn: async (data: { id: number; email: string; subject: string; body: string; includePdf: boolean }) => {
-      // Send email with provided parameters
-      await apiRequest("POST", `/api/purchase-orders/${data.id}/email`, {
-        recipientEmail: data.email,
-        subject: data.subject,
-        body: data.body,
-        includePdf: data.includePdf
-      });
-    },
-    onSuccess: () => {
-      toast({
-        title: "Purchase order emailed",
-        description: "Purchase order has been emailed successfully.",
-      });
-      setIsEmailDialogOpen(false);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Filter purchase orders based on search term and status
   const filteredPOs = purchaseOrders.filter(po => {
@@ -193,20 +156,7 @@ export default function PurchaseOrdersPage() {
     );
   }
 
-  // Initialize email dialog fields when opening the dialog
-  const handleEmailDialogOpen = (po: PurchaseOrder) => {
-    setSelectedPO(po);
-    
-    // Try to find supplier email from suppliers data
-    const supplier = (suppliers as any[]).find((s: any) => s.id === po.supplierId);
-    const supplierEmail = supplier?.email || "";
-    
-    setRecipientEmail(supplierEmail);
-    setEmailSubject(`Purchase Order #${po.poNumber || po.id}`);
-    setEmailBody("Please find attached the purchase order. Let us know if you have any questions.");
-    setIncludePdf(true);
-    setIsEmailDialogOpen(true);
-  };
+
 
   return (
     <div className="container py-10">
@@ -360,32 +310,6 @@ export default function PurchaseOrdersPage() {
                             onClick={() => handleEditPO(po)}
                           >
                             <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-blue-500"
-                            title="View PDF"
-                            onClick={() => {
-                              toast({
-                                title: "Generating PDF",
-                                description: "The PDF is being generated and will open in a new tab",
-                              });
-                              // This would call the PDF generation function
-                              window.open(`/api/purchase-orders/${po.id}/pdf`, '_blank');
-                            }}
-                          >
-                            <FileText className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="text-purple-500"
-                            title="Email to supplier"
-                            onClick={() => handleEmailDialogOpen(po)}
-                            disabled={po.status === 'Draft'}
-                          >
-                            <Mail className="h-4 w-4" />
                           </Button>
                           {po.status === "Draft" && (
                             <Button
