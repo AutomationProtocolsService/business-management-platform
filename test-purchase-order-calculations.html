@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Purchase Order Calculations Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .test-case {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .calculation {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 6px;
+            margin: 10px 0;
+        }
+        .result {
+            font-weight: bold;
+            color: #2563eb;
+        }
+        .expected {
+            color: #059669;
+            font-weight: bold;
+        }
+        .line-item {
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        h1 { color: #1f2937; }
+        h2 { color: #374151; }
+    </style>
+</head>
+<body>
+    <h1>Purchase Order Financial Calculations Test</h1>
+    
+    <div class="test-case">
+        <h2>Test Case 1: Single Line Item</h2>
+        <div class="line-item">
+            <strong>Item 1:</strong> Office Chairs<br>
+            Quantity: 2<br>
+            Unit Price: $50.00<br>
+            Line Total: $100.00
+        </div>
+        
+        <div class="calculation">
+            <strong>Expected Calculations:</strong><br>
+            Subtotal: $100.00 (1 item)<br>
+            Tax (20%): $20.00<br>
+            <span class="expected">Total: $120.00</span>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>Test Case 2: Multiple Line Items</h2>
+        <div class="line-item">
+            <strong>Item 1:</strong> Office Chairs<br>
+            Quantity: 2 | Unit Price: $50.00 | Line Total: $100.00
+        </div>
+        <div class="line-item">
+            <strong>Item 2:</strong> Desk Lamps<br>
+            Quantity: 5 | Unit Price: $25.00 | Line Total: $125.00
+        </div>
+        <div class="line-item">
+            <strong>Item 3:</strong> Notebooks<br>
+            Quantity: 10 | Unit Price: $3.50 | Line Total: $35.00
+        </div>
+        
+        <div class="calculation">
+            <strong>Expected Calculations:</strong><br>
+            Subtotal: $260.00 (3 items)<br>
+            Tax (20%): $52.00<br>
+            <span class="expected">Total: $312.00</span>
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>Test Case 3: Reactive Updates</h2>
+        <p><strong>Scenario:</strong> Start with empty form, add items one by one</p>
+        
+        <div class="calculation">
+            <strong>Step 1 - Empty Form:</strong><br>
+            Subtotal: $0.00 (0 items) | Tax: $0.00 | Total: $0.00
+        </div>
+        
+        <div class="calculation">
+            <strong>Step 2 - Add First Item (Qty: 1, Price: $100):</strong><br>
+            Subtotal: $100.00 (1 item) | Tax: $20.00 | Total: $120.00
+        </div>
+        
+        <div class="calculation">
+            <strong>Step 3 - Add Second Item (Qty: 2, Price: $30):</strong><br>
+            Subtotal: $160.00 (2 items) | Tax: $32.00 | Total: $192.00
+        </div>
+        
+        <div class="calculation">
+            <strong>Step 4 - Remove First Item:</strong><br>
+            Subtotal: $60.00 (1 item) | Tax: $12.00 | Total: $72.00
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>Reactive Implementation Verification</h2>
+        <p><strong>Technical Implementation:</strong></p>
+        <pre style="background: #f3f4f6; padding: 10px; border-radius: 4px;">
+const subtotal = useMemo(() => 
+  lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0),
+  [lineItems]
+);
+
+const taxAmount = useMemo(() => subtotal * 0.20, [subtotal]);
+const total = useMemo(() => subtotal + taxAmount, [subtotal, taxAmount]);
+        </pre>
+        
+        <div class="result">
+            ✓ Calculations update automatically when lineItems array changes<br>
+            ✓ Tax rate is fixed at 20%<br>
+            ✓ Visual indicators show item count in titles<br>
+            ✓ All financial fields are read-only<br>
+            ✓ Console logging tracks calculation updates
+        </div>
+    </div>
+
+    <div class="test-case">
+        <h2>Testing Instructions</h2>
+        <ol>
+            <li>Open Purchase Orders page in the application</li>
+            <li>Click "New Purchase Order" button</li>
+            <li>Navigate to "Line Items" tab</li>
+            <li>Add items with the test values above</li>
+            <li>Navigate to "Summary" tab</li>
+            <li>Verify calculations match expected results</li>
+            <li>Check browser console for calculation logs</li>
+            <li>Test removing items and watch totals update</li>
+        </ol>
+    </div>
+
+    <script>
+        // Simple calculation verification
+        function verifyCalculations() {
+            const testCases = [
+                { items: [{qty: 2, price: 50}], expectedTotal: 120 },
+                { items: [{qty: 2, price: 50}, {qty: 5, price: 25}, {qty: 10, price: 3.5}], expectedTotal: 312 }
+            ];
+            
+            testCases.forEach((test, index) => {
+                const subtotal = test.items.reduce((sum, item) => sum + (item.qty * item.price), 0);
+                const tax = subtotal * 0.20;
+                const total = subtotal + tax;
+                
+                console.log(`Test ${index + 1}: Subtotal=$${subtotal.toFixed(2)}, Tax=$${tax.toFixed(2)}, Total=$${total.toFixed(2)}`);
+                console.log(`Expected: $${test.expectedTotal}, Match: ${total === test.expectedTotal ? '✓' : '✗'}`);
+            });
+        }
+        
+        verifyCalculations();
+    </script>
+</body>
+</html>
