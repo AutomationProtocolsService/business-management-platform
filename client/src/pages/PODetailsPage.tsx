@@ -4,19 +4,27 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { ArrowLeft, Edit, Mail, Printer, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { EmailDialog } from "@/components/EmailDialog";
+import PurchaseOrderForm from "@/components/forms/purchase-order-form";
 import { PurchaseOrder } from "@shared/schema";
 
 export default function PODetailsPage() {
   const { id } = useParams();
   const { formatMoney } = useSettings();
   const { toast } = useToast();
-  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const { data: purchaseOrder, isLoading, error } = useQuery<PurchaseOrder>({
     queryKey: ["/api/purchase-orders", id],
@@ -159,15 +167,24 @@ export default function PODetailsPage() {
             </Button>
           )}
           
-          <Button variant="outline" onClick={handleEdit}>
+          <Button 
+            variant="outline" 
+            onClick={() => setIsEditDialogOpen(true)}
+          >
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
           
-          <Button variant="outline" onClick={() => setEmailDialogOpen(true)}>
-            <Mail className="w-4 h-4 mr-2" />
-            Email
-          </Button>
+          <EmailDialog 
+            poId={purchaseOrder.id} 
+            poNumber={purchaseOrder.poNumber}
+            trigger={
+              <Button variant="outline">
+                <Mail className="w-4 h-4 mr-2" />
+                Email
+              </Button>
+            }
+          />
           
           <Button variant="outline" onClick={handlePrintPDF}>
             <Printer className="w-4 h-4 mr-2" />
@@ -263,17 +280,26 @@ export default function PODetailsPage() {
         </div>
       </div>
 
-      {/* Email Dialog */}
-      {emailDialogOpen && purchaseOrder && (
-        <EmailDialog
-          isOpen={emailDialogOpen}
-          onClose={() => setEmailDialogOpen(false)}
-          documentType="Purchase Order"
-          documentNumber={purchaseOrder.poNumber}
-          documentId={purchaseOrder.id}
-          apiEndpoint={`/api/purchase-orders/${purchaseOrder.id}/email`}
-        />
-      )}
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Purchase Order</DialogTitle>
+            <DialogDescription>
+              Update purchase order details and line items.
+            </DialogDescription>
+          </DialogHeader>
+          {purchaseOrder && (
+            <PurchaseOrderForm 
+              initialData={purchaseOrder}
+              onSuccess={() => {
+                setIsEditDialogOpen(false);
+                queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+              }}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
