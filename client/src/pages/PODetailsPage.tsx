@@ -73,12 +73,7 @@ export default function PODetailsPage() {
     }
   };
 
-  // Handle edit purchase order
-  const handleEdit = () => {
-    if (purchaseOrder) {
-      window.location.href = `/purchase-orders/${purchaseOrder.id}/edit`;
-    }
-  };
+
 
   // Handle print PDF
   const handlePrintPDF = () => {
@@ -252,11 +247,11 @@ export default function PODetailsPage() {
             <CardContent className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-gray-600">Subtotal:</span>
-                <span>{formatMoney(purchaseOrder.subtotal)}</span>
+                <span>{formatMoney(purchaseOrder.subtotal || 0)}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-600">Tax:</span>
-                <span>{formatMoney(purchaseOrder.tax)}</span>
+                <span>{formatMoney(purchaseOrder.tax || 0)}</span>
               </div>
               <div className="border-t pt-3">
                 <div className="flex justify-between font-semibold text-lg">
@@ -291,7 +286,7 @@ export default function PODetailsPage() {
           </DialogHeader>
           {purchaseOrder && (
             <PurchaseOrderForm 
-              initialData={purchaseOrder}
+              purchaseOrder={purchaseOrder}
               onSuccess={() => {
                 setIsEditDialogOpen(false);
                 queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
