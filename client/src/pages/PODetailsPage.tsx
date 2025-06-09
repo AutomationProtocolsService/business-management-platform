@@ -135,6 +135,30 @@ export default function PODetailsPage() {
         
         <div className="flex items-center gap-2">
           {getStatusBadge(purchaseOrder.status)}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEdit}
+          >
+            <Edit className="w-4 h-4 mr-2" />
+            Edit
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleEmail}
+          >
+            <Mail className="w-4 h-4 mr-2" />
+            Email
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handlePrintPDF}
+          >
+            <Printer className="w-4 h-4 mr-2" />
+            Print PDF
+          </Button>
         </div>
       </div>
 
