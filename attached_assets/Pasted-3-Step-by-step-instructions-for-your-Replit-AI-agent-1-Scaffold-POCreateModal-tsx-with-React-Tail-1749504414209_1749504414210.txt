@@ -1,0 +1,90 @@
+3. Step-by-step instructions for your Replit AI agent
+1. Scaffold POCreateModal.tsx with React, Tailwind (or your CSS), and shadcn/dialog & shadcn/ui components.
+
+2. Define all useState hooks at top—one per header field, one for the line-item form fields, and one array for lineItems.
+
+3. Compute subtotal, tax, and total via useMemo based only on lineItems.
+
+4. Build the tabbed UI:
+
+Order Details tab: <Input>s & <Select>s bound to header useState hooks.
+
+Line Items tab:
+
+Form fields: description, qty, price, inventory select (optional).
+
+<Button onClick={handleAddItem}>Add Item</Button>.
+
+handleAddItem pushes into lineItems and resets the temp fields.
+
+Render lineItems.map(...) in a <Table> with Remove buttons.
+
+Summary tab: three read-only <Input>s for subtotal, tax, total.
+
+5. Wire the modal footer:
+
+tsx
+Copy
+Edit
+function handleSubmit() {
+  if (lineItems.length === 0) {
+    return toast.error("Please add at least one line-item.");
+  }
+  const payload: NewPurchaseOrder = {
+    supplierId,
+    orderDate,
+    expectedDeliveryDate,
+    notes,
+    termsAndConditions,
+    items: lineItems,
+    subtotal,
+    tax,
+    total,
+  };
+  createPOMutation.mutate(payload);
+}
+Ensure Create Purchase Order button is type="button" with onClick={handleSubmit}.
+
+6. Implement the React-Query useMutation:
+
+ts
+Copy
+Edit
+const createPOMutation = useMutation(
+  (payload: NewPurchaseOrder) => fetch("/api/purchase-orders", {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  }).then(r => {
+    if (!r.ok) throw new Error(`Status ${r.status}`);
+    return r.json();
+  }),
+  {
+    onSuccess: () => {
+      toast.success("Purchase Order created!");
+      queryClient.invalidateQueries(["purchaseOrders"]);
+      onClose();
+    },
+    onError: (err) => toast.error(err.message),
+  }
+);
+7. Verify front-end fetch in DevTools:
+
+Should see POST /api/purchase-orders returning 201 JSON.
+
+No HTML, no 404/500.
+
+8. Test the happy path:
+
+Click New Purchase Order
+
+Fill in Order Details
+
+Go to Line Items, add at least one item
+
+Go to Summary, confirm totals update
+
+Click Create Purchase Order
+
+Confirm modal closes and PO appears in the list.

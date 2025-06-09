@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { 
@@ -171,16 +171,24 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   // Tax rate constant
   const TAX_RATE = 0.20;
 
-  // Compute reactive totals from line items
-  const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
-  const taxAmount = subtotal * TAX_RATE;
-  const total = subtotal + taxAmount;
+  // Compute reactive totals from line items using useMemo
+  const subtotal = useMemo(() => {
+    const calc = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
+    console.log("Calculating subtotal from items:", lineItems, "Result:", calc);
+    return calc;
+  }, [lineItems]);
   
-  // Debug logging
-  console.log("Line items:", lineItems);
-  console.log("Calculated subtotal:", subtotal);
-  console.log("Calculated tax amount:", taxAmount);
-  console.log("Calculated total:", total);
+  const taxAmount = useMemo(() => {
+    const calc = subtotal * TAX_RATE;
+    console.log("Calculating tax from subtotal:", subtotal, "Result:", calc);
+    return calc;
+  }, [subtotal]);
+  
+  const total = useMemo(() => {
+    const calc = subtotal + taxAmount;
+    console.log("Calculating total from subtotal + tax:", subtotal, taxAmount, "Result:", calc);
+    return calc;
+  }, [subtotal, taxAmount]);
 
   // Helper functions for backward compatibility
   const calculateSubtotal = () => subtotal;
