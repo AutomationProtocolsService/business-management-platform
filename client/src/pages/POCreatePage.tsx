@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "@/hooks/use-toast";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Trash2, Package, Plus } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 const TAX_RATE = 0.2; // 20%
 
@@ -29,6 +30,7 @@ interface NewPurchaseOrder {
 
 export default function POCreatePage() {
   const [, setLocation] = useLocation();
+  const queryClient = useQueryClient();
 
   // ----- header fields -------------------------------------------------
   const [supplierName, setSupplierName] = useState("");
@@ -133,6 +135,10 @@ export default function POCreatePage() {
         title: "Success!",
         description: "Purchase Order created successfully 🎉"
       });
+      
+      // Invalidate and refetch the purchase orders list
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      
       setLocation("/purchase-orders");
     } catch (err: any) {
       console.error("Purchase Order creation error:", err);

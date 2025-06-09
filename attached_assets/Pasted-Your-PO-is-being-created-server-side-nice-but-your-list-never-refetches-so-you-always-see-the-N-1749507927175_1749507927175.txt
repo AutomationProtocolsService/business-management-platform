@@ -1,0 +1,80 @@
+Your PO is being created server-side (nice!) but your list never refetches, so you always see the “No purchase orders found” placeholder. There are two pieces we need to wire up:
+
+1) Invalidate or update the PO list after creation
+If you’re using React-Query to fetch your /api/purchase-orders, then in your useMutation for creating a PO you must call:
+
+ts
+Copy
+Edit
+import { useQueryClient } from "@tanstack/react-query";
+
+export function PoCreatePage() {
+  const queryClient = useQueryClient();
+
+  const createPo = useMutation(
+    (payload: NewPurchaseOrder) =>
+      fetch("/api/purchase-orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }).then((r) => {
+        if (!r.ok) throw new Error(r.statusText);
+        return r.json();
+      }),
+    {
+      onSuccess: (newPo) => {
+        toast({ title: "Success!", description: "Purchase Order created 🎉" });
+        // 🚀 Tell React-Query to refetch the /api/purchase-orders list:
+        queryClient.invalidateQueries({ queryKey: ["purchaseOrders"] });
+        // Optionally navigate back to list:
+        navigate("/purchase-orders");
+      },
+    }
+  );
+
+  // …rest of form…
+}
+invalidateQueries(["purchaseOrders"]) marks that query stale and triggers a refetch.
+
+If you instead keep local state for the list, you’d push newPo onto it—but invalidation is simpler.
+
+2) Ensure your PurchaseOrdersPage actually shows fetched data
+In PurchaseOrdersPage.tsx, you should have something like:
+
+ts
+Copy
+Edit
+export function PurchaseOrdersPage() {
+  const { data, isLoading, isError } = useQuery<PurchaseOrder[]>({
+    queryKey: ["purchaseOrders"],
+    queryFn: () => fetch("/api/purchase-orders").then(r => {
+      if (!r.ok) throw new Error("Failed to fetch purchase orders");
+      return r.json();
+    }),
+  });
+
+  if (isLoading) return <Spinner />;
+  if (isError)   return <ErrorMessage />;
+
+  return data && data.length > 0 ? (
+    <Table>
+      {/* map data to rows */}
+    </Table>
+  ) : (
+    <EmptyPlaceholder>
+      {/* your “No purchase orders found” UI */}
+    </EmptyPlaceholder>
+  );
+}
+Make sure you’re not always rendering the placeholder unconditionally.
+
+Only show it when !isLoading && data?.length === 0.
+
+Quick checklist:
+Mutation’s onSuccess calls queryClient.invalidateQueries(["purchaseOrders"]).
+
+List page uses useQuery(["purchaseOrders"], …).
+
+UI branches on isLoading, isError, and data.length so you actually render the table when there is data.
+
+With that in place, as soon as your POST returns 201, React-Query will re-fetch /api/purchase-orders and your newly created PO will appear in the list immediately.
