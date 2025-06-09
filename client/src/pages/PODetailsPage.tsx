@@ -130,8 +130,8 @@ export default function PODetailsPage() {
                   <p>{format(new Date(purchaseOrder.issueDate), "PPP")}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Due Date</label>
-                  <p>{purchaseOrder.dueDate ? format(new Date(purchaseOrder.dueDate), "PPP") : "Not specified"}</p>
+                  <label className="text-sm font-medium text-gray-500">Expected Delivery</label>
+                  <p>{purchaseOrder.expectedDeliveryDate ? format(new Date(purchaseOrder.expectedDeliveryDate), "PPP") : "Not specified"}</p>
                 </div>
                 <div>
                   <label className="text-sm font-medium text-gray-500">Status</label>
@@ -179,10 +179,7 @@ export default function PODetailsPage() {
                   <span className="text-gray-600">Tax:</span>
                   <span>{formatMoney(purchaseOrder.tax || 0)}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Discount:</span>
-                  <span>{formatMoney(purchaseOrder.discount || 0)}</span>
-                </div>
+                {/* Discount field doesn't exist in schema, skip it */}
                 <div className="border-t pt-2">
                   <div className="flex justify-between font-bold text-lg">
                     <span>Total:</span>
