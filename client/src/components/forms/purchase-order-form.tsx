@@ -768,13 +768,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                         <Label htmlFor="inventoryItemId">Select Inventory Item (Optional)</Label>
                         <Select 
                           onValueChange={(value) => handleInventoryItemChange(value ? parseInt(value) : null)}
-                          value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
+                          value={lineItemForm.watch("inventoryItemId") !== null ? lineItemForm.watch("inventoryItemId")?.toString() : undefined}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Optional — select an item" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">None (Custom Item)</SelectItem>
                             {inventoryItems.length > 0 ? (
                               inventoryItems.map((item) => (
                                 <SelectItem key={item.id} value={item.id.toString()}>
