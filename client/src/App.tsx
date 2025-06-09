@@ -26,6 +26,7 @@ import SuppliersPage from "@/pages/suppliers-page";
 import ExpensesPage from "@/pages/expenses-page";
 import PurchaseOrdersPage from "@/pages/purchase-orders-page";
 import POCreatePage from "@/pages/POCreatePage";
+import PODetailsPage from "@/pages/PODetailsPage";
 import InventoryPage from "@/pages/inventory-page";
 import SettingsPage from "@/pages/settings-page";
 import ProfilePage from "@/pages/profile-page";
@@ -107,8 +108,8 @@ function Router() {
       <ProtectedRoute path="/expenses/:id/edit" component={ExpensesPage} />
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/purchase-orders/new" component={POCreatePage} />
-      <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrdersPage} />
-      <ProtectedRoute path="/purchase-orders/:id/edit" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/purchase-orders/:id" component={PODetailsPage} />
+      <ProtectedRoute path="/purchase-orders/:id/edit" component={POCreatePage} />
       <ProtectedRoute path="/inventory" component={InventoryPage} />
       <ProtectedRoute path="/inventory/:id" component={InventoryPage} />
       <ProtectedRoute path="/inventory/:id/edit" component={InventoryPage} />
