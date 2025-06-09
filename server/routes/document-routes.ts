@@ -514,7 +514,7 @@ export const registerDocumentRoutes = (app: Express) => {
   app.post('/api/purchase-orders/:id/email', requireAuth, async (req, res) => {
     try {
       const poId = Number(req.params.id);
-      const { to: recipientEmail } = req.body;
+      const { to: recipientEmail, subject, body } = req.body;
       const tenantId = getTenantIdFromRequest(req);
       
       if (!tenantId) {
@@ -542,11 +542,16 @@ export const registerDocumentRoutes = (app: Express) => {
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      // Send email with PDF using the unified email service
+      // Send email with PDF using the unified email service with custom subject and body
       const success = await EmailService.sendPurchaseOrder(
         { ...purchaseOrder, items: poItems },
         recipientEmail,
-        senderEmail
+        senderEmail,
+        {
+          subject,
+          message: body,
+          includePdf: true
+        }
       );
       
       if (success) {
