@@ -149,7 +149,7 @@ export default function POCreatePage() {
     <div className="mx-auto max-w-4xl space-y-8 p-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold">Create Purchase Order</h1>
-        <Button variant="outline" onClick={() => navigate("/purchase-orders")}>
+        <Button variant="outline" onClick={() => setLocation("/purchase-orders")}>
           Back to Purchase Orders
         </Button>
       </div>
@@ -329,7 +329,7 @@ export default function POCreatePage() {
       <div className="flex justify-end gap-4">
         <Button 
           variant="outline" 
-          onClick={() => navigate("/purchase-orders")}
+          onClick={() => setLocation("/purchase-orders")}
         >
           Cancel
         </Button>
