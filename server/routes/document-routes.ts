@@ -1,6 +1,6 @@
 import { Express, Request, Response } from 'express';
 import PDFService from '../services/pdf-service';
-import EmailService from '../services/email-service';
+import EmailService from '../services/unified-email-service';
 import { storage } from '../storage';
 
 // Import authentication middleware from main routes
