@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { PurchaseOrder } from "@shared/schema";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { 
   Card, 
   CardContent, 
@@ -60,6 +60,39 @@ export default function PurchaseOrdersPage() {
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedPO, setSelectedPO] = useState<PurchaseOrder | null>(null);
+
+  // Mutation for updating Purchase Order status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ poId, status }: { poId: number; status: string }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      toast({
+        title: "Status updated",
+        description: "Purchase order status has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
   
   // Get all purchase orders
   const { 
@@ -94,8 +127,8 @@ export default function PurchaseOrdersPage() {
 
   // Handle edit purchase order
   const handleEditPO = (po: PurchaseOrder) => {
-    // Navigate to edit page
-    setLocation(`/purchase-orders/${po.id}/edit`);
+    setSelectedPO(po);
+    setIsDialogOpen(true);
   };
 
   // Handle email purchase order
@@ -372,17 +405,24 @@ export default function PurchaseOrdersPage() {
                           >
                             <Printer className="h-4 w-4" />
                           </Button>
-                          {po.status === "Draft" && (
+                          {po.status === "draft" && (
                             <Button
                               variant="ghost"
                               size="icon"
                               className="text-green-500"
-                              onClick={() => {
-                                toast({
-                                  title: "Not implemented",
-                                  description: "Mark as sent functionality will be added soon",
-                                });
-                              }}
+                              onClick={() => updateStatusMutation.mutate({ poId: po.id, status: "sent" })}
+                              disabled={updateStatusMutation.isPending}
+                            >
+                              <ClipboardCheck className="h-4 w-4" />
+                            </Button>
+                          )}
+                          {po.status === "sent" && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="text-blue-500"
+                              onClick={() => updateStatusMutation.mutate({ poId: po.id, status: "confirmed" })}
+                              disabled={updateStatusMutation.isPending}
                             >
                               <ClipboardCheck className="h-4 w-4" />
                             </Button>
