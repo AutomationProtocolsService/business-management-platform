@@ -171,11 +171,11 @@ export default function InventoryTransactionHistory({ itemId }: TransactionHisto
           </div>
           <div>
             <p className="text-sm text-gray-500">Cost Price</p>
-            <p className="font-medium">{item.costPrice ? formatMoney(item.costPrice) : "N/A"}</p>
+            <p className="font-medium">{item.cost ? formatMoney(item.cost) : "N/A"}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Total Value</p>
-            <p className="font-medium">{formatMoney(item.currentStock * (item.costPrice || 0))}</p>
+            <p className="font-medium">{formatMoney((item.currentStock || 0) * (item.cost || 0))}</p>
           </div>
         </div>
       </div>
