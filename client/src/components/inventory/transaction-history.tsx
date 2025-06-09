@@ -184,12 +184,11 @@ export default function InventoryTransactionHistory({ itemId }: TransactionHisto
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="space-y-2">
           <Label>Transaction Type</Label>
-          <Select value={filterType} onValueChange={setFilterType}>
+          <Select value={filterType || undefined} onValueChange={(value) => setFilterType(value || "")}>
             <SelectTrigger>
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
               <SelectItem value="purchase">Purchase</SelectItem>
               <SelectItem value="sale">Sale</SelectItem>
               <SelectItem value="adjustment">Adjustment</SelectItem>
