@@ -473,16 +473,20 @@ export const registerDocumentRoutes = (app: Express) => {
   app.get('/api/purchase-orders/:id/pdf', requireAuth, async (req, res) => {
     try {
       const poId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
       
-      // Get PO with items - using tenant filtering
-      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
-      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantFilter);
+      if (!tenantId) {
+        return res.status(400).json({ message: 'Tenant context required' });
+      }
+      
+      // Get PO with tenant filtering
+      const purchaseOrder = await storage.getPurchaseOrder(poId, { tenantId });
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
       
-      // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.tenantId)) {
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
         return res.status(403).json({ message: 'Access denied' });
       }
       
@@ -510,21 +514,25 @@ export const registerDocumentRoutes = (app: Express) => {
   app.post('/api/purchase-orders/:id/email', requireAuth, async (req, res) => {
     try {
       const poId = Number(req.params.id);
-      const { recipientEmail } = req.body;
+      const { to: recipientEmail } = req.body;
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: 'Tenant context required' });
+      }
       
       if (!recipientEmail) {
         return res.status(400).json({ message: 'Recipient email is required' });
       }
       
-      // Get PO with items - using tenant filtering
-      const tenantFilter = req.tenantFilter ? { tenantId: req.tenantFilter.tenantId } : undefined;
-      const purchaseOrder = await storage.getPurchaseOrder(poId, tenantFilter);
+      // Get PO with tenant filtering
+      const purchaseOrder = await storage.getPurchaseOrder(poId, { tenantId });
       if (!purchaseOrder) {
         return res.status(404).json({ message: 'Purchase order not found' });
       }
       
-      // Check if user has access to this resource
-      if (req.isTenantResource && !req.isTenantResource(purchaseOrder.tenantId)) {
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
         return res.status(403).json({ message: 'Access denied' });
       }
       
@@ -534,7 +542,7 @@ export const registerDocumentRoutes = (app: Express) => {
       const companySettings = await storage.getCompanySettings();
       const senderEmail = companySettings?.email || 'noreply@example.com';
       
-      // Send email with PDF
+      // Send email with PDF using the unified email service
       const success = await EmailService.sendPurchaseOrder(
         { ...purchaseOrder, items: poItems },
         recipientEmail,
