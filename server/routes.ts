@@ -2372,15 +2372,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Purchase Order PDF generation - temporarily disabled due to compilation issues
-  app.get("/api/purchase-orders/:id/pdf", requireAuth, async (req: Request, res: Response) => {
-    try {
-      res.status(501).json({ message: "PDF generation temporarily unavailable" });
-    } catch (error) {
-      console.error('Error generating purchase order PDF:', error);
-      res.status(500).json({ message: "Failed to generate PDF" });
-    }
-  });
+
 
   // Expenses routes
   app.get("/api/expenses", requireAuth, async (req: Request, res: Response) => {

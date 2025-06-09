@@ -3,7 +3,7 @@ import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, FileText, Mail, Printer } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { PurchaseOrder } from "@shared/schema";
@@ -18,16 +18,7 @@ export default function PODetailsPage() {
     enabled: !!id,
   });
 
-  const handlePrintPDF = () => {
-    if (purchaseOrder) {
-      window.open(`/api/purchase-orders/${purchaseOrder.id}/pdf`, '_blank');
-    }
-  };
 
-  const handleEmail = () => {
-    // TODO: Implement email functionality
-    console.log("Email PO");
-  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
@@ -95,20 +86,6 @@ export default function PODetailsPage() {
         
         <div className="flex items-center gap-2">
           {getStatusBadge(purchaseOrder.status)}
-          <Button variant="outline" size="sm" onClick={handleEmail}>
-            <Mail className="w-4 h-4 mr-2" />
-            Email
-          </Button>
-          <Button variant="outline" size="sm" onClick={handlePrintPDF}>
-            <Printer className="w-4 h-4 mr-2" />
-            Print PDF
-          </Button>
-          <Link href={`/purchase-orders/${purchaseOrder.id}/edit`}>
-            <Button size="sm">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit
-            </Button>
-          </Link>
         </div>
       </div>
 
@@ -155,7 +132,9 @@ export default function PODetailsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-center py-8 text-gray-500">
-                <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <div className="w-12 h-12 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
+                  <span className="text-2xl">📄</span>
+                </div>
                 <p>Line items will be displayed here</p>
                 <p className="text-sm">Feature coming soon</p>
               </div>
