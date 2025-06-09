@@ -73,9 +73,10 @@ const formSchema = insertPurchaseOrderSchema.extend({
 
 type FormValues = z.infer<typeof formSchema>;
 
-// Schema for the line item form
+// Schema for the line item form - make inventory item optional
 const lineItemSchema = insertPurchaseOrderItemSchema.extend({
   tempId: z.string().optional(),
+  inventoryItemId: z.number().nullable().optional(), // Make inventory selection optional
 });
 
 type LineItemFormValues = z.infer<typeof lineItemSchema>;
@@ -138,7 +139,7 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
       description: "",
       quantity: 1,
       unitPrice: 0,
-      inventoryItemId: undefined,
+      inventoryItemId: null,
     },
   });
 
@@ -762,13 +763,13 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                     <div className="space-y-4">
                       {/* Inventory Item */}
                       <div className="space-y-2">
-                        <Label htmlFor="inventoryItemId">Select Inventory Item</Label>
+                        <Label htmlFor="inventoryItemId">Select Inventory Item (Optional)</Label>
                         <Select 
-                          onValueChange={(value) => handleInventoryItemChange(parseInt(value))}
+                          onValueChange={(value) => handleInventoryItemChange(parseInt(value) || null)}
                           value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select an item" />
+                            <SelectValue placeholder="Optional — select an item" />
                           </SelectTrigger>
                           <SelectContent>
                             {inventoryItems.length > 0 ? (
