@@ -2482,7 +2482,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Register additional API routes here
+  // Register document routes (PDF and email functionality)
+  const { registerDocumentRoutes } = await import('./routes/document-routes');
+  registerDocumentRoutes(app);
 
   // We'll create a server in index.ts
   console.log('API routes registered successfully');

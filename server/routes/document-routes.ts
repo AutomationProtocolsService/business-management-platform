@@ -2,26 +2,25 @@ import { Express, Request, Response } from 'express';
 import PDFService from '../services/pdf-service';
 import EmailService from '../services/email-service';
 import { storage } from '../storage';
-import { TenantFilter } from '@shared/types';
+
+// Import authentication middleware from main routes
+const requireAuth = (req: Request, res: Response, next: Function) => {
+  if (!req.isAuthenticated || !req.isAuthenticated()) {
+    return res.status(401).json({ message: "Unauthorized" });
+  }
+  next();
+};
+
+// Helper function to get tenant ID from request
+const getTenantIdFromRequest = (req: Request): number | undefined => {
+  return (req as any).tenantId;
+};
 
 /**
  * Register document-related API routes
  * @param app Express application
  */
 export const registerDocumentRoutes = (app: Express) => {
-  // Common authentication middleware for protected routes
-  const requireAuth = (req: Request, res: Response, next: Function) => {
-    if (!req.isAuthenticated()) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    
-    // Set tenant ID from the authenticated user for use in routes
-    if (req.user && (req.user as any).tenantId) {
-      (req as any).tenantId = (req.user as any).tenantId;
-    }
-    
-    next();
-  };
 
   // Generate and download Quote PDF
   app.get('/api/quotes/:id/pdf', requireAuth, async (req, res) => {
