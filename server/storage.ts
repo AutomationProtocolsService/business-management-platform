@@ -242,7 +242,7 @@ export interface IStorage {
   
   // Suppliers
   getSupplier(id: number): Promise<Supplier | undefined>;
-  getSupplierByName(name: string): Promise<Supplier | undefined>;
+  getSupplierByName(name: string, tenantId?: number): Promise<Supplier | undefined>;
   createSupplier(supplier: InsertSupplier): Promise<Supplier>;
   updateSupplier(id: number, supplier: Partial<Supplier>): Promise<Supplier | undefined>;
   deleteSupplier(id: number): Promise<boolean>;
@@ -1176,8 +1176,13 @@ export class MemStorage implements IStorage {
     return this.suppliers.get(id);
   }
 
-  async getSupplierByName(name: string): Promise<Supplier | undefined> {
-    return Array.from(this.suppliers.values()).find(supplier => supplier.name === name);
+  async getSupplierByName(name: string, tenantId?: number): Promise<Supplier | undefined> {
+    return Array.from(this.suppliers.values()).find(supplier => {
+      if (tenantId !== undefined && supplier.tenantId !== tenantId) {
+        return false;
+      }
+      return supplier.name === name;
+    });
   }
 
   async createSupplier(supplier: InsertSupplier): Promise<Supplier> {
@@ -3238,9 +3243,18 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
-  async getSupplierByName(name: string): Promise<Supplier | undefined> {
+  async getSupplierByName(name: string, tenantId?: number): Promise<Supplier | undefined> {
+    let whereCondition = eq(schema.suppliers.name, name);
+    
+    if (tenantId !== undefined) {
+      whereCondition = and(
+        eq(schema.suppliers.name, name),
+        eq(schema.suppliers.tenantId, tenantId)
+      ) as any;
+    }
+    
     const result = await db.query.suppliers.findFirst({
-      where: eq(schema.suppliers.name, name)
+      where: whereCondition
     });
     return result;
   }
