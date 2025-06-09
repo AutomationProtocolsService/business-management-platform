@@ -448,12 +448,14 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
     });
   };
 
-  // Handle inventory item selection
-  const handleInventoryItemChange = (inventoryItemId: number) => {
-    const inventoryItem = inventoryItems.find(item => item.id === inventoryItemId);
-    if (inventoryItem) {
-      lineItemForm.setValue("description", inventoryItem.name);
-      lineItemForm.setValue("unitPrice", inventoryItem.cost || 0);
+  // Handle inventory item selection - now supports optional selection
+  const handleInventoryItemChange = (inventoryItemId: number | null) => {
+    if (inventoryItemId) {
+      const inventoryItem = inventoryItems.find(item => item.id === inventoryItemId);
+      if (inventoryItem) {
+        lineItemForm.setValue("description", inventoryItem.name);
+        lineItemForm.setValue("unitPrice", inventoryItem.cost || 0);
+      }
     }
     lineItemForm.setValue("inventoryItemId", inventoryItemId);
   };
@@ -765,13 +767,14 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                       <div className="space-y-2">
                         <Label htmlFor="inventoryItemId">Select Inventory Item (Optional)</Label>
                         <Select 
-                          onValueChange={(value) => handleInventoryItemChange(parseInt(value) || null)}
+                          onValueChange={(value) => handleInventoryItemChange(value ? parseInt(value) : null)}
                           value={lineItemForm.watch("inventoryItemId")?.toString() || ""}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Optional — select an item" />
                           </SelectTrigger>
                           <SelectContent>
+                            <SelectItem value="">None (Custom Item)</SelectItem>
                             {inventoryItems.length > 0 ? (
                               inventoryItems.map((item) => (
                                 <SelectItem key={item.id} value={item.id.toString()}>
