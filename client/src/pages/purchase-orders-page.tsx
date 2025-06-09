@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { PurchaseOrder } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
@@ -62,6 +62,7 @@ import PurchaseOrderForm from "@/components/forms/purchase-order-form";
 export default function PurchaseOrdersPage() {
   const { toast } = useToast();
   const { formatMoney } = useSettings();
+  const [, setLocation] = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -136,7 +137,7 @@ export default function PurchaseOrdersPage() {
   // Handle view purchase order details
   const handleViewPO = (poId: number) => {
     // Navigate to purchase order details page
-    window.location.href = `/purchase-orders/${poId}`;
+    setLocation(`/purchase-orders/${poId}`);
   };
 
   // Get badge color based on status
