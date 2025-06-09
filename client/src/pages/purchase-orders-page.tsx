@@ -39,7 +39,6 @@ import {
   Filter,
   Loader2,
   Eye,
-  Pencil,
   ClipboardCheck,
   ShoppingCart,
   Truck
@@ -82,11 +81,7 @@ export default function PurchaseOrdersPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Handle edit purchase order
-  const handleEditPO = (po: PurchaseOrder) => {
-    setSelectedPO(po);
-    setIsDialogOpen(true);
-  };
+
 
   // Handle view purchase order details
   const handleViewPO = (poId: number) => {
@@ -310,13 +305,6 @@ export default function PurchaseOrdersPage() {
                             onClick={() => handleViewPO(po.id)}
                           >
                             <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleEditPO(po)}
-                          >
-                            <Pencil className="h-4 w-4" />
                           </Button>
                           {po.status === "Draft" && (
                             <Button
