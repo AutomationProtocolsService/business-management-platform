@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { PurchaseOrder } from "@shared/schema";
-import { apiRequest, queryClient } from "@/lib/queryClient";
+import { queryClient } from "@/lib/queryClient";
 import { 
   Card, 
   CardContent, 
@@ -12,9 +12,6 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Select,
   SelectContent,
@@ -36,17 +33,13 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
-  DialogFooter,
 } from "@/components/ui/dialog";
 import { 
-  PlusCircle, 
   Search, 
   Filter,
   Loader2,
   Eye,
   Pencil,
-  Trash2,
   ClipboardCheck,
   ShoppingCart,
   Truck
@@ -75,8 +68,6 @@ export default function PurchaseOrdersPage() {
   } = useQuery<PurchaseOrder[]>({
     queryKey: ["/api/purchase-orders"],
   });
-  
-
 
   // Filter purchase orders based on search term and status
   const filteredPOs = purchaseOrders.filter(po => {
@@ -156,8 +147,6 @@ export default function PurchaseOrdersPage() {
     );
   }
 
-
-
   return (
     <div className="container py-10">
       <div className="flex justify-between items-center mb-6">
@@ -196,57 +185,76 @@ export default function PurchaseOrdersPage() {
                     ? "Your purchase order has been updated successfully." 
                     : "Your purchase order has been created successfully.",
                 });
-              }}
-
+                setSelectedPO(null);
+              }} 
             />
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Filter and search */}
+      {/* Search and Filter Controls */}
       <Card className="mb-6">
-        <CardContent className="pt-6">
-          <div className="flex flex-col md:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
-              <Input
-                placeholder="Search by PO number or supplier..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Filter className="h-5 w-5" />
+            Search & Filter
+          </CardTitle>
+          <CardDescription>
+            Find purchase orders by PO number or filter by status
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
+                <Input
+                  placeholder="Search by PO number or supplier..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
             </div>
-            <div className="flex gap-2">
+            <div className="w-48">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    {statusFilter || "All Statuses"}
-                  </div>
+                <SelectTrigger>
+                  <SelectValue placeholder="All Statuses" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Statuses</SelectItem>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Sent">Sent</SelectItem>
-                  <SelectItem value="Received">Received</SelectItem>
-                  <SelectItem value="Partial">Partial</SelectItem>
-                  <SelectItem value="Cancelled">Cancelled</SelectItem>
-                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="">All Statuses</SelectItem>
+                  <SelectItem value="draft">Draft</SelectItem>
+                  <SelectItem value="sent">Sent</SelectItem>
+                  <SelectItem value="confirmed">Confirmed</SelectItem>
+                  <SelectItem value="received">Received</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  <SelectItem value="partially_received">Partially Received</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline" onClick={() => {
-                setSearchTerm("");
-                setStatusFilter("");
-              }}>
+            </div>
+            {(searchTerm || statusFilter) && (
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("");
+                }}
+              >
                 Clear
               </Button>
-            </div>
+            )}
           </div>
         </CardContent>
       </Card>
 
-      {/* Purchase Orders table */}
+      {/* Purchase Orders Table */}
       <Card>
+        <CardHeader>
+          <CardTitle>Purchase Orders</CardTitle>
+          <CardDescription>
+            {filteredPOs.length} purchase order{filteredPOs.length !== 1 ? 's' : ''} found
+          </CardDescription>
+        </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center items-center h-64">
@@ -336,126 +344,6 @@ export default function PurchaseOrdersPage() {
           )}
         </CardContent>
       </Card>
-
-      {/* Email Dialog */}
-      <Dialog open={isEmailDialogOpen} onOpenChange={setIsEmailDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Mail className="h-5 w-5 text-primary" />
-              Email Purchase Order
-            </DialogTitle>
-            <DialogDescription>
-              Send this purchase order to the supplier via email.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="recipient">Recipient Email *</Label>
-              <Input
-                id="recipient"
-                type="email"
-                placeholder="supplier@example.com"
-                value={recipientEmail}
-                onChange={(e) => setRecipientEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="subject">Subject *</Label>
-              <Input
-                id="subject"
-                value={emailSubject}
-                onChange={(e) => setEmailSubject(e.target.value)}
-                placeholder="Purchase Order #123"
-                required
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="message">Message *</Label>
-              <Textarea
-                id="message"
-                className="min-h-24"
-                value={emailBody}
-                onChange={(e) => setEmailBody(e.target.value)}
-                placeholder="Please find attached the purchase order."
-                required
-              />
-            </div>
-            <div className="flex items-center space-x-2">
-              <Checkbox 
-                id="includePdf" 
-                checked={includePdf}
-                onCheckedChange={(checked) => setIncludePdf(checked as boolean)}
-              />
-              <label
-                htmlFor="includePdf"
-                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-              >
-                Include PDF attachment
-              </label>
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => setIsEmailDialogOpen(false)}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                if (!selectedPO) return;
-                if (!recipientEmail.trim()) {
-                  toast({
-                    title: "Error",
-                    description: "Recipient email is required",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                if (!emailSubject.trim()) {
-                  toast({
-                    title: "Error",
-                    description: "Email subject is required",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                if (!emailBody.trim()) {
-                  toast({
-                    title: "Error",
-                    description: "Email message is required",
-                    variant: "destructive",
-                  });
-                  return;
-                }
-                emailPurchaseOrder.mutate({
-                  id: selectedPO.id,
-                  email: recipientEmail,
-                  subject: emailSubject,
-                  body: emailBody,
-                  includePdf: includePdf
-                });
-              }}
-              disabled={emailPurchaseOrder.isPending}
-              className="bg-primary hover:bg-primary/90 text-white gap-1"
-            >
-              {emailPurchaseOrder.isPending ? (
-                <>
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <Mail className="h-4 w-4" />
-                  Send Email
-                </>
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
