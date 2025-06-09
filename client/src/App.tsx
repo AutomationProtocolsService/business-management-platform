@@ -106,6 +106,7 @@ function Router() {
       <ProtectedRoute path="/expenses/:id" component={ExpensesPage} />
       <ProtectedRoute path="/expenses/:id/edit" component={ExpensesPage} />
       <ProtectedRoute path="/purchase-orders" component={PurchaseOrdersPage} />
+      <ProtectedRoute path="/purchase-orders/new" component={POCreatePage} />
       <ProtectedRoute path="/purchase-orders/:id" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/purchase-orders/:id/edit" component={PurchaseOrdersPage} />
       <ProtectedRoute path="/inventory" component={InventoryPage} />

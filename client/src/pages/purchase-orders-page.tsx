@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { PurchaseOrder } from "@shared/schema";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { 
@@ -215,11 +216,10 @@ export default function PurchaseOrdersPage() {
             Create and manage purchase orders for suppliers
           </p>
         </div>
-        <Button 
-          className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white"
-          onClick={() => setIsDialogOpen(true)}
-        >
-          <ShoppingCart className="h-4 w-4" /> New Purchase Order
+        <Button asChild className="flex items-center gap-2 bg-primary hover:bg-primary/90 text-white">
+          <Link to="/purchase-orders/new">
+            <ShoppingCart className="h-4 w-4" /> New Purchase Order
+          </Link>
         </Button>
         
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
