@@ -1,62 +1,74 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useParams, Link } from "wouter";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Edit, Mail, Printer } from "lucide-react";
+import { ArrowLeft, Edit, Mail, Printer, CheckCircle } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
 import { useToast } from "@/hooks/use-toast";
+import { queryClient } from "@/lib/queryClient";
+import { EmailDialog } from "@/components/EmailDialog";
 import { PurchaseOrder } from "@shared/schema";
 
 export default function PODetailsPage() {
   const { id } = useParams();
   const { formatMoney } = useSettings();
   const { toast } = useToast();
-  
+  const [emailDialogOpen, setEmailDialogOpen] = useState(false);
+
   const { data: purchaseOrder, isLoading, error } = useQuery<PurchaseOrder>({
     queryKey: ["/api/purchase-orders", id],
     queryFn: () => fetch(`/api/purchase-orders/${id}`).then(res => res.json()),
     enabled: !!id,
   });
 
+  // Mutation for updating Purchase Order status
+  const updateStatusMutation = useMutation({
+    mutationFn: async ({ poId, status }: { poId: number; status: string }) => {
+      const response = await fetch(`/api/purchase-orders/${poId}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status }),
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to update status");
+      }
+      
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders", id] });
+      queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
+      toast({
+        title: "Status updated",
+        description: "Purchase order status has been updated successfully.",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to update status. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle status update
+  const handleStatusUpdate = (newStatus: string) => {
+    if (purchaseOrder) {
+      updateStatusMutation.mutate({ poId: purchaseOrder.id, status: newStatus });
+    }
+  };
+
   // Handle edit purchase order
   const handleEdit = () => {
     if (purchaseOrder) {
       window.location.href = `/purchase-orders/${purchaseOrder.id}/edit`;
-    }
-  };
-
-  // Handle email purchase order
-  const handleEmail = async () => {
-    if (!purchaseOrder) return;
-    
-    try {
-      const email = prompt("Enter email address to send the purchase order:");
-      if (!email) return;
-
-      const response = await fetch(`/api/purchase-orders/${purchaseOrder.id}/email`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ to: email }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: "Email sent successfully",
-          description: `Purchase order ${purchaseOrder.poNumber} has been sent to ${email}`,
-        });
-      } else {
-        throw new Error("Failed to send email");
-      }
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to send email. Please try again.",
-        variant: "destructive",
-      });
     }
   };
 
@@ -67,22 +79,31 @@ export default function PODetailsPage() {
     }
   };
 
-
-
+  // Get status badge
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case "pending":
-        return <Badge variant="secondary">Pending</Badge>;
-      case "approved":
-        return <Badge className="bg-blue-500">Approved</Badge>;
-      case "ordered":
-        return <Badge className="bg-orange-500">Ordered</Badge>;
-      case "received":
-        return <Badge className="bg-green-500">Received</Badge>;
+      case "draft":
+        return <Badge variant="secondary">Draft</Badge>;
+      case "sent":
+        return <Badge className="bg-blue-500">Sent</Badge>;
+      case "confirmed":
+        return <Badge className="bg-green-500">Confirmed</Badge>;
       case "cancelled":
         return <Badge variant="destructive">Cancelled</Badge>;
       default:
         return <Badge variant="outline">{status}</Badge>;
+    }
+  };
+
+  // Get next status for progression
+  const getNextStatus = (currentStatus: string) => {
+    switch (currentStatus) {
+      case "draft":
+        return "sent";
+      case "sent":
+        return "confirmed";
+      default:
+        return null;
     }
   };
 
@@ -104,10 +125,7 @@ export default function PODetailsPage() {
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600 mb-4">Purchase Order Not Found</h1>
           <Link href="/purchase-orders">
-            <Button variant="outline">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Purchase Orders
-            </Button>
+            <Button>Back to Purchase Orders</Button>
           </Link>
         </div>
       </div>
@@ -120,42 +138,38 @@ export default function PODetailsPage() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <Link href="/purchase-orders">
-            <Button variant="outline" size="sm">
+            <Button variant="ghost" size="sm">
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back
             </Button>
           </Link>
-          <div>
-            <h1 className="text-2xl font-bold">Purchase Order {purchaseOrder.poNumber}</h1>
-            <p className="text-gray-600">
-              Created on {format(new Date(purchaseOrder.issueDate), "PPP")}
-            </p>
-          </div>
+          <h1 className="text-2xl font-bold">Purchase Order Details</h1>
         </div>
         
         <div className="flex items-center gap-2">
-          {getStatusBadge(purchaseOrder.status)}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEdit}
-          >
+          {/* Status Update Button */}
+          {getNextStatus(purchaseOrder.status) && (
+            <Button
+              onClick={() => handleStatusUpdate(getNextStatus(purchaseOrder.status)!)}
+              disabled={updateStatusMutation.isPending}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              <CheckCircle className="w-4 h-4 mr-2" />
+              Mark as {getNextStatus(purchaseOrder.status)}
+            </Button>
+          )}
+          
+          <Button variant="outline" onClick={handleEdit}>
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleEmail}
-          >
+          
+          <Button variant="outline" onClick={() => setEmailDialogOpen(true)}>
             <Mail className="w-4 h-4 mr-2" />
             Email
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handlePrintPDF}
-          >
+          
+          <Button variant="outline" onClick={handlePrintPDF}>
             <Printer className="w-4 h-4 mr-2" />
             Print PDF
           </Button>
@@ -163,8 +177,9 @@ export default function PODetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Purchase Order Details */}
-        <div className="lg:col-span-2">
+        {/* Main Content */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Purchase Order Details */}
           <Card>
             <CardHeader>
               <CardTitle>Purchase Order Details</CardTitle>
@@ -172,83 +187,93 @@ export default function PODetailsPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm font-medium text-gray-500">PO Number</label>
-                  <p className="font-semibold">{purchaseOrder.poNumber}</p>
+                  <label className="text-sm font-medium text-gray-600">PO Number</label>
+                  <p className="text-lg font-semibold">{purchaseOrder.poNumber}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Issue Date</label>
-                  <p>{format(new Date(purchaseOrder.issueDate), "PPP")}</p>
+                  <label className="text-sm font-medium text-gray-600">Issue Date</label>
+                  <p>{format(new Date(purchaseOrder.issueDate), "MMMM do, yyyy")}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Expected Delivery</label>
-                  <p>{purchaseOrder.expectedDeliveryDate ? format(new Date(purchaseOrder.expectedDeliveryDate), "PPP") : "Not specified"}</p>
+                  <label className="text-sm font-medium text-gray-600">Expected Delivery</label>
+                  <p>{purchaseOrder.expectedDeliveryDate ? format(new Date(purchaseOrder.expectedDeliveryDate), "MMMM do, yyyy") : "Not specified"}</p>
                 </div>
                 <div>
-                  <label className="text-sm font-medium text-gray-500">Status</label>
-                  <div>{getStatusBadge(purchaseOrder.status)}</div>
+                  <label className="text-sm font-medium text-gray-600">Status</label>
+                  <div className="mt-1">
+                    {getStatusBadge(purchaseOrder.status)}
+                  </div>
                 </div>
               </div>
-              
-              {purchaseOrder.notes && (
-                <div>
-                  <label className="text-sm font-medium text-gray-500">Notes</label>
-                  <p className="mt-1 p-3 bg-gray-50 rounded-md">{purchaseOrder.notes}</p>
-                </div>
-              )}
             </CardContent>
           </Card>
 
           {/* Line Items */}
-          <Card className="mt-6">
+          <Card>
             <CardHeader>
               <CardTitle>Line Items</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-8 text-gray-500">
-                <div className="w-12 h-12 mx-auto mb-4 bg-gray-200 rounded-lg flex items-center justify-center">
-                  <span className="text-2xl">📄</span>
+              <div className="space-y-4">
+                <div className="text-center py-8 text-gray-500">
+                  <div className="bg-gray-100 rounded-lg p-8">
+                    <p>Line items will be loaded here</p>
+                  </div>
                 </div>
-                <p>Line items will be displayed here</p>
-                <p className="text-sm">Feature coming soon</p>
               </div>
             </CardContent>
           </Card>
         </div>
 
-        {/* Summary Card */}
-        <div>
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Summary */}
           <Card>
             <CardHeader>
               <CardTitle>Summary</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Subtotal:</span>
-                  <span>{formatMoney(purchaseOrder.subtotal)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">Tax:</span>
-                  <span>{formatMoney(purchaseOrder.tax || 0)}</span>
-                </div>
-                {/* Discount field doesn't exist in schema, skip it */}
-                <div className="border-t pt-2">
-                  <div className="flex justify-between font-bold text-lg">
-                    <span>Total:</span>
-                    <span>{formatMoney(purchaseOrder.total)}</span>
-                  </div>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between">
+                <span className="text-gray-600">Subtotal:</span>
+                <span>{formatMoney(purchaseOrder.subtotal)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-600">Tax:</span>
+                <span>{formatMoney(purchaseOrder.tax)}</span>
+              </div>
+              <div className="border-t pt-3">
+                <div className="flex justify-between font-semibold text-lg">
+                  <span>Total:</span>
+                  <span>{formatMoney(purchaseOrder.total)}</span>
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="pt-4 border-t">
-                <h4 className="font-semibold mb-2">Supplier Information</h4>
-                <p className="text-sm text-gray-600">Supplier ID: {purchaseOrder.supplierId}</p>
-                <p className="text-sm text-gray-500 mt-2">Detailed supplier info will be loaded here</p>
-              </div>
+          {/* Supplier Information */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Supplier Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-sm text-gray-600 mb-2">Supplier ID: {purchaseOrder.supplierId}</p>
+              <p className="text-sm text-gray-500">Detailed supplier info will be loaded here</p>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {/* Email Dialog */}
+      {emailDialogOpen && purchaseOrder && (
+        <EmailDialog
+          isOpen={emailDialogOpen}
+          onClose={() => setEmailDialogOpen(false)}
+          documentType="Purchase Order"
+          documentNumber={purchaseOrder.poNumber}
+          documentId={purchaseOrder.id}
+          apiEndpoint={`/api/purchase-orders/${purchaseOrder.id}/email`}
+        />
+      )}
     </div>
   );
 }
