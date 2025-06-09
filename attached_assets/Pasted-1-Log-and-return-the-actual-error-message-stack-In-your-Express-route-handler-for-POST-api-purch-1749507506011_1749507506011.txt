@@ -1,0 +1,80 @@
+1) Log and return the actual error message & stack
+In your Express route handler for POST /api/purchase-orders, temporarily change your catch block to:
+
+ts
+Copy
+Edit
+router.post("/", async (req, res) => {
+  try {
+    // … your create logic …
+  } catch (err: any) {
+    console.error("❌ Failed to create PO:", err);
+    // expose real message & stack for debugging
+    return res.status(500).json({
+      message: err.message,
+      stack:   err.stack,
+    });
+  }
+});
+This will:
+
+Print the full error (and stack) in your server console.
+
+Return { message: "...", stack: "..." } to the browser so you can see it in DevTools → Network or in your debug banner.
+
+2) Reproduce the error and capture the stack
+With your server running in one terminal, open the browser Tools → Network tab.
+
+Click Create Purchase Order again.
+
+In the server terminal you’ll see lines like:
+
+yaml
+Copy
+Edit
+❌ Failed to create PO: 
+PrismaClientKnownRequestError: 
+Invalid `prisma.purchaseOrder.create()` invocation:
+
+  Argument supplierId for data.supplierId must not be null
+Or:
+
+rust
+Copy
+Edit
+PrismaClientValidationError: 
+Value type mismatch for field “subtotal”: Decimal …
+Copy the first 3–5 lines of that stack trace exactly as printed.
+
+3) Patch the specific issue
+Depending on what that error says, you will:
+
+must not be null → your payload left out a required field (e.g. supplierId, poNumber, subtotal), so include it or make it optional in your Prisma schema.
+
+Unique constraint failed → you’re inserting a duplicate poNumber or other unique column; change to auto‐generate or drop the constraint.
+
+Decimal or Float errors → wrap your numbers in new Prisma.Decimal(...) or convert strings to numbers before sending.
+
+4) Verify success
+Once the 500 goes away and you see a 201 Created in DevTools Network, your UI will automatically flip to the success flow:
+
+Modal closes.
+
+You’re redirected back to the PO list.
+
+React-Query invalidates and refetches the new PO.
+
+TL;DR
+Add console.error(err) and include err.message/err.stack in your 500 JSON.
+Reproduce in browser and copy the stack.
+Fix the schema or payload to satisfy the exact constraint.
+Retest—you’ll go green once Prisma stops complaining.
+
+Let me know the exact error text you see in your server console after this, and I’ll give you the pinpoint patch to make that 500 go away permanently.
+
+
+
+
+
+
+

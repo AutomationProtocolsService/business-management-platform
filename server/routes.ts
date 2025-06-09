@@ -2259,7 +2259,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Tenant context required" });
       }
 
-      const { supplierName, items, ...orderData } = req.body;
+      const { supplierName, items, orderDate, ...orderData } = req.body;
 
       // Find or create supplier by name
       let supplier = await storage.getSupplierByName(supplierName, tenantId);
@@ -2273,6 +2273,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const purchaseOrderData = {
         ...orderData,
         supplierId: supplier.id,
+        issueDate: orderDate, // Map orderDate to issueDate
         tenantId,
         createdBy: req.user?.id
       };
