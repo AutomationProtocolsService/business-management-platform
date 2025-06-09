@@ -2348,6 +2348,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // PATCH endpoint for status updates
+  app.patch("/api/purchase-orders/:id", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, { tenantId });
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      // Only allow status updates via PATCH
+      const { status } = req.body;
+      if (!status) {
+        return res.status(400).json({ message: "Status is required" });
+      }
+      
+      const updatedPurchaseOrder = await storage.updatePurchaseOrder(purchaseOrderId, { status });
+      res.json(updatedPurchaseOrder);
+    } catch (error) {
+      console.error('Error updating purchase order status:', error);
+      res.status(500).json({ message: "Failed to update purchase order status" });
+    }
+  });
+
   app.delete("/api/purchase-orders/:id", requireAuth, async (req: Request, res: Response) => {
     try {
       const purchaseOrderId = Number(req.params.id);
