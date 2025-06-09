@@ -175,6 +175,12 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
   const subtotal = lineItems.reduce((sum, item) => sum + (item.quantity * item.unitPrice), 0);
   const taxAmount = subtotal * TAX_RATE;
   const total = subtotal + taxAmount;
+  
+  // Debug logging
+  console.log("Line items:", lineItems);
+  console.log("Calculated subtotal:", subtotal);
+  console.log("Calculated tax amount:", taxAmount);
+  console.log("Calculated total:", total);
 
   // Helper functions for backward compatibility
   const calculateSubtotal = () => subtotal;

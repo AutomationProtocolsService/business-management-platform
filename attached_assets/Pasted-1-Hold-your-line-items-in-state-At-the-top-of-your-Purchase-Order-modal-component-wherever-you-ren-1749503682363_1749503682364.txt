@@ -1,0 +1,85 @@
+1. Hold your line items in state
+At the top of your Purchase Order modal component (wherever you render the “Summary” step), you need something like:
+
+ts
+Copy
+Edit
+interface LineItem {
+  description: string;
+  quantity: number;
+  unitPrice: number;
+}
+
+// In your component:
+const [lineItems, setLineItems] = useState<LineItem[]>([]);
+You already have an “Add Item” handler that pushes into this array—keep that in place.
+
+2. Compute Subtotal / Tax / Total with useMemo
+Right beneath your lineItems state, add:
+
+ts
+Copy
+Edit
+// 20% tax rate
+const TAX_RATE = 0.20;
+
+// Recompute whenever lineItems changes:
+const subtotal = useMemo(() => {
+  return lineItems.reduce(
+    (sum, item) => sum + item.quantity * item.unitPrice,
+    0
+  );
+}, [lineItems]);
+
+const taxAmount = useMemo(() => subtotal * TAX_RATE, [subtotal]);
+const total     = useMemo(() => subtotal + taxAmount, [subtotal, taxAmount]);
+This ensures React only recalculates when your items array actually changes.
+
+3. Render them as read-only fields
+Replace your inert inputs with these read-only displays:
+
+tsx
+Copy
+Edit
+<div className="grid grid-cols-3 gap-4 mt-6">
+  {/* Subtotal */}
+  <div className="space-y-1">
+    <Label>Subtotal</Label>
+    <Input readOnly value={subtotal.toFixed(2)} prefix="$" />
+  </div>
+
+  {/* Tax */}
+  <div className="space-y-1">
+    <Label>Tax (20%)</Label>
+    <Input readOnly value={taxAmount.toFixed(2)} prefix="$" />
+  </div>
+
+  {/* Total */}
+  <div className="space-y-1">
+    <Label>Total</Label>
+    <Input
+      readOnly
+      value={total.toFixed(2)}
+      prefix="$"
+      className="bg-blue-50 text-blue-800 font-semibold"
+    />
+  </div>
+</div>
+Notice we removed type="number" and onChange—these are now purely computed.
+
+4. Verify end-to-end
+Add one or more line items.
+
+Watch the Subtotal, Tax, and Total fields update in real-time.
+
+Proceed to “Create Purchase Order”—your payload should include these computed sums (if you’re sending them).
+
+If they still don’t move:
+
+Confirm your lineItems array is actually non-empty (console.log it).
+
+Confirm your handlers call setLineItems([...]).
+
+Ensure the summary code is in the same component so it sees the updated state.
+
+Once wired exactly as above, your summary boxes will tick up correctly whenever you add, edit, or remove items. Let me know if that instantly unblocks you!
