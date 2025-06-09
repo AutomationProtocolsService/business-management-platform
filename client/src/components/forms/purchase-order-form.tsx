@@ -672,7 +672,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <Card>
                   <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Subtotal</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Subtotal ({lineItems.length} items)
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="py-2">
                     <div className="flex items-center">
@@ -704,7 +706,9 @@ export default function PurchaseOrderForm({ purchaseOrder, onSuccess }: Purchase
                 </Card>
                 <Card className="md:col-span-2 bg-primary/5">
                   <CardHeader className="py-2">
-                    <CardTitle className="text-sm font-medium">Total</CardTitle>
+                    <CardTitle className="text-sm font-medium">
+                      Total Amount {lineItems.length > 0 && `(${lineItems.length} items)`}
+                    </CardTitle>
                   </CardHeader>
                   <CardContent className="py-2">
                     <div className="flex items-center">
