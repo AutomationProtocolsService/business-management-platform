@@ -1,0 +1,125 @@
+1. Define your routes (or modal callbacks)
+View Details → GET /purchase-orders/:poId (read-only page or modal)
+
+Edit → GET /purchase-orders/:poId/edit (prefilled form)
+
+Print PDF → GET /purchase-orders/:poId/pdf (returns PDF blob)
+
+Email → POST /api/purchase-orders/:poId/email
+
+Decide whether each one is a full page (via your router) or a dialog. I’ll assume you already have pages/routes for view & edit.
+
+2. Wrap each icon in a clickable component
+Using wouter (or react-router), switch from plain <Icons> to <Link> or <Button onClick>:
+
+tsx
+Copy
+Edit
+import { Link } from "wouter"; // or react-router's <Link>
+
+function PurchaseOrderRow({ po }) {
+  return (
+    <tr key={po.id}>
+      {/* … other cells … */}
+      <td className="flex gap-2 justify-end">
+        {/* View Details */}
+        <Link to={`/purchase-orders/${po.id}`} title="View Details">
+          <Eye size={18} className="cursor-pointer hover:text-blue-600" />
+        </Link>
+
+        {/* Edit */}
+        <Link to={`/purchase-orders/${po.id}/edit`} title="Edit">
+          <Edit size={18} className="cursor-pointer hover:text-green-600" />
+        </Link>
+
+        {/* Print PDF */}
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Print PDF"
+          onClick={() => window.open(`/api/purchase-orders/${po.id}/pdf`, "_blank")}
+        >
+          <FileText size={18} />
+        </Button>
+
+        {/* Email */}
+        <Button
+          variant="ghost"
+          size="sm"
+          title="Email PO"
+          onClick={() =>
+            fetch(`/api/purchase-orders/${po.id}/email`, { method: "POST" })
+              .then((r) =>
+                r.ok
+                  ? toast({ title: "Email sent!" })
+                  : toast({ title: "Email failed", variant: "destructive" })
+              )
+          }
+        >
+          <Mail size={18} />
+        </Button>
+      </td>
+    </tr>
+  );
+}
+View & Edit use <Link> so the router takes you to your existing pages.
+
+Print simply opens the /pdf endpoint in a new tab.
+
+Email fires a POST to your endpoint, then shows toast on success/failure.
+
+3. Ensure server support
+View route
+
+ts
+Copy
+Edit
+// GET /api/purchase-orders/:id
+router.get("/:id", …)
+Edit route
+
+ts
+Copy
+Edit
+// PUT /api/purchase-orders/:id
+router.put("/:id", …)
+PDF route
+
+ts
+Copy
+Edit
+// GET /api/purchase-orders/:id/pdf
+router.get("/:id/pdf", (req, res) => {
+  const id = Number(req.params.id);
+  const pdfBuffer = generatePdfForPO(id); // your PDF logic
+  res.setHeader("Content-Type", "application/pdf");
+  res.send(pdfBuffer);
+});
+Email route
+
+ts
+Copy
+Edit
+// POST /api/purchase-orders/:id/email
+router.post("/:id/email", async (req, res) => {
+  await sendPoByEmail(req.params.id);
+  res.json({ success: true });
+});
+4. Guide the Replit AI agent
+“Wrap each Action icon in either
+
+A <Link to={…}> pointing to your view/edit pages,
+
+Or a <Button onClick={…}> that opens the PDF endpoint or fires the email API.
+Then verify each route exists on the server (GET /api/purchase-orders/:id, PUT /…/edit, GET …/pdf, POST …/email).”**
+
+Final sanity check
+View → click the eye icon → you should navigate to the PO detail page.
+
+Edit → pencil icon → navigate to the edit form with fields prefilled.
+
+Print → PDF icon → a new tab downloads/shows the PDF.
+
+Email → email icon → you get a “Email sent!” toast.
+
+Once each icon is wired this way, your actions toolbar will be fully functional.

@@ -2,14 +2,13 @@ import { Express, Request, Response, NextFunction } from "express";
 import { Server, createServer } from "http";
 import { z } from "zod";
 import { eq } from "drizzle-orm";
-import { StreamBuffers } from "stream-buffers";
+import * as StreamBuffers from "stream-buffers";
 import PDFDocument from "pdfkit";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
 import { createInsertSchema } from "drizzle-zod";
-import { PDFKit } from "pdfkit";
 import { 
   insertCustomerSchema, 
   insertQuoteSchema,
@@ -73,6 +72,90 @@ function validateBody(schema: z.ZodType<any, any>) {
 
 // Import the routes configuration from our modular route files
 import configureModularRoutes from './routes/index';
+
+// PDF Generation function for Purchase Orders
+async function generatePurchaseOrderPDF({ purchaseOrder, items, supplier, companySettings }: {
+  purchaseOrder: any;
+  items: any[];
+  supplier: any;
+  companySettings: any;
+}): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ margin: 50 });
+      const chunks: Buffer[] = [];
+      
+      doc.on('data', (chunk) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+      
+      // Header
+      doc.fontSize(20).text('PURCHASE ORDER', 50, 50);
+      doc.fontSize(12).text(`PO Number: ${purchaseOrder.poNumber}`, 400, 50);
+      doc.text(`Date: ${new Date(purchaseOrder.issueDate).toLocaleDateString()}`, 400, 70);
+      doc.text(`Status: ${purchaseOrder.status}`, 400, 90);
+      
+      // Company details
+      if (companySettings) {
+        doc.fontSize(14).text(companySettings.companyName || 'Company Name', 50, 120);
+        if (companySettings.address) doc.fontSize(10).text(companySettings.address, 50, 140);
+        if (companySettings.phone) doc.text(`Phone: ${companySettings.phone}`, 50, 155);
+        if (companySettings.email) doc.text(`Email: ${companySettings.email}`, 50, 170);
+      }
+      
+      // Supplier details
+      doc.fontSize(14).text('SUPPLIER:', 300, 120);
+      doc.fontSize(12).text(supplier?.name || 'Supplier Name', 300, 140);
+      if (supplier?.email) doc.fontSize(10).text(`Email: ${supplier.email}`, 300, 155);
+      if (supplier?.phone) doc.text(`Phone: ${supplier.phone}`, 300, 170);
+      
+      // Line items table
+      const tableTop = 220;
+      doc.fontSize(12).text('ITEMS:', 50, tableTop);
+      
+      // Table headers
+      const headerY = tableTop + 20;
+      doc.text('Description', 50, headerY);
+      doc.text('Qty', 300, headerY);
+      doc.text('Unit Price', 350, headerY);
+      doc.text('Total', 450, headerY);
+      
+      // Draw header line
+      doc.moveTo(50, headerY + 15).lineTo(550, headerY + 15).stroke();
+      
+      let currentY = headerY + 30;
+      
+      // Line items
+      items.forEach((item) => {
+        doc.fontSize(10)
+          .text(item.description || '', 50, currentY)
+          .text(item.quantity.toString(), 300, currentY)
+          .text(`$${item.unitPrice.toFixed(2)}`, 350, currentY)
+          .text(`$${item.total.toFixed(2)}`, 450, currentY);
+        currentY += 20;
+      });
+      
+      // Totals
+      const totalsY = currentY + 20;
+      doc.moveTo(300, totalsY).lineTo(550, totalsY).stroke();
+      
+      doc.fontSize(12)
+        .text(`Subtotal: $${purchaseOrder.subtotal.toFixed(2)}`, 350, totalsY + 10)
+        .text(`Tax: $${(purchaseOrder.tax || 0).toFixed(2)}`, 350, totalsY + 30)
+        .text(`Total: $${purchaseOrder.total.toFixed(2)}`, 350, totalsY + 50);
+      
+      // Notes
+      if (purchaseOrder.notes) {
+        doc.fontSize(10).text('Notes:', 50, totalsY + 80);
+        doc.text(purchaseOrder.notes, 50, totalsY + 100, { width: 500 });
+      }
+      
+      doc.end();
+    } catch (error) {
+      reject(error);
+    }
+  });
+}
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register modular route handlers
@@ -2368,6 +2451,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Error deleting purchase order:', error);
       res.status(500).json({ message: "Failed to delete purchase order" });
+    }
+  });
+
+  // Purchase Order PDF generation
+  app.get("/api/purchase-orders/:id/pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const purchaseOrderId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const purchaseOrder = await storage.getPurchaseOrder(purchaseOrderId, { tenantId });
+      
+      if (!purchaseOrder) {
+        return res.status(404).json({ message: "Purchase order not found" });
+      }
+      
+      // Security check - ensure purchase order belongs to the tenant
+      if (purchaseOrder.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+
+      // Get purchase order items
+      const items = await storage.getPurchaseOrderItem(purchaseOrderId);
+      
+      // Get supplier details
+      const supplier = await storage.getSupplier(purchaseOrder.supplierId);
+      
+      // Get company settings for PDF header
+      const companySettings = await storage.getCompanySettings();
+      
+      // Generate PDF
+      const pdfBuffer = await generatePurchaseOrderPDF({
+        purchaseOrder,
+        items,
+        supplier,
+        companySettings
+      });
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="PO-${purchaseOrder.poNumber}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating purchase order PDF:', error);
+      res.status(500).json({ message: "Failed to generate PDF" });
     }
   });
 
