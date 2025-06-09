@@ -1,0 +1,158 @@
+To get Email and Print PDF fully working, you need two pieces in place:
+
+A server endpoint that actually generates (or returns) a PDF for a given PO.
+
+A server endpoint that sends that PDF (or a link) via email.
+
+Below is a minimal—yet end-to-end—recipe you can hand to your Replit AI agent:
+
+1. Install PDF & email libraries
+bash
+Copy
+# for PDF generation
+npm install pdfkit
+
+# for sending email
+npm install nodemailer
+2. PDF route: GET /api/purchase-orders/:id/pdf
+ts
+Copy
+// server/routes/purchaseOrders.ts
+
+import PDFDocument from "pdfkit";
+
+router.get("/:id/pdf", async (req, res) => {
+  const poId = Number(req.params.id);
+
+  // 1. Fetch the PO and its items
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: poId },
+    include: { items: true },
+  });
+  if (!po) return res.status(404).send("Not found");
+
+  // 2. Create a PDF in memory
+  const doc = new PDFDocument({ size: "A4", margin: 50 });
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="PO-${po.poNumber}.pdf"`
+  );
+  doc.pipe(res);
+
+  // 3. Draw heading
+  doc.fontSize(18).text(`Purchase Order ${po.poNumber}`, { underline: true });
+  doc.moveDown();
+
+  // 4. Draw table header
+  doc.fontSize(12).text("Description", 50)
+    .text("Qty", 300)
+    .text("Unit Price", 350)
+    .text("Line Total", 450);
+  doc.moveDown();
+
+  // 5. Draw each item
+  po.items.forEach((item) => {
+    doc.text(item.description, 50)
+      .text(item.quantity.toString(), 300)
+      .text(item.unitPrice.toFixed(2), 350)
+      .text((item.quantity * item.unitPrice).toFixed(2), 450);
+    doc.moveDown();
+  });
+
+  // 6. Draw totals
+  doc.moveDown();
+  doc.text(`Subtotal: $${po.subtotal.toFixed(2)}`, 400)
+    .text(`Tax: $${po.tax.toFixed(2)}`, 400, doc.y)
+    .text(`Total: $${po.total.toFixed(2)}`, 400, doc.y + 15);
+
+  doc.end();
+});
+3. Email route: POST /api/purchase-orders/:id/email
+ts
+Copy
+// server/routes/purchaseOrders.ts
+
+import nodemailer from "nodemailer";
+import PDFDocument from "pdfkit";
+
+router.post("/:id/email", async (req, res) => {
+  const poId = Number(req.params.id);
+  const { to } = req.body as { to: string };
+
+  // 1. Fetch the PO
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: poId },
+    include: { items: true },
+  });
+  if (!po) return res.status(404).json({ message: "PO not found" });
+
+  // 2. Generate PDF into a buffer
+  const buffer: Buffer = await new Promise((resolve, reject) => {
+    const doc = new PDFDocument({ size: "A4", margin: 50 });
+    const chunks: Buffer[] = [];
+    doc.on("data", (c) => chunks.push(c));
+    doc.on("end", () => resolve(Buffer.concat(chunks)));
+    doc.on("error", reject);
+
+    // (Repeat the same layout code as above...)
+    doc.fontSize(18).text(`Purchase Order ${po.poNumber}`);
+    doc.moveDown();
+    // ...items table & totals...
+    doc.end();
+  });
+
+  // 3. Send email
+  const transporter = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: +process.env.SMTP_PORT!,
+    secure: !!process.env.SMTP_SECURE,
+    auth: {
+      user: process.env.SMTP_USER,
+      pass: process.env.SMTP_PASS,
+    },
+  });
+
+  await transporter.sendMail({
+    from: `"Your Company" <${process.env.SMTP_USER}>`,
+    to,
+    subject: `Purchase Order ${po.poNumber}`,
+    text: `Please find attached PO ${po.poNumber}.`,
+    attachments: [{ filename: `PO-${po.poNumber}.pdf`, content: buffer }],
+  });
+
+  res.json({ success: true });
+});
+Env vars you’ll need: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_SECURE (true/false).
+
+4. Client wiring
+In your View PO page, change:
+
+tsx
+Copy
+<Button
+  onClick={() => window.open(`/api/purchase-orders/${po.id}/pdf`, "_blank")}
+>
+  Print PDF
+</Button>
+
+<Button
+  onClick={async () => {
+    await fetch(`/api/purchase-orders/${po.id}/email`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ to: "client@example.com" })
+    });
+    toast({ title: "Email sent ✔️" });
+  }}
+>
+  Email
+</Button>
+—replace "client@example.com" with your actual recipient (or prompt them).
+
+5. Test end-to-end
+Print PDF → opens the PDF in a new tab, with all line-items and totals.
+
+Email → you get a success toast and your inbox sees the PO PDF as attachment.
+
+Once you integrate these server routes and client handlers, both icons will work properly.
