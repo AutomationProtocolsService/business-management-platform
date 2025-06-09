@@ -2259,13 +2259,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Tenant context required" });
       }
 
+      const { supplierName, items, ...orderData } = req.body;
+
+      // Find or create supplier by name
+      let supplier = await storage.getSupplierByName(supplierName, tenantId);
+      if (!supplier) {
+        supplier = await storage.createSupplier({
+          name: supplierName,
+          tenantId
+        });
+      }
+
       const purchaseOrderData = {
-        ...req.body,
+        ...orderData,
+        supplierId: supplier.id,
         tenantId,
         createdBy: req.user?.id
       };
 
       const newPurchaseOrder = await storage.createPurchaseOrder(purchaseOrderData);
+      
+      // Create line items separately if they exist
+      if (items && items.length > 0) {
+        for (const item of items) {
+          await storage.createPurchaseOrderItem({
+            purchaseOrderId: newPurchaseOrder.id,
+            description: item.description,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            total: item.quantity * item.unitPrice
+          });
+        }
+      }
+
       res.status(201).json(newPurchaseOrder);
     } catch (error) {
       console.error('Error creating purchase order:', error);

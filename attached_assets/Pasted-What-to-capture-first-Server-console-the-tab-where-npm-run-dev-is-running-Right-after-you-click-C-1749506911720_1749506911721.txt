@@ -1,0 +1,63 @@
+What to capture first
+Server console (the tab where npm run dev is running).
+Right after you click Create Purchase Order you’ll see a red stack-trace.
+Copy the top few lines – it will name either:
+
+A Prisma validation (“Null constraint failed on the columns: supplierId”).
+
+A foreign-key error (“record not found”).
+
+A generic JS error (“cannot read ‘…’ of undefined”).
+
+Payload you sent
+In DevTools → Network → POST /api/purchase-orders → Request Payload.
+Grab the JSON body – that’s what Prisma is trying to persist.
+
+Send those two snippets to the Replit AI agent so it can reproduce and patch the model.
+
+The usual suspects and quick fixes
+Error text (console)	Why it happens	One-line fix
+Null constraint failed on the column: …	You didn’t include a required field in data:{}	Make that field optional in schema or include it in payload
+Foreign key constraint failed	supplierId (or similar) doesn’t exist	Pass an existing supplierId or relax FK in schema
+Invalid DateTime`` or Invalid decimal	You’re sending strings "120" instead of numbers	Cast in payload: unitPrice: Number(li.unitPrice)
+
+Example patch inside the route:
+
+ts
+Copy
+Edit
+router.post('/', async (req, res) => {
+  try {
+    const { items, ...header } = req.body as NewPurchaseOrder;
+
+    // ① create header first
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        ...header,                                    // supplierName, etc.
+        items: {                                      // ② nested createMany
+          createMany: {
+            data: items.map(i => ({
+              description: i.description,
+              quantity:    i.quantity,
+              unitPrice:   new Prisma.Decimal(i.unitPrice),
+            })),
+          },
+        },
+      },
+      include: { items: true },
+    });
+
+    res.status(201).json(po);
+  } catch (err) {
+    console.error(err);                               // you'll see full stack
+    res.status(500).json({ message: 'Failed to create purchase order' });
+  }
+});
+Next step
+Re-run, capture the actual stack trace.
+
+Fix the specific Prisma/DB complaint (schema or payload).
+
+Confirm POST returns 201 JSON, banner turns green.
+
+Once you paste the stack trace here, I can give the exact schema or payload change.
