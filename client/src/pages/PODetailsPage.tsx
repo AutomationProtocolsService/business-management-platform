@@ -3,20 +3,69 @@ import { useParams, Link } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Edit, Mail, Printer } from "lucide-react";
 import { format } from "date-fns";
 import { useSettings } from "@/hooks/use-settings";
+import { useToast } from "@/hooks/use-toast";
 import { PurchaseOrder } from "@shared/schema";
 
 export default function PODetailsPage() {
   const { id } = useParams();
   const { formatMoney } = useSettings();
+  const { toast } = useToast();
   
   const { data: purchaseOrder, isLoading, error } = useQuery<PurchaseOrder>({
     queryKey: ["/api/purchase-orders", id],
     queryFn: () => fetch(`/api/purchase-orders/${id}`).then(res => res.json()),
     enabled: !!id,
   });
+
+  // Handle edit purchase order
+  const handleEdit = () => {
+    if (purchaseOrder) {
+      window.location.href = `/purchase-orders/${purchaseOrder.id}/edit`;
+    }
+  };
+
+  // Handle email purchase order
+  const handleEmail = async () => {
+    if (!purchaseOrder) return;
+    
+    try {
+      const email = prompt("Enter email address to send the purchase order:");
+      if (!email) return;
+
+      const response = await fetch(`/api/purchase-orders/${purchaseOrder.id}/email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ to: email }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Email sent successfully",
+          description: `Purchase order ${purchaseOrder.poNumber} has been sent to ${email}`,
+        });
+      } else {
+        throw new Error("Failed to send email");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle print PDF
+  const handlePrintPDF = () => {
+    if (purchaseOrder) {
+      window.open(`/api/purchase-orders/${purchaseOrder.id}/pdf`, "_blank");
+    }
+  };
 
 
 

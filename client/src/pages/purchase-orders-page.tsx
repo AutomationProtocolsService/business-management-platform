@@ -39,6 +39,9 @@ import {
   Filter,
   Loader2,
   Eye,
+  Pencil,
+  Mail,
+  Printer,
   ClipboardCheck,
   ShoppingCart,
   Truck
@@ -87,6 +90,48 @@ export default function PurchaseOrdersPage() {
   const handleViewPO = (poId: number) => {
     // Navigate to purchase order details page
     setLocation(`/purchase-orders/${poId}`);
+  };
+
+  // Handle edit purchase order
+  const handleEditPO = (po: PurchaseOrder) => {
+    // Navigate to edit page
+    setLocation(`/purchase-orders/${po.id}/edit`);
+  };
+
+  // Handle email purchase order
+  const handleEmailPO = async (po: PurchaseOrder) => {
+    try {
+      const email = prompt("Enter email address to send the purchase order:");
+      if (!email) return;
+
+      const response = await fetch(`/api/purchase-orders/${po.id}/email`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ to: email }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: "Email sent successfully",
+          description: `Purchase order ${po.poNumber} has been sent to ${email}`,
+        });
+      } else {
+        throw new Error("Failed to send email");
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send email. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle print PDF
+  const handlePrintPDF = (po: PurchaseOrder) => {
+    window.open(`/api/purchase-orders/${po.id}/pdf`, "_blank");
   };
 
   // Get badge color based on status
@@ -305,6 +350,27 @@ export default function PurchaseOrdersPage() {
                             onClick={() => handleViewPO(po.id)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditPO(po)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEmailPO(po)}
+                          >
+                            <Mail className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handlePrintPDF(po)}
+                          >
+                            <Printer className="h-4 w-4" />
                           </Button>
                           {po.status === "Draft" && (
                             <Button
