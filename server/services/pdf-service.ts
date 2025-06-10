@@ -3,12 +3,13 @@ import { createWriteStream } from "fs";
 import * as stream from "stream";
 
 /**
- * Helper function to break long words for better text wrapping
+ * Helper function to wrap long words for better text wrapping
  */
-function breakLongWords(text: string, max = 20): string {
-  return text.replace(
-    new RegExp(`(\\S{${max}})`, 'g'),
-    '$1\u200B'  // zero-width space
+function wrapLongWords(txt: string, every = 24): string {
+  // inserts a zero-width-space every ‹every› chars inside an unbroken word
+  return txt.replace(
+    new RegExp(`([^\\s]{${every}})(?=[^\\s])`, 'g'),
+    '$1\u200B'
   );
 }
 
@@ -51,8 +52,14 @@ class PDFServiceImpl {
         // Pipe the PDF to the buffer stream
         doc.pipe(bufferStream);
         
+        // Version stamp
+        doc
+          .fontSize(6)
+          .fillColor('#999')
+          .text(`rev-42`, doc.page.margins.left, 20);
+        
         // Add company header
-        doc.fontSize(20).text('QUOTE', { align: 'center' });
+        doc.fontSize(20).fillColor('#000').text('QUOTE', { align: 'center' });
         doc.moveDown();
         
         // Add quote information

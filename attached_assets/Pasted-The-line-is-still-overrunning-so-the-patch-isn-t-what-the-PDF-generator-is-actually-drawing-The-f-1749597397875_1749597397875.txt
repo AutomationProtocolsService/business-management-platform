@@ -1,0 +1,80 @@
+The line is still overrunning — so the patch isn’t what the PDF generator is actually drawing.
+The fastest path is to make one tiny proof-of-fix change that is visible on every build so you can be 100 % sure the running code is the new code.
+
+1 · Add an obvious “version stamp” to the PDF
+Just above the “QUOTE” title, draw the current git commit id (or simply “rev-42”):
+
+ts
+Copy
+doc
+  .fontSize(6)
+  .fillColor('#999')
+  .text(`rev-42`, doc.page.margins.left, 20);
+Restart the server, regenerate a quote.
+
+If you don’t see “rev-42” at the top of the PDF the old build is still being served (docker / pm2 / old ts-node process, etc.) — fix that first.
+
+2 · Force-wrap every word that is longer than the column
+Add the helper once, at the top of pdf-service.ts:
+
+ts
+Copy
+function wrapLongWords(txt: string, every = 24) {
+  // inserts a zero-width-space every ‹every› chars inside an unbroken word
+  return txt.replace(
+    new RegExp(`([^\\s]{${every}})(?=[^\\s])`, 'g'),
+    '$1\u200B'
+  );
+}
+Then when you print the description:
+
+ts
+Copy
+doc.text(
+  wrapLongWords(item.description),         // <-- HERE
+  COL_DESC_X,
+  y,
+  {
+    width: COL_DESC_W,       // 300-340
+    lineGap: 2,
+    continued: false
+  }
+);
+3 · Clamp the real printable width
+Double-check COL_DESC_W:
+
+COL_DESC_W = doc.page.width - doc.page.margins.right - COL_DESC_X /*…minus qty/price cols*/
+
+For A4/US-Letter that will be ~300 pt.
+Anything over 350 pt will push past the right margin.
+
+4 · Draw the border after the row height is known
+ts
+Copy
+const yStart = y;                 // remember
+// … draw description (advances doc.y internally)
+const rowHeight = doc.y - yStart; // actual height
+// now the horizontal rule
+doc
+  .moveTo(COL_ITEM_X, yStart)               // top
+  .lineTo(COL_AMT_X + 40, yStart)
+  .stroke();
+
+doc
+  .moveTo(COL_ITEM_X, yStart + rowHeight)   // bottom
+  .lineTo(COL_AMT_X + 40, yStart + rowHeight)
+  .stroke();
+
+y = yStart + rowHeight + 6;        // 6 pt padding
+That guarantees the line spans exactly the row width no matter how many lines wrapped.
+
+5 · Quick sanity-check with lorem ipsum
+Generate three dummy items:
+
+one with 10 words,
+
+one with 50 chars (no spaces),
+
+one with 250 chars continuous.
+
+If all three wrap cleanly and the borders align, the fix is finished.
