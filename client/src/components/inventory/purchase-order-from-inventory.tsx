@@ -73,7 +73,7 @@ export default function PurchaseOrderFromInventory({
   const form = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
     defaultValues: {
-      supplierName: inventoryItem?.preferredSupplier || "",
+      supplierName: "",
       quantity: Math.max(1, (inventoryItem?.reorderPoint || 10) - (inventoryItem?.currentStock || 0)),
       unitPrice: inventoryItem?.cost || 0,
       orderDate: new Date(),
@@ -106,10 +106,19 @@ export default function PurchaseOrderFromInventory({
         ],
       };
 
-      return apiRequest("/api/purchase-orders", {
+      const response = await fetch("/api/purchase-orders", {
         method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify(payload),
       });
+
+      if (!response.ok) {
+        throw new Error("Failed to create purchase order");
+      }
+
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/purchase-orders"] });
