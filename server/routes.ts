@@ -2390,15 +2390,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Calculate totals from items
+      // Calculate totals from items with item-specific tax rates
       let subtotal = 0;
+      let tax = 0;
+      
       if (items && items.length > 0) {
-        subtotal = items.reduce((sum: number, item: any) => {
-          return sum + (item.quantity * item.unitPrice);
-        }, 0);
+        // Calculate subtotal and tax for each item
+        for (const item of items) {
+          const itemSubtotal = item.quantity * item.unitPrice;
+          subtotal += itemSubtotal;
+          
+          // Try to get tax rate from item description/SKU lookup
+          let itemTaxRate = 0.1; // Default 10% if not found
+          
+          // Extract SKU from description if available (format: "Description (SKU: XXX)")
+          const skuMatch = item.description.match(/\(SKU:\s*([^)]+)\)/);
+          if (skuMatch) {
+            const sku = skuMatch[1];
+            try {
+              const inventoryItem = await storage.execQuery(
+                `SELECT tax_rate FROM inventory_items WHERE sku = $1 AND tenant_id = $2`,
+                [sku, tenantId]
+              );
+              if (inventoryItem.length > 0 && inventoryItem[0].tax_rate !== null) {
+                itemTaxRate = inventoryItem[0].tax_rate;
+              }
+            } catch (error) {
+              console.log('Could not find inventory item for SKU:', sku);
+            }
+          }
+          
+          tax += itemSubtotal * itemTaxRate;
+        }
       }
 
-      const tax = subtotal * 0.1; // 10% tax rate - can be made configurable
       const total = subtotal + tax;
 
       const purchaseOrderData = {

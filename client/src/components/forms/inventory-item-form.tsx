@@ -505,6 +505,38 @@ export default function InventoryItemForm({ item, onSuccess }: InventoryItemForm
               />
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Tax Rate */}
+              <FormField
+                control={form.control}
+                name="taxRate"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Tax Rate (%)</FormLabel>
+                    <FormControl>
+                      <Input 
+                        type="number" 
+                        step="0.01"
+                        min="0"
+                        max="100"
+                        placeholder="10.00"
+                        {...field}
+                        value={field.value ? (field.value * 100).toFixed(2) : "10.00"}
+                        onChange={(e) => {
+                          const percentage = parseFloat(e.target.value) || 0;
+                          field.onChange(percentage / 100); // Convert percentage to decimal
+                        }}
+                      />
+                    </FormControl>
+                    <FormDescription>
+                      Tax rate applied to this item (varies by country/region)
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
             <div className="mt-4">
               <Button 
                 type="button" 
