@@ -2507,6 +2507,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/reports/project-budgets", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const budgetData = await storage.execQuery(`
+        SELECT 
+          p.name,
+          COALESCE(p.budget, 0) as budget
+        FROM projects p
+        WHERE p.tenant_id = $1 
+          AND p.budget IS NOT NULL 
+          AND p.budget > 0
+        ORDER BY p.budget DESC
+        LIMIT 10
+      `, [tenantId]);
+
+      res.json(budgetData);
+    } catch (error) {
+      console.error('Error fetching project budgets:', error);
+      res.status(500).json({ message: "Failed to fetch project budgets" });
+    }
+  });
+
+  app.get("/api/reports/timesheet-approval", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const approvalData = await storage.execQuery(`
+        SELECT 
+          t.status as name,
+          COUNT(*) as value
+        FROM timesheets t
+        WHERE t.tenant_id = $1
+        GROUP BY t.status
+        ORDER BY value DESC
+      `, [tenantId]);
+
+      res.json(approvalData);
+    } catch (error) {
+      console.error('Error fetching timesheet approval status:', error);
+      res.status(500).json({ message: "Failed to fetch timesheet approval data" });
+    }
+  });
+
   // Purchase Orders routes
   app.get("/api/purchase-orders", requireAuth, async (req: Request, res: Response) => {
     try {

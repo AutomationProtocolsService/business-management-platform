@@ -28,6 +28,16 @@ export interface EmployeePerformanceData {
   timesheet_entries: number;
 }
 
+export interface ProjectBudgetData {
+  name: string;
+  budget: number;
+}
+
+export interface TimesheetApprovalData {
+  name: string;
+  value: number;
+}
+
 export function useHoursByEmployee(dateRange: { start: string; end: string }) {
   return useQuery<HoursByEmployeeData[]>({
     queryKey: ["reports", "hoursByEmployee", dateRange],
@@ -94,6 +104,22 @@ export function useInstallationsReport(period: string = 'year') {
     queryFn: () =>
       fetch(`/api/installations`)
         .then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useProjectBudgets() {
+  return useQuery<ProjectBudgetData[]>({
+    queryKey: ["reports", "projectBudgets"],
+    queryFn: () => fetch("/api/reports/project-budgets").then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useTimesheetApprovalStatus() {
+  return useQuery<TimesheetApprovalData[]>({
+    queryKey: ["reports", "timesheetApproval"],
+    queryFn: () => fetch("/api/reports/timesheet-approval").then(r => r.json()),
     staleTime: 5 * 60 * 1000,
   });
 }

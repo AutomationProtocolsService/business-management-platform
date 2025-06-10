@@ -47,7 +47,9 @@ import {
   useScheduleLoad, 
   useEmployeePerformance,
   useSurveysReport,
-  useInstallationsReport
+  useInstallationsReport,
+  useProjectBudgets,
+  useTimesheetApprovalStatus
 } from "@/hooks/use-reports";
 
 // Define chart colors
