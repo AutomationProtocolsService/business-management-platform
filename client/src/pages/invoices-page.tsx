@@ -59,6 +59,7 @@ import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date-utils";
 import InvoiceForm from "@/components/forms/invoice-form";
 import { useSettings } from "@/hooks/use-settings";
+import { exportArrayToExcel } from "@/lib/exportCsv";
 
 export default function InvoicesPage() {
   const [location, navigate] = useLocation();
@@ -232,6 +233,23 @@ export default function InvoicesPage() {
     return today > due;
   };
 
+  // Export invoices to Excel
+  const onExportInvoices = () => {
+    if (!invoices?.length) return;
+
+    const rows = invoices.map((i: any) => ({
+      InvoiceNumber: i.invoiceNumber,
+      Customer: i.customerId ? getCustomerName(i.customerId) : "—",
+      Project: i.projectId ? getProjectName(i.projectId) : "—",
+      IssueDate: i.issueDate ? formatDate(i.issueDate, "MMM dd, yyyy") : "—",
+      DueDate: i.dueDate ? formatDate(i.dueDate, "MMM dd, yyyy") : "—",
+      Status: i.status,
+      Amount: formatMoney(i.total)
+    }));
+
+    exportArrayToExcel(rows, `Invoices-${Date.now()}.xlsx`, "Invoices");
+  };
+
   return (
     <div className="h-full">
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
@@ -261,6 +279,15 @@ export default function InvoicesPage() {
               <SelectItem value="cancelled">Cancelled</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline" 
+            onClick={onExportInvoices}
+            disabled={!invoices?.length}
+            className="flex items-center whitespace-nowrap"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
           <Button 
             className="flex items-center bg-primary hover:bg-primary/90"
             onClick={() => setIsCreateDialogOpen(true)}
