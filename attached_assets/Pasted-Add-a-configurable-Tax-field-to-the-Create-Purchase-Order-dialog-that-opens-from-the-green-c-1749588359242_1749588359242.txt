@@ -1,0 +1,104 @@
+Add a configurable “Tax (%)” field to the “Create Purchase Order” dialog that opens from the green cart icon
+Below is a concise implementation plan you can hand to the Replit AI agent:
+
+1 Extend the schema & route payload
+POST /api/inventory/:id/reorder (and normal PO create) should accept a taxRate number.
+
+ts
+Copy
+// type ReorderPayload
+interface ReorderBody {
+  reorderQty?: number;
+  supplierId?: number;
+  notes?: string;
+  taxRate?: number;           // ← new,  e.g. 20  means 20 %
+}
+Route math:
+
+ts
+Copy
+const rate   = body.taxRate ?? DEFAULT_TAX_RATE; // e.g. 20
+const tax    = subtotal * (rate / 100);
+const total  = subtotal + tax;
+Store taxRate (or just tax) in the purchase-order table exactly as you already do in the manual PO flow.
+
+2 Update the Create PO dialog UI
+Add a numeric input right above the Total:
+
+tsx
+Copy
+<div>
+  <Label htmlFor="taxRate">Tax&nbsp;%</Label>
+  <Input
+    id="taxRate"
+    type="number"
+    min={0}
+    step={0.01}
+    value={taxRate}
+    onChange={(e) => setTaxRate(Number(e.target.value))}
+  />
+</div>
+Recalculate totals whenever taxRate changes:
+
+ts
+Copy
+useEffect(() => {
+  const sub = unitPrice * qty;
+  const computedTax = sub * (taxRate / 100);
+  setSubtotal(sub);
+  setTax(computedTax);
+  setTotal(sub + computedTax);
+}, [qty, unitPrice, taxRate]);
+Display the three numbers:
+
+tsx
+Copy
+<div className="rounded bg-muted p-4 mt-4 space-y-1">
+  <div className="flex justify-between">
+    <span>Subtotal:</span>
+    <span>${subtotal.toFixed(2)}</span>
+  </div>
+  <div className="flex justify-between">
+    <span>Tax ({taxRate}%):</span>
+    <span>${tax.toFixed(2)}</span>
+  </div>
+  <div className="flex justify-between font-semibold">
+    <span>Total:</span>
+    <span className="text-primary">${total.toFixed(2)}</span>
+  </div>
+</div>
+Send taxRate (or tax) with the fetch:
+
+ts
+Copy
+await fetch(`/api/inventory/${itemId}/reorder`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    reorderQty,
+    supplierId,
+    notes,
+    taxRate,            // ← include
+  }),
+});
+3 Default the field smartly
+Pre-fill taxRate with the company-wide rate you already have in Settings (DEFAULT_TAX_RATE), but let the user override for each PO.
+
+Persist their last choice in localStorage if that’s helpful.
+
+4 Add validation
+Front-end:
+
+ts
+Copy
+if (taxRate < 0 || Number.isNaN(taxRate))
+  return toast({ title: "Tax rate must be ≥ 0", variant: "destructive" });
+Back-end:
+
+ts
+Copy
+if (rate < 0) return res.status(400).json({ message: "Invalid taxRate" });
+5 Guide for the AI agent (one sentence)
+“Add a numeric Tax (%) input to the quick-reorder PO dialog; recompute subtotal/tax/total live, send taxRate to /inventory/:id/reorder, and use it in the route when creating the PO.”
+
+After this, users will see the tax calculation in real-time and can set the correct rate for their locale before creating the purchase order.

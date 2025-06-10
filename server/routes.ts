@@ -2379,7 +2379,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Tenant context required" });
       }
 
-      const { supplierName, items, orderDate, ...orderData } = req.body;
+      const { supplierName, items, orderDate, taxRate, ...orderData } = req.body;
 
       // Find or create supplier by name
       let supplier = await storage.getSupplierByName(supplierName, tenantId);
@@ -2390,40 +2390,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Calculate totals from items with item-specific tax rates
+      // Calculate totals using the provided tax rate
       let subtotal = 0;
-      let tax = 0;
       
       if (items && items.length > 0) {
-        // Calculate subtotal and tax for each item
         for (const item of items) {
-          const itemSubtotal = item.quantity * item.unitPrice;
-          subtotal += itemSubtotal;
-          
-          // Try to get tax rate from item description/SKU lookup
-          let itemTaxRate = 0.1; // Default 10% if not found
-          
-          // Extract SKU from description if available (format: "Description (SKU: XXX)")
-          const skuMatch = item.description.match(/\(SKU:\s*([^)]+)\)/);
-          if (skuMatch) {
-            const sku = skuMatch[1];
-            try {
-              const inventoryItem = await storage.execQuery(
-                `SELECT tax_rate FROM inventory_items WHERE sku = $1 AND tenant_id = $2`,
-                [sku, tenantId]
-              );
-              if (inventoryItem.length > 0 && inventoryItem[0].tax_rate !== null) {
-                itemTaxRate = inventoryItem[0].tax_rate;
-              }
-            } catch (error) {
-              console.log('Could not find inventory item for SKU:', sku);
-            }
-          }
-          
-          tax += itemSubtotal * itemTaxRate;
+          subtotal += item.quantity * item.unitPrice;
         }
       }
 
+      // Use the tax rate from the request (already converted from percentage to decimal)
+      const appliedTaxRate = taxRate || 0.1; // Default to 10% if not provided
+      const tax = subtotal * appliedTaxRate;
       const total = subtotal + tax;
 
       const purchaseOrderData = {
