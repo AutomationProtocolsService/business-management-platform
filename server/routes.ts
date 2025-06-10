@@ -2945,21 +2945,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         items: [
           {
-            description: 'Ultra-long description text that is intentionally overflowing to see whether we wrap properly inside the PDF table. It should never push the right border off the page. This text continues to be very long to test word wrapping and table boundary constraints.',
+            description: 'Short description with exactly ten words for testing basic functionality.',
             quantity: 1,
-            unitPrice: 1999.00,
-            total: 1999.00
+            unitPrice: 100.00,
+            total: 100.00
           },
-          { 
-            description: 'Short line', 
-            quantity: 1, 
-            unitPrice: 5.00,
-            total: 5.00
+          {
+            description: 'Verylongwordwithoutanyspacestotestwordbreaking50characters',
+            quantity: 2,
+            unitPrice: 250.00,
+            total: 500.00
+          },
+          {
+            description: 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo',
+            quantity: 1,
+            unitPrice: 750.00,
+            total: 750.00
           }
         ],
-        subtotal: 2004.00,
-        tax: 200.40,
-        total: 2204.40
+        subtotal: 1350.00,
+        tax: 135.00,
+        total: 1485.00
       };
 
       const pdfBuffer = await PDFService.generateQuotePDF(testQuoteData);
