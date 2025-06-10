@@ -2926,6 +2926,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Debug route for PDF table border testing
+  app.get("/debug/pdf-test", async (req: Request, res: Response) => {
+    try {
+      const testQuoteData = {
+        quoteNumber: 'TEST-123',
+        issueDate: '2025-06-10',
+        expiryDate: '2025-07-10',
+        customer: {
+          name: 'Alice Very-Long-Surname-With-No-Spaces',
+          email: 'alice@example.com',
+          phone: '0123456789',
+          address: '123 Long Street, Big City, UK'
+        },
+        project: { 
+          name: 'Demo', 
+          description: 'Demo project' 
+        },
+        items: [
+          {
+            description: 'Ultra-long description text that is intentionally overflowing to see whether we wrap properly inside the PDF table. It should never push the right border off the page. This text continues to be very long to test word wrapping and table boundary constraints.',
+            quantity: 1,
+            unitPrice: 1999.00,
+            total: 1999.00
+          },
+          { 
+            description: 'Short line', 
+            quantity: 1, 
+            unitPrice: 5.00,
+            total: 5.00
+          }
+        ],
+        subtotal: 2004.00,
+        tax: 200.40,
+        total: 2204.40
+      };
+
+      const pdfBuffer = await PDFService.generateQuotePDF(testQuoteData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Debug PDF test error:', error);
+      res.status(500).json({ message: "Failed to generate test PDF" });
+    }
+  });
+
   // Register document routes (PDF and email functionality)
   const { registerDocumentRoutes } = await import('./routes/document-routes');
   registerDocumentRoutes(app);

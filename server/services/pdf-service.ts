@@ -3,6 +3,16 @@ import { createWriteStream } from "fs";
 import * as stream from "stream";
 
 /**
+ * Helper function to break long words for better text wrapping
+ */
+function breakLongWords(text: string, max = 20): string {
+  return text.replace(
+    new RegExp(`(\\S{${max}})`, 'g'),
+    '$1\u200B'  // zero-width space
+  );
+}
+
+/**
  * Service for generating PDF documents
  */
 class PDFServiceImpl {
@@ -12,6 +22,7 @@ class PDFServiceImpl {
    * @returns Buffer containing the PDF
    */
   async generateQuotePDF(quoteData: any): Promise<Buffer> {
+    console.log("PDF table layout patch loaded - Quote generation starting");
     return new Promise((resolve, reject) => {
       try {
         // Create a PDF document with optimized margins

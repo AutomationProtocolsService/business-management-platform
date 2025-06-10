@@ -1,0 +1,102 @@
+
+1 · Confirm the patched code is the code that’s running
+Server reload
+In the Replit console, stop the server (Ctrl-C) and start it again (npm run dev).
+Watch the startup log: you should see “PDF table layout patch loaded” near the bottom (we added that console.log).
+
+Hot-reload?
+If you rely on Vite/TSX hot-reload, PDFKit code inside server/services/pdf-service.ts is not hot-reloaded. A manual restart is required after every edit.
+
+2 · Test with the tiny repro script
+Paste this into a throw-away route temporarily:
+
+ts
+Copy
+// GET /debug/pdf-test
+router.get('/debug/pdf-test', async (req, res) => {
+  const { createQuotePdf } = require('../services/pdf-service');
+  const pdfBuffer = await createQuotePdf({
+    quoteNumber: 'TEST-123',
+    date: '2025-06-10',
+    expiry: '2025-07-10',
+    customer: {
+      name: 'Alice Very-Long-Surname-With-No-Spaces',
+      email: 'alice@example.com',
+      phone: '0123456789',
+      address: '123 Long Street, Big City, UK'
+    },
+    project: { name: 'Demo', description: 'Demo project' },
+    items: [
+      {
+        description:
+          'Ultra-long description text that is intentionally overflowing to see whether we wrap properly inside the PDF table. It should never push the right border off the page.',
+        quantity: 1,
+        price: 1999
+      },
+      { description: 'Short line', quantity: 1, price: 5 }
+    ]
+  });
+
+  res
+    .set('Content-Type', 'application/pdf')
+    .set('Content-Disposition', 'inline; filename="test.pdf"')
+    .send(pdfBuffer);
+});
+Open /debug/pdf-test in the browser – the PDF displays directly.
+→ If this PDF is correct, the service patch works and the problem is in the real data (e.g., description that contains hard CR/LF or un-breakable URL).
+→ If this PDF is still wrong, then the patch really isn’t active (or one constant is mis-typed).
+
+3 · Double-check the constants we moved to the top of the file
+ts
+Copy
+const COL_ITEM_X   = doc.page.margins.left;
+const COL_DESC_X   = COL_ITEM_X +  50;   // Item column width ≈ 50 pt
+const COL_DESC_W   = 320;                // *** <= hard clamp
+const COL_QTY_X    = COL_DESC_X + COL_DESC_W + 10;
+const COL_PRICE_X  = COL_QTY_X  + 40;
+const COL_AMT_X    = COL_PRICE_X + 60;
+Make sure COL_DESC_W really is 320 (or 300) – if it’s accidentally 520 the line will still spill.
+
+4 · If the text itself contains super-long words / URLs
+PDFKit wraps on word boundaries.
+Add the emergency break:
+
+ts
+Copy
+function breakLongWords(text: string, max = 20) {
+  return text.replace(
+    new RegExp(`(\\S{${max}})`, 'g'),
+    '$1\u200B'           // zero-width space
+  );
+}
+and wrap before printing:
+
+ts
+Copy
+doc.text(
+  breakLongWords(item.description),
+  COL_DESC_X,
+  y,
+  {
+    width: COL_DESC_W,
+    lineGap: 2
+  }
+);
+5 · Verify per-row border drawing
+Right after writing each row we do:
+
+ts
+Copy
+doc
+  .moveTo(COL_ITEM_X, y + rowHeight)      // left
+  .lineTo(COL_AMT_X + 50, y + rowHeight)  // right (+50 for currency column)
+  .stroke();
+y += rowHeight;
+If rowHeight is 0 because the description string is empty you’ll get a line at the same Y every time; ensure rowHeight is at least 14.
+
+What to do next
+Run the /debug/pdf-test route – send me a screenshot or the PDF if the border is still wrong.
+
+Copy–paste your current renderLineItems() (or equivalent) function; I can diff it quickly.
+
+Once we know whether the patched function is actually executing we can finish the fix in minutes.
