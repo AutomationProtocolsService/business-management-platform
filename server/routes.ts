@@ -2396,7 +2396,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           e.name as employee,
           COUNT(p.id) as projects
         FROM employees e
-        LEFT JOIN projects p ON e.id = p.manager_id 
+        LEFT JOIN projects p ON e.id = p.created_by 
           AND p.status = $2
           AND p.tenant_id = $1
         WHERE e.tenant_id = $1
@@ -2490,10 +2490,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         SELECT 
           e.name as employee,
           COUNT(DISTINCT p.id) as projects_managed,
-          COALESCE(SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600), 0) as total_hours,
+          COALESCE(SUM(CAST(t.hours AS NUMERIC)), 0) as total_hours,
           COUNT(DISTINCT t.id) as timesheet_entries
         FROM employees e
-        LEFT JOIN projects p ON e.id = p.manager_id AND p.tenant_id = $1
+        LEFT JOIN projects p ON e.id = p.created_by AND p.tenant_id = $1
         LEFT JOIN timesheets t ON e.id = t.employee_id AND t.tenant_id = $1
         WHERE e.tenant_id = $1
         GROUP BY e.id, e.name
