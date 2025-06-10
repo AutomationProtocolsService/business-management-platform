@@ -179,8 +179,8 @@ export default function InventoryPage() {
               <PlusCircle className="h-4 w-4" /> Add Item
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
+          <DialogContent className="max-w-2xl p-0">
+            <DialogHeader className="p-6 border-b">
               <DialogTitle>
                 {selectedItem ? "Edit Inventory Item" : "Add New Inventory Item"}
               </DialogTitle>
@@ -190,10 +190,12 @@ export default function InventoryPage() {
                   : "Fill in the details for the new inventory item"}
               </DialogDescription>
             </DialogHeader>
-            <InventoryItemForm 
-              item={selectedItem} 
-              onSuccess={() => setIsInventoryDialogOpen(false)}
-            />
+            <div className="p-6 overflow-y-auto" style={{ maxHeight: "70vh" }}>
+              <InventoryItemForm 
+                item={selectedItem} 
+                onSuccess={() => setIsInventoryDialogOpen(false)}
+              />
+            </div>
           </DialogContent>
         </Dialog>
       </div>

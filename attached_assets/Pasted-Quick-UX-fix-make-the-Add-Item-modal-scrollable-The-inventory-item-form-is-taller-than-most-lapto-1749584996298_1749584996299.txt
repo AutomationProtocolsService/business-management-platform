@@ -1,0 +1,56 @@
+Quick UX fix: make the “Add Item” modal scrollable
+The inventory-item form is taller than most laptop screens. Wrap the inner content in a div with overflow-y-auto and a max height so users can scroll inside the dialog:
+
+tsx
+Copy
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+
+export function InventoryItemDialog({ open, onOpenChange }) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl p-0">       {/* ← wider, no padding */}
+        <DialogHeader className="p-6 border-b">
+          <DialogTitle>Add Inventory Item</DialogTitle>
+        </DialogHeader>
+
+        {/* ---------- scrollable body ---------------- */}
+        <div className="p-6 overflow-y-auto" style={{ maxHeight: "70vh" }}>
+          {/* ★ paste your entire form grid/inputs here ★ */}
+        </div>
+
+        {/* ---------- footer ------------------------- */}
+        <div className="p-6 border-t flex justify-end gap-2">
+          <Button variant="outline" onClick={() => onOpenChange(false)}>
+            Cancel
+          </Button>
+          <Button type="submit" form="inventoryForm">
+            Save Item
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+Key points:
+
+Prop / style	Purpose
+className="max-w-2xl p-0" on DialogContent	wider dialog, let us control padding manually
+overflow-y-auto	enables vertical scroll inside the dialog
+style={{ maxHeight: "70vh" }}	keeps body no taller than 70 % of viewport
+Put header & footer outside the scrollable div	they stay fixed while body scrolls
+
+Steps for the Replit AI agent
+Locate the InventoryItemForm or dialog component.
+
+Wrap the long form markup in <div className="p-6 overflow-y-auto" style={{maxHeight:'70vh'}}>…</div>.
+
+Keep the header (DialogHeader) and footer (Save/Cancel buttons) outside that wrapper so only the body scrolls.
+
+Re-run: open “Add Item” – you can now scroll the long form on any screen height.
+
+That one CSS change gives you the missing vertical scrollbar without touching any of the form logic.
