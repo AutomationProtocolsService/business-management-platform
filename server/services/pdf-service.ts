@@ -140,7 +140,7 @@ class PDFServiceImpl {
             
             // Description with proper word wrapping and break-word behavior
             const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = breakLongWords(item.description || '');
+            const descriptionText = wrapLongWords(item.description || '');
             
             // Calculate height needed for wrapped description
             const descriptionHeight = doc.heightOfString(descriptionText, { 
@@ -371,7 +371,7 @@ class PDFServiceImpl {
             
             // Description with proper word wrapping and break-word behavior
             const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = breakLongWords(item.description || '');
+            const descriptionText = wrapLongWords(item.description || '');
             
             // Calculate height needed for wrapped description
             const descriptionHeight = doc.heightOfString(descriptionText, { 
