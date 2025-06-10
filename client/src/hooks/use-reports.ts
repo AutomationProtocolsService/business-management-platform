@@ -77,3 +77,23 @@ export function useEmployeePerformance() {
     staleTime: 5 * 60 * 1000,
   });
 }
+
+export function useSurveysReport(period: string = 'year') {
+  return useQuery({
+    queryKey: ["reports", "surveys", period],
+    queryFn: () =>
+      fetch(`/api/surveys`)
+        .then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+}
+
+export function useInstallationsReport(period: string = 'year') {
+  return useQuery({
+    queryKey: ["reports", "installations", period],
+    queryFn: () =>
+      fetch(`/api/installations`)
+        .then(r => r.json()),
+    staleTime: 5 * 60 * 1000,
+  });
+}
