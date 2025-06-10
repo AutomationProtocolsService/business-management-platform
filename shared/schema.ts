@@ -417,6 +417,7 @@ export const inventoryItems = pgTable("inventory_items", {
   location: text("location"), // Where the item is stored
   cost: doublePrecision("cost"), // Average cost per unit
   lastPurchasePrice: doublePrecision("last_purchase_price"), // Last price paid
+  taxRate: doublePrecision("tax_rate").default(0.1), // Tax rate as decimal (0.1 = 10%)
   preferredSupplierId: integer("preferred_supplier_id").references(() => suppliers.id), // Preferred supplier for this item
   notes: text("notes"),
   active: boolean("active").default(true),
