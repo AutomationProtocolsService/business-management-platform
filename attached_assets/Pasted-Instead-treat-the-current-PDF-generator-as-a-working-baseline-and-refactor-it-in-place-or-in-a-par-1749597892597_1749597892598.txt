@@ -1,0 +1,51 @@
+Instead, treat the current PDF generator as a working baseline and refactor it in place (or in a parallel file) with a few surgical changes:
+
+Option	When it makes sense	Effort	Risk	My recommendation
+Patch the existing pdf-service.ts (PDFKit)	• Only layout defects (borders, wrapping)
+• No need for multi-page flows, complex styling	1 – 3 hrs	Low: you change < 50 lines	Do this now – fastest path to production-ready output
+Side-by-side rewrite with PDFKit	• You want cleaner, reusable functions but still like PDFKit	4 – 6 hrs	Medium	Do later if the current file has become unmaintainable ( > 500 LOC of spaghetti)
+Switch to HTML → Puppeteer/Playwright → PDF	• You need pixel-perfect design, headers/footers, page numbers
+• Team comfortable with CSS	1–2 dev-days to build + container weight	Higher (needs chrome in the server image)	Plan for this only if you’ll deliver branded, multi-page documents soon
+
+How to refactor without deleting
+Add a version/commit stamp (as shown previously).
+Verifies you’re running the code you just changed.
+
+Extract tiny helpers into the same file:
+
+ts
+Copy
+const COLS = { item: 50, desc: 100, qty: 380, price: 440, amt: 500 };
+const DESC_WIDTH = 260;                 // <= keep under right margin
+
+const wrapLongWords = (s: string, n = 30) =>
+  s.replace(new RegExp(`([^\\s]{${n}})(?=[^\\s])`, 'g'), '$1\u200B');
+Replace the row-drawing block with:
+
+ts
+Copy
+items.forEach(({ description, qty, price, amount }, i) => {
+  const yStart = doc.y;
+
+  doc.text(String(i + 1), COLS.item, yStart);
+  doc.text(wrapLongWords(description), COLS.desc, yStart, { width: DESC_WIDTH });
+  doc.text(qty, COLS.qty, yStart, { width: 40, align: 'right' });
+  doc.text(price, COLS.price, yStart, { width: 60, align: 'right' });
+  doc.text(amount, COLS.amt, yStart, { width: 60, align: 'right' });
+
+  const rowBottom = doc.y + 4;            // add 4-pt padding
+  doc.moveTo(COLS.item, rowBottom)
+     .lineTo(COLS.amt + 60, rowBottom)
+     .stroke();
+
+  doc.y = rowBottom + 6;                  // 6-pt gap before next row
+});
+Re-generate one quote, confirm:
+
+words wrap,
+
+no line pierces the page edge,
+
+the row bottom border shows exactly once per row.
+
+Keep the old file in git. If something breaks you have a single-commit rollback.

@@ -5,13 +5,24 @@ import * as stream from "stream";
 /**
  * Helper function to wrap long words for better text wrapping
  */
-function wrapLongWords(txt: string, every = 24): string {
+function wrapLongWords(txt: string, every = 30): string {
   // inserts a zero-width-space every ‹every› chars inside an unbroken word
   return txt.replace(
     new RegExp(`([^\\s]{${every}})(?=[^\\s])`, 'g'),
     '$1\u200B'
   );
 }
+
+// Table column constants
+const COLS = { 
+  item: 50, 
+  desc: 100, 
+  qty: 380, 
+  price: 440, 
+  amt: 500 
+};
+const DESC_WIDTH = 260; // Keep under right margin
+const ROW_GAP = 6; // White-space below each row
 
 /**
  * Service for generating PDF documents
@@ -54,9 +65,9 @@ class PDFServiceImpl {
         
         // Version stamp
         doc
-          .fontSize(6)
+          .fontSize(8)
           .fillColor('#999')
-          .text(`rev-42`, doc.page.margins.left, 20);
+          .text(`rev 2025-06-11`, 520, 20);
         
         // Add company header
         doc.fontSize(20).fillColor('#000').text('QUOTE', { align: 'center' });
@@ -129,50 +140,29 @@ class PDFServiceImpl {
         // Table rows
         let y = lineY + 10;
         
-        // Add items
+        // Add items with surgical fix for proper border positioning
         if (quoteData.items && quoteData.items.length) {
-          quoteData.items.forEach((item: any, i: number) => {
-            // Save initial Y position
-            const rowStartY = doc.y;
-            
-            // Item number (index)
-            doc.text((i + 1).toString(), itemX, rowStartY);
-            
-            // Description with proper word wrapping and break-word behavior
-            const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = wrapLongWords(item.description || '');
-            
-            // Calculate height needed for wrapped description
-            const descriptionHeight = doc.heightOfString(descriptionText, { 
-              width: maxDescriptionWidth,
-              align: 'left'
-            });
-            
-            // Render description with constrained width
-            doc.text(descriptionText, descriptionX, rowStartY, { 
-              width: maxDescriptionWidth,
-              align: 'left',
-              lineGap: 2
-            });
-            
-            // Other columns - align to top of row
-            doc.text(item.quantity.toString(), quantityX, rowStartY);
-            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
-            doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
-            
-            // Calculate row height based on description (ensure minimum height)
-            const rowHeight = Math.max(14, descriptionHeight + 4);
-            const nextY = rowStartY + rowHeight + 5; // Add padding between rows
-            
-            // Draw row border (equivalent to CSS border-bottom for each row except last)
-            if (i < quoteData.items.length - 1) {
-              doc.moveTo(itemX, nextY - 2)
-                 .lineTo(amountX + amountWidth, nextY - 2)
-                 .stroke();
-            }
-            
-            // Move to next row position
-            doc.y = nextY;
+          quoteData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
+            const yStart = doc.y;
+
+            // Draw cell contents
+            doc.text(String(i + 1), COLS.item, yStart);
+            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
+            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
+            doc.text(`$${unitPrice.toFixed(2)}`, COLS.price, yStart, { width: 60, align: 'right' });
+            doc.text(`$${total.toFixed(2)}`, COLS.amt, yStart, { width: 60, align: 'right' });
+
+            // How tall did the wrapped description make this row?
+            const yBottom = doc.y; // cursor now sits *after* wrapped text
+
+            // Row rule drawn after measuring actual height
+            const rowBottom = yBottom + 4; // add 4-pt padding
+            doc.moveTo(COLS.item, rowBottom)
+               .lineTo(COLS.amt + 60, rowBottom)
+               .stroke();
+
+            // Gap before next row
+            doc.y = rowBottom + ROW_GAP;
             
             // Check if we need a new page
             if (doc.y > doc.page.height - 150) {
@@ -180,7 +170,7 @@ class PDFServiceImpl {
             }
           });
         } else {
-          doc.text('No items', descriptionX, doc.y);
+          doc.text('No items', COLS.desc, doc.y);
           doc.moveDown();
         }
         
@@ -360,50 +350,29 @@ class PDFServiceImpl {
         const lineY = doc.y + 5;
         doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
         
-        // Add items
+        // Add items with surgical fix for proper border positioning
         if (invoiceData.items && invoiceData.items.length) {
-          invoiceData.items.forEach((item: any, i: number) => {
-            // Save initial Y position
-            const rowStartY = doc.y;
-            
-            // Item number (index)
-            doc.text((i + 1).toString(), itemX, rowStartY);
-            
-            // Description with proper word wrapping and break-word behavior
-            const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = wrapLongWords(item.description || '');
-            
-            // Calculate height needed for wrapped description
-            const descriptionHeight = doc.heightOfString(descriptionText, { 
-              width: maxDescriptionWidth,
-              align: 'left'
-            });
-            
-            // Render description with constrained width
-            doc.text(descriptionText, descriptionX, rowStartY, { 
-              width: maxDescriptionWidth,
-              align: 'left',
-              lineGap: 2
-            });
-            
-            // Other columns - align to top of row
-            doc.text(item.quantity.toString(), quantityX, rowStartY);
-            doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
-            doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
-            
-            // Calculate row height based on description (ensure minimum height)
-            const rowHeight = Math.max(14, descriptionHeight + 4);
-            const nextY = rowStartY + rowHeight + 5; // Add padding between rows
-            
-            // Draw row border (equivalent to CSS border-bottom for each row except last)
-            if (i < invoiceData.items.length - 1) {
-              doc.moveTo(itemX, nextY - 2)
-                 .lineTo(amountX + amountWidth, nextY - 2)
-                 .stroke();
-            }
-            
-            // Move to next row position
-            doc.y = nextY;
+          invoiceData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
+            const yStart = doc.y;
+
+            // Draw cell contents
+            doc.text(String(i + 1), COLS.item, yStart);
+            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
+            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
+            doc.text(`$${unitPrice.toFixed(2)}`, COLS.price, yStart, { width: 60, align: 'right' });
+            doc.text(`$${total.toFixed(2)}`, COLS.amt, yStart, { width: 60, align: 'right' });
+
+            // How tall did the wrapped description make this row?
+            const yBottom = doc.y; // cursor now sits *after* wrapped text
+
+            // Row rule drawn after measuring actual height
+            const rowBottom = yBottom + 4; // add 4-pt padding
+            doc.moveTo(COLS.item, rowBottom)
+               .lineTo(COLS.amt + 60, rowBottom)
+               .stroke();
+
+            // Gap before next row
+            doc.y = rowBottom + ROW_GAP;
             
             // Check if we need a new page
             if (doc.y > doc.page.height - 150) {
@@ -411,7 +380,7 @@ class PDFServiceImpl {
             }
           });
         } else {
-          doc.text('No items', descriptionX, doc.y);
+          doc.text('No items', COLS.desc, doc.y);
           doc.moveDown();
         }
         
@@ -557,25 +526,29 @@ class PDFServiceImpl {
           
           let subtotal = 0;
           
-          // Add each item
-          purchaseOrderData.items.forEach((item: any) => {
-            const itemY = doc.y;
-            const itemTotal = (item.quantity || 0) * (item.unitPrice || 0);
+          // Add each item with surgical fix for proper border positioning
+          purchaseOrderData.items.forEach(({ description, quantity, unitPrice }: any, i: number) => {
+            const yStart = doc.y;
+            const itemTotal = (quantity || 0) * (unitPrice || 0);
             subtotal += itemTotal;
-            
-            // Wrap description text if too long
-            const descriptionLines = doc.heightOfString(item.description || 'No description', { width: 240 });
-            if (descriptionLines > 20) {
-              doc.text(item.description || 'No description', 50, itemY, { width: 240 });
-            } else {
-              doc.text(item.description || 'No description', 50, itemY);
-            }
-            
-            doc.text((item.quantity || 0).toString(), 300, itemY);
-            doc.text(`$${(item.unitPrice || 0).toFixed(2)}`, 350, itemY);
-            doc.text(`$${itemTotal.toFixed(2)}`, 450, itemY);
-            
-            doc.moveDown();
+
+            // Draw cell contents
+            doc.text(wrapLongWords(description || 'No description'), 50, yStart, { width: DESC_WIDTH });
+            doc.text(String(quantity || 0), 300, yStart, { width: 40, align: 'right' });
+            doc.text(`$${(unitPrice || 0).toFixed(2)}`, 350, yStart, { width: 60, align: 'right' });
+            doc.text(`$${itemTotal.toFixed(2)}`, 450, yStart, { width: 60, align: 'right' });
+
+            // How tall did the wrapped description make this row?
+            const yBottom = doc.y; // cursor now sits *after* wrapped text
+
+            // Row rule drawn after measuring actual height
+            const rowBottom = yBottom + 4; // add 4-pt padding
+            doc.moveTo(50, rowBottom)
+               .lineTo(520, rowBottom)
+               .stroke();
+
+            // Gap before next row
+            doc.y = rowBottom + ROW_GAP;
           });
           
           // Draw line before totals
