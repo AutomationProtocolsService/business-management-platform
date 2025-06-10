@@ -393,13 +393,16 @@ export default class UnifiedEmailService {
     }
   ): Promise<boolean> {
     try {
+      console.log('[Email Service] Starting sendPurchaseOrder');
       logger.info({
         poId: purchaseOrder.id,
         poNumber: purchaseOrder.poNumber,
-        recipient: recipientEmail
+        recipient: recipientEmail,
+        sender: senderEmail
       }, 'Preparing to send purchase order email');
       
       // Prepare email content
+      console.log('[Email Service] Preparing email content');
       const emailParams: EmailParams = {
         to: recipientEmail,
         from: senderEmail,
@@ -418,37 +421,60 @@ export default class UnifiedEmailService {
         `
       };
       
+      console.log('[Email Service] Email params prepared:', {
+        to: emailParams.to,
+        from: emailParams.from,
+        subject: emailParams.subject,
+        hasHtml: !!emailParams.html
+      });
+      
       // Add PDF attachment if requested (default is true)
       if (options?.includePdf !== false) {
+        console.log('[Email Service] Including PDF attachment');
         logger.info({
           poId: purchaseOrder.id,
           poNumber: purchaseOrder.poNumber
         }, 'Generating PDF for purchase order');
         
-        // Generate PDF
-        const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
-        
-        logger.info({
-          poId: purchaseOrder.id,
-          pdfSize: pdfBuffer.length
-        }, 'PDF generated successfully');
-        
-        // Convert buffer to base64 for email attachment
-        const base64PDF = pdfBuffer.toString('base64');
-        
-        emailParams.attachments = [
-          {
-            content: base64PDF,
-            filename: `PO_${purchaseOrder.poNumber}.pdf`,
-            type: 'application/pdf',
-            disposition: 'attachment'
-          }
-        ];
+        try {
+          // Generate PDF
+          console.log('[Email Service] Calling PDFService.generatePurchaseOrderPDF');
+          const pdfBuffer = await PDFService.generatePurchaseOrderPDF(purchaseOrder);
+          console.log('[Email Service] PDF generated, size:', pdfBuffer.length);
+          
+          logger.info({
+            poId: purchaseOrder.id,
+            pdfSize: pdfBuffer.length
+          }, 'PDF generated successfully');
+          
+          // Convert buffer to base64 for email attachment
+          console.log('[Email Service] Converting PDF to base64');
+          const base64PDF = pdfBuffer.toString('base64');
+          console.log('[Email Service] Base64 conversion complete, length:', base64PDF.length);
+          
+          emailParams.attachments = [
+            {
+              content: base64PDF,
+              filename: `PO_${purchaseOrder.poNumber}.pdf`,
+              type: 'application/pdf',
+              disposition: 'attachment'
+            }
+          ];
+          
+          console.log('[Email Service] PDF attachment added to email params');
+        } catch (pdfError) {
+          console.error('[Email Service] PDF generation failed:', pdfError);
+          throw new Error(`PDF generation failed: ${pdfError instanceof Error ? pdfError.message : 'Unknown error'}`);
+        }
       }
       
       // Send email
-      return await this.sendEmail(emailParams);
+      console.log('[Email Service] Calling sendEmail method');
+      const result = await this.sendEmail(emailParams);
+      console.log('[Email Service] sendEmail result:', result);
+      return result;
     } catch (error) {
+      console.error('[Email Service] Error in sendPurchaseOrder:', error);
       logger.error({ 
         err: error,
         poId: purchaseOrder.id,

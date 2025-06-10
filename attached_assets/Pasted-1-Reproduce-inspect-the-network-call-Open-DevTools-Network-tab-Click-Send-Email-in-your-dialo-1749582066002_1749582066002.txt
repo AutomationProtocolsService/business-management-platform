@@ -1,0 +1,105 @@
+1. Reproduce & inspect the network call
+Open DevTools → Network tab.
+
+Click Send Email in your dialog.
+
+Find the POST to /api/purchase-orders/:id/email.
+
+Confirm:
+
+HTTP status (should be 200).
+
+Request payload: it must be
+
+json
+Copy
+{ "to":"recipient@example.com", "subject":"…", "body":"…" }
+Response body JSON (should be { success: true } or an error message).
+
+If you see a 500 or HTML in the response, note the error text.
+
+2. Check server‐side logs
+In your Replit console where server/index.ts runs, look for the stack-trace when you clicked Send Email. It should show exactly why the route threw:
+
+Missing required fields?
+
+SMTP connection refused?
+
+Authentication error?
+
+E.g. you might see:
+
+javascript
+Copy
+Error: Invalid login: 535 5.7.8 Authentication failed
+    at SMTPConnection._formatError…
+That pinpoints whether your email server credentials are wrong.
+
+3. Verify your email‐route code
+Make sure your router.post("/:id/email", …) on the server matches the client’s payload:
+
+ts
+Copy
+router.post("/:id/email", async (req, res) => {
+  const { to, subject, body } = req.body;  // ensure req.body is parsed
+  if (!to || !subject || !body) {
+    return res.status(400).json({ message: "to/subject/body required" });
+  }
+  // fetch PO, build PDF buffer…
+  try {
+    await transporter.sendMail({ from: SMTP_USER, to, subject, text: body, attachments: […] });
+    return res.json({ success: true });
+  } catch (e) {
+    console.error("Email send error:", e);
+    return res.status(500).json({ message: "Failed to send purchase order via email" });
+  }
+});
+Confirm you have app.use(express.json()) before your routes so req.body is populated.
+
+4. Test SMTP in isolation
+From a REPL or script, try a bare‐bones nodemailer send:
+
+js
+Copy
+import nodemailer from "nodemailer";
+async function test() {
+  let t = nodemailer.createTransport({/* your SMTP config */});
+  try {
+    await t.sendMail({
+      from: process.env.SMTP_USER,
+      to: "you@example.com",
+      subject: "SMTP Test",
+      text: "Hello world",
+    });
+    console.log("SMTP OK");
+  } catch(e) {
+    console.error("SMTP error:", e);
+  }
+}
+test();
+If this fails, your SMTP credentials or network aren’t right. Fix that first (correct host/port/user/pass, allow less‐secure apps if using Gmail, etc.).
+
+5. Add more server logging
+Temporarily beef up your email route:
+
+ts
+Copy
+console.log("Email payload:", { to, subject, body });
+So you can see in the console exactly what arrived. Then:
+
+ts
+Copy
+try {
+  console.log("Attempting sendMail…");
+  await transporter.sendMail({ … });
+  console.log("sendMail succeeded");
+} catch (err) {
+  console.error("sendMail threw:", err);
+  throw err;  // so you see the full stack
+}
+That will give you the exact exception to troubleshoot.
+
+6. Walk the AI agent through the fix
+“First, reproduce the POST /network call and note the status & response body. Then check the server logs for the promise rejection from transporter.sendMail(). Ensure your route has express.json() before it so req.body parses. Next, isolate SMTP by writing a one‐off script to verify your credentials. Finally, add console.log around the email code to confirm payload values and catch the real exception.”
+
+Once you see the real error (bad payload, missing JSON parser, SMTP auth failure, etc.), you’ll know exactly what to correct—whether it’s adding app.use(express.json()), fixing env vars, or adjusting the email‐route logic.
