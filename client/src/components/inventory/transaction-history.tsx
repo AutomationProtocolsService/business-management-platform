@@ -59,7 +59,19 @@ export default function InventoryTransactionHistory({ itemId }: TransactionHisto
     isError,
     refetch
   } = useQuery<InventoryTransaction[]>({
-    queryKey: [`/api/inventory-transactions`, { inventoryItemId: itemId, type: filterType, startDate, endDate }],
+    queryKey: ['invTx', itemId, { type: filterType, startDate, endDate }],
+    queryFn: async () => {
+      const params = new URLSearchParams();
+      if (filterType && filterType !== 'all') params.append('type', filterType);
+      if (startDate) params.append('start', startDate.toISOString());
+      if (endDate) params.append('end', endDate.toISOString());
+      
+      const response = await fetch(`/api/inventory/${itemId}/transactions?${params}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch transactions');
+      }
+      return response.json();
+    },
   });
 
   // Filter transactions based on filters

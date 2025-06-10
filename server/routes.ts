@@ -2636,6 +2636,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory Transaction routes
+  app.get("/api/inventory-transactions", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { inventoryItemId, type, startDate, endDate } = req.query;
+      
+      console.log('>>> HIT inventory-transactions route, tenant:', tenantId, 'filters:', { inventoryItemId, type, startDate, endDate });
+      
+      if (inventoryItemId) {
+        const transactions = await storage.getInventoryTransactionsByItem(Number(inventoryItemId), { tenantId });
+        res.json(transactions);
+      } else {
+        // Return empty array if no specific item requested
+        res.json([]);
+      }
+    } catch (error) {
+      console.error('Error fetching inventory transactions:', error);
+      res.status(500).json({ message: "Failed to fetch inventory transactions" });
+    }
+  });
+
+  app.get("/api/inventory/:id/transactions", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const itemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      const { type, start, end } = req.query;
+      
+      console.log('>>> HIT inventory item transactions route, itemId:', itemId, 'tenant:', tenantId);
+      
+      const transactions = await storage.getInventoryTransactionsByItem(itemId, { tenantId });
+      
+      // Apply client-side filtering for type and date range if needed
+      let filteredTransactions = transactions;
+      
+      if (type && type !== 'all') {
+        filteredTransactions = filteredTransactions.filter(tx => tx.transactionType === type);
+      }
+      
+      if (start) {
+        const startDate = new Date(start as string);
+        filteredTransactions = filteredTransactions.filter(tx => new Date(tx.transactionDate) >= startDate);
+      }
+      
+      if (end) {
+        const endDate = new Date(end as string);
+        endDate.setHours(23, 59, 59, 999);
+        filteredTransactions = filteredTransactions.filter(tx => new Date(tx.transactionDate) <= endDate);
+      }
+      
+      res.json(filteredTransactions);
+    } catch (error) {
+      console.error('Error fetching inventory item transactions:', error);
+      res.status(500).json({ message: "Failed to fetch inventory item transactions" });
+    }
+  });
+
+  app.post("/api/inventory-transactions", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      const transactionData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+
+      const newTransaction = await storage.createInventoryTransaction(transactionData);
+      res.status(201).json(newTransaction);
+    } catch (error) {
+      console.error('Error creating inventory transaction:', error);
+      res.status(500).json({ message: "Failed to create inventory transaction" });
+    }
+  });
+
   // Register document routes (PDF and email functionality)
   const { registerDocumentRoutes } = await import('./routes/document-routes');
   registerDocumentRoutes(app);

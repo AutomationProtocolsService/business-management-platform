@@ -1,0 +1,89 @@
+Why you see “Error loading transactions”
+When the dialog opens the client fires GET
+/api/inventory/<itemId>/transactions?type=all&start=&end=
+and expects a JSON array. Your server is returning 500 (or 404/HTML), so React-Query shows the generic error card.
+
+1 Confirm the failing call
+DevTools → Network
+
+Click the 🔄 reload-button (or Try Again) inside the dialog.
+
+Observe the request; note:
+
+Field	What you should see
+Status	200 OK (but you’re getting 5 xx / 404)
+Response type	application/json
+Body	[{ id:1, type:"receive", qty:5, date:"2025-06-18" …}]
+
+Copy the response/error text – that’s the clue.
+
+2 Check the server route
+You probably copied the working /quotes/:id/history route but forgot to register an inventory one:
+
+ts
+Copy
+// server/routes/inventory.ts
+router.get("/:id/transactions", async (req, res) => {
+  const itemId = Number(req.params.id);
+  const { type, start, end } = req.query;
+
+  try {
+    const where: any = { itemId };
+    if (type && type !== "all") where.type = type;
+    if (start) where.date = { gte: new Date(start as string) };
+    if (end)   where.date = { ...(where.date || {}), lte: new Date(end as string) };
+
+    const tx = await prisma.inventoryTransaction.findMany({
+      where,
+      orderBy: { date: "desc" },
+    });
+
+    res.json(tx);
+  } catch (err) {
+    console.error("txn history error", err);
+    res.status(500).json({ message: "Failed to load transactions" });
+  }
+});
+Be sure you:
+
+added app.use("/api/inventory", inventoryRouter) in index.ts.
+
+ran the migration that creates inventoryTransaction table.
+
+3 Verify the DB relation
+inventoryTransaction should have at least:
+
+prisma
+Copy
+model InventoryTransaction {
+  id        Int      @id @default(autoincrement())
+  item      InventoryItem @relation(fields:[itemId], references:[id])
+  itemId    Int
+  type      TransactionType // enum: RECEIVE, ISSUE, ADJUST
+  quantity  Decimal
+  date      DateTime @default(now())
+  note      String?
+}
+If the table is missing you’ll see relation “inventoryTransaction” does not exist in the console. Run:
+
+bash
+Copy
+npx prisma migrate dev --name add_inventory_transactions
+4 Update the client query key
+In TransactionHistory.tsx:
+
+ts
+Copy
+const { data, isError, isLoading, refetch } = useQuery({
+  queryKey: ["invTx", itemId, filters],     // <- unique cache key
+  queryFn: () =>
+    fetch(`/api/inventory/${itemId}/transactions?` + new URLSearchParams(filters))
+      .then(r => { if (!r.ok) throw new Error("fetch failed"); return r.json(); }),
+});
+Prompt for the Replit AI agent
+• Create GET /api/inventory/:id/transactions route.
+• Add Prisma model InventoryTransaction (& migrate).
+• On error log stack and return { message }.
+• Front-end: use React-Query ['invTx', itemId, filters] and show table when data.length.
+
+Once the route returns 200 JSON you’ll see the full transaction list instead of the pink error card.
