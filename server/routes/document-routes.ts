@@ -517,32 +517,49 @@ export const registerDocumentRoutes = (app: Express) => {
       const { to: recipientEmail, subject, body } = req.body;
       const tenantId = getTenantIdFromRequest(req);
       
+      console.log('[PO Email] Request payload:', { poId, recipientEmail, subject, body, tenantId });
+      
       if (!tenantId) {
+        console.log('[PO Email] Missing tenant context');
         return res.status(400).json({ message: 'Tenant context required' });
       }
       
       if (!recipientEmail) {
+        console.log('[PO Email] Missing recipient email');
         return res.status(400).json({ message: 'Recipient email is required' });
       }
       
       // Get PO with tenant filtering
+      console.log('[PO Email] Fetching purchase order with ID:', poId);
       const purchaseOrder = await storage.getPurchaseOrder(poId, { tenantId });
       if (!purchaseOrder) {
+        console.log('[PO Email] Purchase order not found');
         return res.status(404).json({ message: 'Purchase order not found' });
       }
       
       // Security check - ensure purchase order belongs to the tenant
       if (purchaseOrder.tenantId !== tenantId) {
+        console.log('[PO Email] Access denied - tenant mismatch');
         return res.status(403).json({ message: 'Access denied' });
       }
       
+      console.log('[PO Email] Fetching purchase order items');
       const poItems = await storage.getPurchaseOrderItemsByPO(purchaseOrder.id);
+      console.log('[PO Email] Found items:', poItems.length);
       
       // Get company settings for sender email
+      console.log('[PO Email] Fetching company settings');
       const companySettings = await storage.getCompanySettings();
-      const senderEmail = companySettings?.email || 'noreply@example.com';
+      const senderEmail = companySettings?.email || process.env.SENDGRID_SENDER_EMAIL || 'noreply@example.com';
+      console.log('[PO Email] Using sender email:', senderEmail);
+      
+      // Check email service configuration
+      console.log('[PO Email] Checking email service configuration');
+      console.log('[PO Email] SendGrid API Key configured:', !!process.env.SENDGRID_API_KEY);
+      console.log('[PO Email] Email service configured:', EmailService.isConfigured());
       
       // Send email with PDF using the unified email service with custom subject and body
+      console.log('[PO Email] Attempting to send email');
       const success = await EmailService.sendPurchaseOrder(
         { ...purchaseOrder, items: poItems },
         recipientEmail,
@@ -554,13 +571,19 @@ export const registerDocumentRoutes = (app: Express) => {
         }
       );
       
+      console.log('[PO Email] Email send result:', success);
+      
       if (success) {
         res.json({ message: 'Purchase order sent successfully via email' });
       } else {
         res.status(500).json({ message: 'Failed to send purchase order via email' });
       }
     } catch (error) {
-      console.error('Error emailing purchase order:', error);
+      console.error('[PO Email] Error emailing purchase order:', error);
+      if (error instanceof Error) {
+        console.error('[PO Email] Error message:', error.message);
+        console.error('[PO Email] Error stack:', error.stack);
+      }
       res.status(500).json({ message: 'Failed to send purchase order via email' });
     }
   });
