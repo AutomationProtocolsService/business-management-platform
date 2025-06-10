@@ -133,7 +133,7 @@ class PDFServiceImpl {
             
             // Description with proper word wrapping and break-word behavior
             const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = item.description || '';
+            const descriptionText = breakLongWords(item.description || '');
             
             // Calculate height needed for wrapped description
             const descriptionHeight = doc.heightOfString(descriptionText, { 
@@ -144,7 +144,8 @@ class PDFServiceImpl {
             // Render description with constrained width
             doc.text(descriptionText, descriptionX, rowStartY, { 
               width: maxDescriptionWidth,
-              align: 'left'
+              align: 'left',
+              lineGap: 2
             });
             
             // Other columns - align to top of row
@@ -152,8 +153,8 @@ class PDFServiceImpl {
             doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
             doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
             
-            // Calculate row height based on description
-            const rowHeight = Math.max(doc.currentLineHeight(), descriptionHeight);
+            // Calculate row height based on description (ensure minimum height)
+            const rowHeight = Math.max(14, descriptionHeight + 4);
             const nextY = rowStartY + rowHeight + 5; // Add padding between rows
             
             // Draw row border (equivalent to CSS border-bottom for each row except last)
@@ -363,7 +364,7 @@ class PDFServiceImpl {
             
             // Description with proper word wrapping and break-word behavior
             const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
-            const descriptionText = item.description || '';
+            const descriptionText = breakLongWords(item.description || '');
             
             // Calculate height needed for wrapped description
             const descriptionHeight = doc.heightOfString(descriptionText, { 
@@ -374,7 +375,8 @@ class PDFServiceImpl {
             // Render description with constrained width
             doc.text(descriptionText, descriptionX, rowStartY, { 
               width: maxDescriptionWidth,
-              align: 'left'
+              align: 'left',
+              lineGap: 2
             });
             
             // Other columns - align to top of row
@@ -382,8 +384,8 @@ class PDFServiceImpl {
             doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
             doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
             
-            // Calculate row height based on description
-            const rowHeight = Math.max(doc.currentLineHeight(), descriptionHeight);
+            // Calculate row height based on description (ensure minimum height)
+            const rowHeight = Math.max(14, descriptionHeight + 4);
             const nextY = rowStartY + rowHeight + 5; // Add padding between rows
             
             // Draw row border (equivalent to CSS border-bottom for each row except last)
