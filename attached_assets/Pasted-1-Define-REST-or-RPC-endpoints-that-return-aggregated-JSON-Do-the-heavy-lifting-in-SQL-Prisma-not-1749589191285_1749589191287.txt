@@ -1,0 +1,64 @@
+1 Define REST (or RPC) endpoints that return aggregated JSON
+Do the heavy lifting in SQL/Prisma, not in the browser.
+
+Widget	Endpoint	Sample response	How to query
+Hours by Employee this month	GET /api/reports/hours-by-employee?start=2025-06-01&end=2025-06-30	[{ "employee":"Alice", "hours": 168 }, …]	SELECT e.name, SUM(EXTRACT(EPOCH FROM (end-start))/3600) AS hours FROM timesheet t JOIN employee e ON e.id=t.employeeId WHERE t.start BETWEEN $1 AND $2 GROUP BY e.name
+Projects per Employee (active)	/api/reports/projects-per-employee?status=active	[{ "employee":"Bob", "projects": 4 }, …]	SELECT e.name, COUNT(*) FROM project p JOIN employee e ON e.id = p.managerId WHERE p.status = $1 GROUP BY e.name
+Monthly Sales	/api/reports/sales?year=2025	[{"month":"Jan","total":12345.00}, …]	SELECT DATE_TRUNC('month', invoiceDate) AS m, SUM(total) FROM invoice WHERE paid=true AND EXTRACT(YEAR FROM invoiceDate)=$1 GROUP BY m ORDER BY m
+Scheduling load (installs + surveys)	/api/reports/schedule-load?start=&end=	[{ "date":"2025-06-17", "installations":2, "surveys":3 }]	union query from installations + surveys tables
+
+Return plain arrays – easier to chart.
+
+2 Add React-Query hooks for each card
+ts
+Copy
+export function useHoursByEmployee(range: {start: string, end: string}) {
+  return useQuery({
+    queryKey: ["hoursByEmployee", range],
+    queryFn: () =>
+      fetch(`/api/reports/hours-by-employee?start=${range.start}&end=${range.end}`)
+        .then(r => r.json()),
+  });
+}
+Do similar useSales, useProjectsPerEmployee, etc.
+
+3 Swap placeholder data in the Recharts / Apex charts
+tsx
+Copy
+const { data, isLoading } = useHoursByEmployee(dateRange);
+
+return (
+  <BarChart data={data ?? []}>
+    <XAxis dataKey="employee" />
+    <YAxis />
+    <Bar dataKey="hours" fill="#3b82f6" />
+  </BarChart>
+);
+When isLoading true, render a skeleton instead of the static PNG.
+
+4 Hook up the filter tabs
+The existing pill tabs Sales / Projects / Scheduling / Employees can just toggle which set of cards you show. Each card already has its own query, so hiding/showing is cheap.
+
+5 Export & Print buttons
+Export → call the same endpoints, convert to CSV (use Papa.unparse) and trigger download.href = URL.createObjectURL(new Blob([csv])).
+
+Print → window.print() after you add @media print CSS to show only the chart area.
+
+6 Caching rules
+Use:
+
+ts
+Copy
+queryClient.setQueryDefaults(["hoursByEmployee"], { staleTime: 5*60*1000 });
+so reports aren’t re-fetched every tab click, but refresh after 5 minutes.
+
+One-sentence brief for the AI agent
+“Create /api/reports/* endpoints that return aggregated rows for hours-by-employee, projects-per-employee, monthly sales, and schedule load; replace dummy arrays in ReportsPage with React-Query hooks that hit those endpoints, and render them in the existing Recharts components, with Export→CSV and Print using the same live data.”
+
+Follow that and the reports page will display real-time company metrics instead of hard-coded placeholders.
+
+
+
+
+
+

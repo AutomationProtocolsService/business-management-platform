@@ -1,5 +1,4 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -40,6 +39,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar, FileCog, FileSpreadsheet, Download, PrinterIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { 
+  useHoursByEmployee, 
+  useProjectsPerEmployee, 
+  useSalesData, 
+  useScheduleLoad, 
+  useEmployeePerformance 
+} from "@/hooks/use-reports";
 
 // Define chart colors
 const CHART_COLORS = [
@@ -473,35 +479,24 @@ export default function ReportsPage() {
   const [salesPeriod, setSalesPeriod] = useState("year");
   const [surveyPeriod, setSurveyPeriod] = useState("year");
   
-  // Fetch report data
-  const { data: reportData, isLoading } = useQuery({
-    queryKey: ["/api/dashboard"],
-  });
+  // Date ranges for queries
+  const currentDate = new Date();
+  const startOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const endOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  
+  const dateRange = {
+    start: startOfMonth.toISOString().split('T')[0],
+    end: endOfMonth.toISOString().split('T')[0]
+  };
 
-  // Fetch additional data for reports
-  const { data: quotes = [] } = useQuery<any[]>({
-    queryKey: ["/api/quotes"],
-  });
+  // Real-time data hooks
+  const { data: hoursData = [], isLoading: hoursLoading } = useHoursByEmployee(dateRange);
+  const { data: projectsData = [], isLoading: projectsLoading } = useProjectsPerEmployee('active');
+  const { data: salesData = [], isLoading: salesLoading } = useSalesData(currentDate.getFullYear());
+  const { data: scheduleData = [], isLoading: scheduleLoading } = useScheduleLoad(dateRange);
+  const { data: performanceData = [], isLoading: performanceLoading } = useEmployeePerformance();
 
-  const { data: invoices = [] } = useQuery<any[]>({
-    queryKey: ["/api/invoices"],
-  });
-
-  const { data: surveys = [] } = useQuery<any[]>({
-    queryKey: ["/api/surveys"],
-  });
-
-  const { data: installations = [] } = useQuery<any[]>({
-    queryKey: ["/api/installations"],
-  });
-
-  const { data: projects = [] } = useQuery<any[]>({
-    queryKey: ["/api/projects"],
-  });
-
-  const { data: customers = [] } = useQuery<any[]>({
-    queryKey: ["/api/customers"],
-  });
+  const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading;
 
   const handleExportReport = () => {
     toast({

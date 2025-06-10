@@ -2356,6 +2356,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Reports API endpoints
+  app.get("/api/reports/hours-by-employee", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { start, end } = req.query;
+      
+      if (!start || !end) {
+        return res.status(400).json({ message: "Start and end dates are required" });
+      }
+
+      const hoursData = await storage.execQuery(`
+        SELECT 
+          e.name as employee,
+          COALESCE(SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600), 0) as hours
+        FROM employees e
+        LEFT JOIN timesheets t ON e.id = t.employee_id 
+          AND t.date BETWEEN $2 AND $3
+          AND t.tenant_id = $1
+        WHERE e.tenant_id = $1
+        GROUP BY e.id, e.name
+        ORDER BY hours DESC
+      `, [tenantId, start, end]);
+
+      res.json(hoursData);
+    } catch (error) {
+      console.error('Error fetching hours by employee:', error);
+      res.status(500).json({ message: "Failed to fetch hours data" });
+    }
+  });
+
+  app.get("/api/reports/projects-per-employee", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { status = 'active' } = req.query;
+
+      const projectData = await storage.execQuery(`
+        SELECT 
+          e.name as employee,
+          COUNT(p.id) as projects
+        FROM employees e
+        LEFT JOIN projects p ON e.id = p.manager_id 
+          AND p.status = $2
+          AND p.tenant_id = $1
+        WHERE e.tenant_id = $1
+        GROUP BY e.id, e.name
+        ORDER BY projects DESC
+      `, [tenantId, status]);
+
+      res.json(projectData);
+    } catch (error) {
+      console.error('Error fetching projects per employee:', error);
+      res.status(500).json({ message: "Failed to fetch projects data" });
+    }
+  });
+
+  app.get("/api/reports/sales", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { year = new Date().getFullYear() } = req.query;
+
+      const salesData = await storage.execQuery(`
+        SELECT 
+          DATE_TRUNC('month', i.issue_date) as month,
+          SUM(i.total) as total
+        FROM invoices i
+        WHERE i.tenant_id = $1 
+          AND EXTRACT(YEAR FROM i.issue_date) = $2
+          AND i.status = 'paid'
+        GROUP BY DATE_TRUNC('month', i.issue_date)
+        ORDER BY month
+      `, [tenantId, year]);
+
+      // Format the response for frontend consumption
+      const formattedData = salesData.map(row => ({
+        month: new Date(row.month).toLocaleDateString('en-US', { month: 'short' }),
+        total: parseFloat(row.total) || 0
+      }));
+
+      res.json(formattedData);
+    } catch (error) {
+      console.error('Error fetching sales data:', error);
+      res.status(500).json({ message: "Failed to fetch sales data" });
+    }
+  });
+
+  app.get("/api/reports/schedule-load", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      const { start, end } = req.query;
+      
+      if (!start || !end) {
+        return res.status(400).json({ message: "Start and end dates are required" });
+      }
+
+      const scheduleData = await storage.execQuery(`
+        SELECT 
+          date_scheduled as date,
+          SUM(CASE WHEN type = 'installation' THEN 1 ELSE 0 END) as installations,
+          SUM(CASE WHEN type = 'survey' THEN 1 ELSE 0 END) as surveys
+        FROM (
+          SELECT scheduled_date as date_scheduled, 'installation' as type 
+          FROM installations 
+          WHERE tenant_id = $1 AND scheduled_date BETWEEN $2 AND $3
+          UNION ALL
+          SELECT scheduled_date as date_scheduled, 'survey' as type 
+          FROM surveys 
+          WHERE tenant_id = $1 AND scheduled_date BETWEEN $2 AND $3
+        ) combined
+        GROUP BY date_scheduled
+        ORDER BY date_scheduled
+      `, [tenantId, start, end]);
+
+      // Format dates for frontend
+      const formattedData = scheduleData.map(row => ({
+        date: new Date(row.date).toISOString().split('T')[0],
+        installations: parseInt(row.installations) || 0,
+        surveys: parseInt(row.surveys) || 0
+      }));
+
+      res.json(formattedData);
+    } catch (error) {
+      console.error('Error fetching schedule load:', error);
+      res.status(500).json({ message: "Failed to fetch schedule data" });
+    }
+  });
+
+  app.get("/api/reports/employee-performance", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const performanceData = await storage.execQuery(`
+        SELECT 
+          e.name as employee,
+          COUNT(DISTINCT p.id) as projects_managed,
+          COALESCE(SUM(EXTRACT(EPOCH FROM (t.end_time - t.start_time))/3600), 0) as total_hours,
+          COUNT(DISTINCT t.id) as timesheet_entries
+        FROM employees e
+        LEFT JOIN projects p ON e.id = p.manager_id AND p.tenant_id = $1
+        LEFT JOIN timesheets t ON e.id = t.employee_id AND t.tenant_id = $1
+        WHERE e.tenant_id = $1
+        GROUP BY e.id, e.name
+        ORDER BY total_hours DESC
+      `, [tenantId]);
+
+      res.json(performanceData);
+    } catch (error) {
+      console.error('Error fetching employee performance:', error);
+      res.status(500).json({ message: "Failed to fetch performance data" });
+    }
+  });
+
   // Purchase Orders routes
   app.get("/api/purchase-orders", requireAuth, async (req: Request, res: Response) => {
     try {
