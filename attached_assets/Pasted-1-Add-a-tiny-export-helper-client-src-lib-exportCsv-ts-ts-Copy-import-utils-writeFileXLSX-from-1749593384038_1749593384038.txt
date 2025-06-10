@@ -1,0 +1,83 @@
+1 Add a tiny export helper
+client/src/lib/exportCsv.ts
+
+ts
+Copy
+import { utils, writeFileXLSX } from "xlsx";
+
+/**
+ * Receives an array of plain objects (1 object = 1 row) and a filename.
+ * Converts it to a single-sheet XLSX file and triggers the download.
+ */
+export function exportArrayToExcel<T extends Record<string, any>>(
+  rows: T[],
+  fileName = "export.xlsx",
+  sheetName = "Sheet1"
+) {
+  // 1. Convert Array -> worksheet
+  const ws = utils.json_to_sheet(rows, { header: Object.keys(rows[0] ?? {}) });
+  // 2. Create new workbook & append
+  const wb = utils.book_new();
+  utils.book_append_sheet(wb, ws, sheetName);
+  // 3. Download
+  writeFileXLSX(wb, fileName);
+}
+Dependencies
+
+csharp
+Copy
+pnpm add xlsx           # or npm i xlsx
+2 Compute the rows you want to export
+CustomersPage.tsx (or the equivalent file that already fetches your customer list):
+
+tsx
+Copy
+/* existing imports … */
+import { exportArrayToExcel } from "@/lib/exportCsv";
+import { Download } from "lucide-react";
+
+/** When you already finished loading customers & their stats */
+const onExportCustomers = () => {
+  if (!customers?.length) return;
+
+  // 1- Build a “flat” object for every customer
+  const rows = customers.map(c => ({
+    Name:       c.name,
+    Email:      c.email,
+    Phone:      c.phone ?? "",
+    Address:    c.address_line1 ?? "",
+    City:       c.city ?? "",
+    Country:    c.country ?? "",
+    Quotes:     c.stats.quotes,      //  ← your API already returns these counts
+    Invoices:   c.stats.invoices,
+    Projects:   c.stats.projects
+  }));
+
+  // 2- Call the helper
+  exportArrayToExcel(rows, `Customers-${Date.now()}.xlsx`, "Customers");
+};
+3 Add the button to the UI
+tsx
+Copy
+<Tooltip content="Export to Excel">
+  <Button variant="outline" onClick={onExportCustomers}>
+    <Download className="mr-2 h-4 w-4" />
+    Export
+  </Button>
+</Tooltip>
+Place it next to the “New Customer” button (or in your table header).
+
+4 That’s it — open the file
+The file downloads instantly; Excel, Google Sheets or LibreOffice open it fine because the library writes a real XLSX file.
+
+If you later need “Quotes / Invoices / Projects per customer” separately …
+Hit your existing aggregate endpoints
+GET /api/reports/customer-stats?customerId=…
+
+Merge the counts into the rows array above.
+
+Re-run exportArrayToExcel.
+
+Single-sentence prompt for the Replit AI agent
+
+“Install xlsx, drop lib/exportCsv.ts (see code), wire an Export button on CustomersPage that maps the loaded customers into rows {Name, Email, Phone, Address, Quotes, Invoices, Projects} and calls exportArrayToExcel, naming the file Customers-<timestamp>.xlsx.”
