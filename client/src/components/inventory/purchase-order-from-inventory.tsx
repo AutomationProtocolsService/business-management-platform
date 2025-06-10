@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -69,6 +69,12 @@ export default function PurchaseOrderFromInventory({
 }: PurchaseOrderFromInventoryProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Tax calculation state
+  const [taxRate, setTaxRate] = useState(inventoryItem?.taxRate ? inventoryItem.taxRate * 100 : 10); // Convert to percentage
+  const [subtotal, setSubtotal] = useState(0);
+  const [tax, setTax] = useState(0);
+  const [total, setTotal] = useState(0);
 
   const form = useForm<PurchaseOrderFormData>({
     resolver: zodResolver(purchaseOrderSchema),
@@ -81,6 +87,18 @@ export default function PurchaseOrderFromInventory({
       notes: `Reorder for inventory item: ${inventoryItem?.name || ""}`,
     },
   });
+
+  // Calculate totals whenever quantity, unit price, or tax rate changes
+  const quantity = form.watch("quantity");
+  const unitPrice = form.watch("unitPrice");
+
+  useEffect(() => {
+    const sub = (quantity || 0) * (unitPrice || 0);
+    const computedTax = sub * (taxRate / 100);
+    setSubtotal(sub);
+    setTax(computedTax);
+    setTotal(sub + computedTax);
+  }, [quantity, unitPrice, taxRate]);
 
   // Get suppliers for autocomplete
   const { data: suppliers = [] } = useQuery<Supplier[]>({
@@ -97,6 +115,7 @@ export default function PurchaseOrderFromInventory({
         deliveryDate: data.deliveryDate?.toISOString(),
         notes: data.notes,
         status: "draft",
+        taxRate: taxRate / 100, // Convert percentage to decimal
         items: [
           {
             description: `${inventoryItem.name} (SKU: ${inventoryItem.sku})`,
@@ -355,13 +374,37 @@ export default function PurchaseOrderFromInventory({
                 )}
               />
 
+              {/* Tax Rate Input */}
+              <div>
+                <label htmlFor="taxRate" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  Tax (%)
+                </label>
+                <Input
+                  id="taxRate"
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={0.01}
+                  value={taxRate}
+                  onChange={(e) => setTaxRate(Number(e.target.value))}
+                  className="mt-1"
+                  placeholder="10.00"
+                />
+              </div>
+
               {/* Total Calculation Display */}
-              <div className="bg-blue-50 p-4 rounded-lg">
-                <div className="flex justify-between items-center">
-                  <span className="font-semibold">Total Amount:</span>
-                  <span className="text-xl font-bold text-blue-600">
-                    ${((form.watch("quantity") || 0) * (form.watch("unitPrice") || 0)).toFixed(2)}
-                  </span>
+              <div className="rounded bg-muted p-4 space-y-2">
+                <div className="flex justify-between">
+                  <span>Subtotal:</span>
+                  <span>${subtotal.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span>Tax ({taxRate}%):</span>
+                  <span>${tax.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between font-semibold border-t pt-2">
+                  <span>Total Amount:</span>
+                  <span className="text-primary">${total.toFixed(2)}</span>
                 </div>
               </div>
             </form>
