@@ -468,13 +468,7 @@ const processSurveyData = (surveys: any[], period: string) => {
 
 // We don't have real employee data, so we'll keep this for now
 // In a real application, you'd fetch this from an API
-const generateEmployeeData = () => [
-  { name: "John", hours: 160, projects: 5 },
-  { name: "Sarah", hours: 152, projects: 4 },
-  { name: "Mike", hours: 168, projects: 6 },
-  { name: "Lisa", hours: 144, projects: 3 },
-  { name: "David", hours: 136, projects: 4 }
-];
+
 
 export default function ReportsPage() {
   const { toast } = useToast();
@@ -903,17 +897,27 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={generateEmployeeData()}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="hours" name="Hours" fill={CHART_COLORS[0]} />
-                  </BarChart>
+                  {hoursLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-sm text-muted-foreground">Loading...</div>
+                    </div>
+                  ) : hoursData && hoursData.length > 0 ? (
+                    <BarChart
+                      data={hoursData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="employee" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="hours" name="Hours" fill={CHART_COLORS[0]} />
+                    </BarChart>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-sm text-muted-foreground">No time logged this month</div>
+                    </div>
+                  )}
                 </ResponsiveContainer>
               </CardContent>
             </Card>
@@ -927,17 +931,27 @@ export default function ReportsPage() {
               </CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart
-                    data={generateEmployeeData()}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" />
-                    <YAxis />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="projects" name="Projects" fill={CHART_COLORS[3]} />
-                  </BarChart>
+                  {projectsLoading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-sm text-muted-foreground">Loading...</div>
+                    </div>
+                  ) : projectsData && projectsData.length > 0 ? (
+                    <BarChart
+                      data={projectsData}
+                      margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    >
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                      <XAxis dataKey="employee" />
+                      <YAxis />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="projects" name="Projects" fill={CHART_COLORS[1]} />
+                    </BarChart>
+                  ) : (
+                    <div className="flex items-center justify-center h-full">
+                      <div className="text-sm text-muted-foreground">No projects assigned</div>
+                    </div>
+                  )}
                 </ResponsiveContainer>
               </CardContent>
             </Card>
