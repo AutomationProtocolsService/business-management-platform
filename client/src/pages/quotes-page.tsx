@@ -238,6 +238,14 @@ export default function QuotesPage() {
     }
   };
 
+  // Get customer email by ID
+  const getCustomerEmail = (customerId: number) => {
+    const customer = Array.isArray(customers) 
+      ? customers.find((c: any) => c.id === customerId)
+      : null;
+    return customer ? customer.email || "—" : "—";
+  };
+
   // Export quotes to Excel
   const onExportQuotes = () => {
     if (!quotes?.length) return;
@@ -245,6 +253,7 @@ export default function QuotesPage() {
     const rows = quotes.map((q: any) => ({
       QuoteNumber: q.quoteNumber,
       Customer: q.customerId ? getCustomerName(q.customerId) : "—",
+      CustomerEmail: q.customerId ? getCustomerEmail(q.customerId) : "—",
       Project: q.projectId ? getProjectName(q.projectId) : "—",
       IssueDate: q.issueDate ? formatDate(q.issueDate, "MMM dd, yyyy") : "—",
       Status: q.status,
