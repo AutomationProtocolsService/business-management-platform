@@ -60,6 +60,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { format } from "date-fns";
 import InventoryItemForm from "@/components/forms/inventory-item-form";
 import InventoryTransactionHistory from "@/components/inventory/transaction-history";
+import PurchaseOrderFromInventory from "@/components/inventory/purchase-order-from-inventory";
 import {
   Progress
 } from "@/components/ui/progress";
@@ -71,6 +72,7 @@ export default function InventoryPage() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [isInventoryDialogOpen, setIsInventoryDialogOpen] = useState(false);
   const [isTransactionDialogOpen, setIsTransactionDialogOpen] = useState(false);
+  const [isPurchaseOrderDialogOpen, setIsPurchaseOrderDialogOpen] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [activeTab, setActiveTab] = useState<string>("all");
   
