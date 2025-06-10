@@ -40,6 +40,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Calendar, FileCog, FileSpreadsheet, Download, PrinterIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { exportToXlsx, exportMultipleSheets } from "@/lib/exportReport";
 import { 
   useHoursByEmployee, 
   useProjectsPerEmployee, 
@@ -502,18 +503,82 @@ export default function ReportsPage() {
   const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading || surveysLoading || installationsLoading || budgetLoading || approvalLoading;
 
   const handleExportReport = () => {
-    toast({
-      title: "Export initiated",
-      description: "Your report is being generated for download.",
-    });
-    
-    // In a real app, this would trigger an API call to generate a report
-    setTimeout(() => {
+    try {
+      if (activeTab === "sales") {
+        if (salesData && salesData.length > 0) {
+          exportToXlsx("Sales-Report", salesData);
+        } else {
+          toast({
+            title: "No data to export",
+            description: "No sales data available for the selected period.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else if (activeTab === "projects") {
+        const projectsSheetData = {
+          "Projects-by-Budget": budgetData || [],
+        };
+        if (budgetData && budgetData.length > 0) {
+          exportMultipleSheets(projectsSheetData, "Projects-Report");
+        } else {
+          toast({
+            title: "No data to export",
+            description: "No project data available.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else if (activeTab === "surveys") {
+        const schedulingData = {
+          "Schedule-Load": scheduleData || [],
+          "Survey-Status": processSurveyData(surveys, surveyPeriod),
+          "Installation-Status": processInstallationStatusData(installations)
+        };
+        
+        if (scheduleData && scheduleData.length > 0) {
+          exportMultipleSheets(schedulingData, "Scheduling-Report");
+        } else {
+          toast({
+            title: "No data to export",
+            description: "No scheduling data available.",
+            variant: "destructive"
+          });
+          return;
+        }
+      } else if (activeTab === "employees") {
+        const employeeData = {
+          "Hours-by-Employee": hoursData || [],
+          "Projects-per-Employee": projectsData || [],
+          "Employee-Performance": performanceData || [],
+          "Timesheet-Approval": approvalData || []
+        };
+        
+        if ((hoursData && hoursData.length > 0) || (projectsData && projectsData.length > 0) || 
+            (performanceData && performanceData.length > 0) || (approvalData && approvalData.length > 0)) {
+          exportMultipleSheets(employeeData, "Employee-Report");
+        } else {
+          toast({
+            title: "No data to export",
+            description: "No employee data available.",
+            variant: "destructive"
+          });
+          return;
+        }
+      }
+      
       toast({
         title: "Report exported",
-        description: "Your report has been exported successfully.",
+        description: "Your Excel report has been downloaded successfully.",
       });
-    }, 1500);
+    } catch (error) {
+      console.error("Export error:", error);
+      toast({
+        title: "Export failed",
+        description: "There was an error generating the report. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   const handlePrintReport = () => {
