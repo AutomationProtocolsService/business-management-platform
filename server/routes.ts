@@ -1836,6 +1836,125 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Inventory routes
+  app.get("/api/inventory", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+      
+      const inventoryItems = await storage.getAllInventoryItems({ tenantId });
+      res.json(inventoryItems);
+    } catch (error) {
+      console.error('Error fetching inventory:', error);
+      res.status(500).json({ message: "Failed to fetch inventory" });
+    }
+  });
+
+  app.post("/api/inventory", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+      
+      const inventoryData = {
+        ...req.body,
+        tenantId,
+        createdBy: req.user?.id
+      };
+      
+      const newItem = await storage.createInventoryItem(inventoryData);
+      res.status(201).json(newItem);
+    } catch (error) {
+      console.error('Error creating inventory item:', error);
+      res.status(500).json({ message: "Failed to create inventory item" });
+    }
+  });
+
+  app.get("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const itemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const item = await storage.getInventoryItem(itemId);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      // Check tenant access
+      if (tenantId !== undefined && item.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      res.json(item);
+    } catch (error) {
+      console.error('Error fetching inventory item:', error);
+      res.status(500).json({ message: "Failed to fetch inventory item" });
+    }
+  });
+
+  app.put("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const itemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+      
+      const item = await storage.getInventoryItem(itemId);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      // Check tenant access
+      if (item.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const updatedItem = await storage.updateInventoryItem(itemId, req.body, tenantId);
+      res.json(updatedItem);
+    } catch (error) {
+      console.error('Error updating inventory item:', error);
+      res.status(500).json({ message: "Failed to update inventory item" });
+    }
+  });
+
+  app.delete("/api/inventory/:id", requireAuth, async (req, res) => {
+    try {
+      const itemId = Number(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+      
+      const item = await storage.getInventoryItem(itemId);
+      
+      if (!item) {
+        return res.status(404).json({ message: "Inventory item not found" });
+      }
+      
+      // Check tenant access
+      if (tenantId !== undefined && item.tenantId !== tenantId) {
+        return res.status(403).json({ message: "Access denied" });
+      }
+      
+      const deleted = await storage.deleteInventoryItem(itemId, tenantId);
+      
+      if (deleted) {
+        res.status(204).send();
+      } else {
+        res.status(500).json({ message: "Failed to delete inventory item" });
+      }
+    } catch (error) {
+      console.error('Error deleting inventory item:', error);
+      res.status(500).json({ message: "Failed to delete inventory item" });
+    }
+  });
+
   // Timesheet routes
   app.get("/api/timesheets", requireAuth, async (req, res) => {
     try {

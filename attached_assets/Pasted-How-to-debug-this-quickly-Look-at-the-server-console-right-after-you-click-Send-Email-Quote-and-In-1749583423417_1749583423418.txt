@@ -1,0 +1,109 @@
+How to debug this quickly
+Look at the server console right after you click Send Email.
+
+Quote and Invoice e-mails already work, so their route logs should look like
+
+css
+Copy
+[EMAIL] sending quote #123  → client@example.com OK 250
+When you hit the PO route you will see either
+
+yaml
+Copy
+PO-email route: 500  Cannot read property ‘pdfBuffer’ of null
+or a full Nodemailer stack such as
+
+javascript
+Copy
+Error: Message failed: 550 5.7.1 Relaying denied
+Compare the two routes (server/routes/quotes.ts/email vs. purchaseOrders.ts/email).
+Common mistakes when copying the working quote-email code:
+
+Copy-paste slip	Symptom
+Route forgets await prisma.purchaseOrder.findUnique(...) or the include for items, resulting in po === null	Console prints Cannot read properties of null
+You passed only { to, subject, body } to sendMail but forgot the attachment field, and your SMTP denies empty messages	5xx reply from SMTP, Nodemailer error
+You never called doc.end() when streaming PDF into buffer	Process hangs, then 500
+The front-end POST sends { to, subject, message } but the back-end expects body	to, subject, body required error
+
+Re-use the proven helper you already have
+In your project there is a util that quotes & invoices call, for example:
+
+ts
+Copy
+// utils/emailService.ts
+export async function sendSignedPdf({
+  pdfBuffer,
+  to,
+  subject,
+  text,
+}: {
+  pdfBuffer: Buffer;
+  to: string;
+  subject: string;
+  text: string;
+}) {
+  return transporter.sendMail({
+    from: FROM_EMAIL,
+    to,
+    subject,
+    text,
+    attachments: [{ filename: `${subject}.pdf`, content: pdfBuffer }],
+  });
+}
+Action: make the PO email route call the same helper:
+
+ts
+Copy
+router.post("/:id/email", async (req, res) => {
+  const { to, subject, body } = req.body;
+  const po = await prisma.purchaseOrder.findUnique({
+    where: { id: Number(req.params.id) },
+    include: { items: true },
+  });
+  if (!po) return res.status(404).json({ message: "PO not found" });
+
+  const pdfBuffer = await buildPurchaseOrderPdf(po); // same builder you use for Print
+
+  try {
+    await sendSignedPdf({ pdfBuffer, to, subject, text: body });
+    return res.json({ success: true });
+  } catch (err: any) {
+    console.error("PO email error:", err);
+    return res.status(500).json({ message: "Failed to send purchase order via email" });
+  }
+});
+Verify payload parity in front-end
+The quote page probably posts:
+
+json
+Copy
+{ "to":"client@example.com","subject":"Quote #Q-1-2025-0007","body":"…" }
+Ensure your PO page posts exactly the same property names (body, not message).
+
+tsx
+Copy
+await fetch(`/api/purchase-orders/${po.id}/email`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ to, subject, body }),
+});
+Test with the same SMTP
+Because quotes/invoices already go through, SMTP creds are fine.
+If PO e-mail fails but quote works, the problem is always route logic or payload, not SMTP.
+
+Checklist for the Replit AI agent
+Open server console; capture stack trace when PO email fails.
+
+Align request body – make PO frontend send { to, subject, body } (same keys as quotes).
+
+Reuse existing sendSignedPdf helper to avoid duplicate Nodemailer code.
+
+Generate PDF buffer with the same buildQuotePdf style function (buildPurchaseOrderPdf).
+
+Return { success: true } on success; send 400 if any field missing.
+
+Add console.log("PO email OK") on success to prove the route runs.
+
+Front-end: show toast on OK; on error show err.message returned by route.
+
+Once the payload names, PDF generation, and shared email helper match the already-working quote/invoice flow, the “Failed to send purchase order via email” banner will disappear and you’ll get the green “Email sent!” toast just like on quotes.
