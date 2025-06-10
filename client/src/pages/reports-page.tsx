@@ -41,6 +41,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, FileCog, FileSpreadsheet, Download, PrinterIcon } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { exportToXlsx, exportMultipleSheets } from "@/lib/exportReport";
+import { printCurrentReport } from "@/lib/printReport";
 import { 
   useHoursByEmployee, 
   useProjectsPerEmployee, 
@@ -581,8 +582,21 @@ export default function ReportsPage() {
     }
   };
 
-  const handlePrintReport = () => {
-    window.print();
+  const handlePrintReport = async () => {
+    try {
+      await printCurrentReport();
+      toast({
+        title: "PDF generated",
+        description: "Your report has been saved as a PDF file.",
+      });
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Print failed",
+        description: "There was an error generating the PDF. Please try again.",
+        variant: "destructive"
+      });
+    }
   };
 
   return (
@@ -621,8 +635,9 @@ export default function ReportsPage() {
           </TabsTrigger>
         </TabsList>
         
-        {/* Sales Reports */}
-        <TabsContent value="sales" className="space-y-4">
+        <div id="report-root" className="space-y-4">{/* Report content wrapper for PDF generation */}
+          {/* Sales Reports */}
+          <TabsContent value="sales" className="space-y-4">
           <div className="flex justify-between items-center">
             <h3 className="text-lg font-medium">Sales Reports</h3>
             <Select value={salesPeriod} onValueChange={setSalesPeriod}>
@@ -1066,6 +1081,7 @@ export default function ReportsPage() {
             </CardContent>
           </Card>
         </TabsContent>
+        </div>{/* End of report-root wrapper */}
       </Tabs>
     </div>
   );

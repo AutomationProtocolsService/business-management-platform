@@ -2,6 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Print mode styles for clean PDF generation */
+.print-mode {
+  background: #ffffff !important;
+}
+
+.print-mode canvas {
+  background: #ffffff !important;
+}
+
+.print-mode .recharts-cartesian-grid-horizontal line,
+.print-mode .recharts-cartesian-grid-vertical line {
+  stroke: #e5e7eb !important;
+}
+
+.print-mode .recharts-text {
+  fill: #374151 !important;
+}
+
 @layer base {
   * {
     @apply border-border;
