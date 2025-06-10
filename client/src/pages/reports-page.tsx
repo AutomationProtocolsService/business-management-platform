@@ -678,16 +678,16 @@ export default function ReportsPage() {
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
                     <Pie
-                      data={processProjectStatusData(projects)}
+                      data={scheduleData}
                       cx="50%"
                       cy="50%"
                       labelLine={false}
                       outerRadius={80}
                       fill="#8884d8"
-                      dataKey="value"
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                      dataKey="installations"
+                      label={({ date, installations }) => `${date}: ${installations}`}
                     >
-                      {processProjectStatusData(projects).map((entry: any, index: number) => (
+                      {scheduleData.map((entry: any, index: number) => (
                         <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
                       ))}
                     </Pie>
@@ -708,23 +708,15 @@ export default function ReportsPage() {
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={[
-                      { name: "Project A", estimated: 30, actual: 35 },
-                      { name: "Project B", estimated: 45, actual: 40 },
-                      { name: "Project C", estimated: 60, actual: 65 },
-                      { name: "Project D", estimated: 30, actual: 30 },
-                      { name: "Project E", estimated: 45, actual: 55 },
-                      { name: "Project F", estimated: 60, actual: 50 },
-                    ]}
+                    data={hoursData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" />
-                    <YAxis label={{ value: 'Days', angle: -90, position: 'insideLeft' }} />
+                    <XAxis dataKey="employee" />
+                    <YAxis label={{ value: 'Hours', angle: -90, position: 'insideLeft' }} />
                     <Tooltip />
                     <Legend />
-                    <Bar dataKey="estimated" name="Estimated Days" fill={CHART_COLORS[3]} />
-                    <Bar dataKey="actual" name="Actual Days" fill={CHART_COLORS[4]} />
+                    <Bar dataKey="hours" name="Hours Worked" fill={CHART_COLORS[3]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
