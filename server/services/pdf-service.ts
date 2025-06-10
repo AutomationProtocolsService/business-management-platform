@@ -120,24 +120,40 @@ class PDFServiceImpl {
             // Item number (index)
             doc.text((i + 1).toString(), itemX, rowStartY);
             
-            // Description with word wrapping - We need to handle this separately
-            const descriptionHeight = doc.heightOfString(item.description, { 
-              width: descriptionWidth,
-              align: 'left' 
+            // Description with proper word wrapping and break-word behavior
+            const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
+            const descriptionText = item.description || '';
+            
+            // Calculate height needed for wrapped description
+            const descriptionHeight = doc.heightOfString(descriptionText, { 
+              width: maxDescriptionWidth,
+              align: 'left'
             });
             
-            doc.text(item.description, descriptionX, rowStartY, { 
-              width: descriptionWidth,
-              align: 'left' 
+            // Render description with constrained width
+            doc.text(descriptionText, descriptionX, rowStartY, { 
+              width: maxDescriptionWidth,
+              align: 'left'
             });
             
-            // Other columns
+            // Other columns - align to top of row
             doc.text(item.quantity.toString(), quantityX, rowStartY);
             doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
             doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
             
-            // Move down by the maximum height used
-            doc.moveDown(Math.max(1, descriptionHeight / doc.currentLineHeight()));
+            // Calculate row height based on description
+            const rowHeight = Math.max(doc.currentLineHeight(), descriptionHeight);
+            const nextY = rowStartY + rowHeight + 5; // Add padding between rows
+            
+            // Draw row border (equivalent to CSS border-bottom for each row except last)
+            if (i < quoteData.items.length - 1) {
+              doc.moveTo(itemX, nextY - 2)
+                 .lineTo(amountX + amountWidth, nextY - 2)
+                 .stroke();
+            }
+            
+            // Move to next row position
+            doc.y = nextY;
             
             // Check if we need a new page
             if (doc.y > doc.page.height - 150) {
@@ -334,24 +350,40 @@ class PDFServiceImpl {
             // Item number (index)
             doc.text((i + 1).toString(), itemX, rowStartY);
             
-            // Description with word wrapping - We need to handle this separately
-            const descriptionHeight = doc.heightOfString(item.description, { 
-              width: descriptionWidth,
-              align: 'left' 
+            // Description with proper word wrapping and break-word behavior
+            const maxDescriptionWidth = 320; // Fixed max width to prevent overflow
+            const descriptionText = item.description || '';
+            
+            // Calculate height needed for wrapped description
+            const descriptionHeight = doc.heightOfString(descriptionText, { 
+              width: maxDescriptionWidth,
+              align: 'left'
             });
             
-            doc.text(item.description, descriptionX, rowStartY, { 
-              width: descriptionWidth,
-              align: 'left' 
+            // Render description with constrained width
+            doc.text(descriptionText, descriptionX, rowStartY, { 
+              width: maxDescriptionWidth,
+              align: 'left'
             });
             
-            // Other columns
+            // Other columns - align to top of row
             doc.text(item.quantity.toString(), quantityX, rowStartY);
             doc.text(`$${item.unitPrice.toFixed(2)}`, priceX, rowStartY);
             doc.text(`$${item.total.toFixed(2)}`, amountX, rowStartY);
             
-            // Move down by the maximum height used
-            doc.moveDown(Math.max(1, descriptionHeight / doc.currentLineHeight()));
+            // Calculate row height based on description
+            const rowHeight = Math.max(doc.currentLineHeight(), descriptionHeight);
+            const nextY = rowStartY + rowHeight + 5; // Add padding between rows
+            
+            // Draw row border (equivalent to CSS border-bottom for each row except last)
+            if (i < invoiceData.items.length - 1) {
+              doc.moveTo(itemX, nextY - 2)
+                 .lineTo(amountX + amountWidth, nextY - 2)
+                 .stroke();
+            }
+            
+            // Move to next row position
+            doc.y = nextY;
             
             // Check if we need a new page
             if (doc.y > doc.page.height - 150) {
