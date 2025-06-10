@@ -120,6 +120,12 @@ export default function InventoryPage() {
     setIsTransactionDialogOpen(true);
   };
 
+  // Handle create purchase order from inventory
+  const handleCreatePurchaseOrder = (item: InventoryItem) => {
+    setSelectedItem(item);
+    setIsPurchaseOrderDialogOpen(true);
+  };
+
   // Calculate stock level percentage
   const calculateStockLevel = (current: number | null, target: number | null) => {
     const currentValue = current || 0;
@@ -418,12 +424,8 @@ export default function InventoryPage() {
                             variant="ghost"
                             size="icon"
                             className="text-green-500"
-                            onClick={() => {
-                              toast({
-                                title: "Not implemented",
-                                description: "Create purchase order functionality will be added soon",
-                              });
-                            }}
+                            onClick={() => handleCreatePurchaseOrder(item)}
+                            title="Create Purchase Order"
                           >
                             <ShoppingCart className="h-4 w-4" />
                           </Button>
@@ -437,6 +439,57 @@ export default function InventoryPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Purchase Order Dialog */}
+      <PurchaseOrderFromInventory
+        open={isPurchaseOrderDialogOpen}
+        onOpenChange={setIsPurchaseOrderDialogOpen}
+        inventoryItem={selectedItem}
+      />
+
+      {/* Transaction History Dialog */}
+      <Dialog open={isTransactionDialogOpen} onOpenChange={setIsTransactionDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transaction History</DialogTitle>
+            <DialogDescription>
+              {selectedItem ? `View transaction history for ${selectedItem.name}` : 'Loading...'}
+            </DialogDescription>
+          </DialogHeader>
+          {selectedItem && (
+            <InventoryTransactionHistory inventoryItemId={selectedItem.id} />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Inventory Item Dialog */}
+      <Dialog open={isInventoryDialogOpen} onOpenChange={setIsInventoryDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              {selectedItem ? "Edit Inventory Item" : "Add New Item"}
+            </DialogTitle>
+            <DialogDescription>
+              {selectedItem 
+                ? "Update the details of this inventory item" 
+                : "Add a new item to your inventory"}
+            </DialogDescription>
+          </DialogHeader>
+          <InventoryItemForm 
+            inventoryItem={selectedItem} 
+            onSuccess={() => {
+              setIsInventoryDialogOpen(false);
+              setSelectedItem(null);
+              toast({
+                title: selectedItem ? "Item updated" : "Item added",
+                description: selectedItem 
+                  ? "The inventory item has been updated successfully." 
+                  : "The inventory item has been added successfully.",
+              });
+            }} 
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
