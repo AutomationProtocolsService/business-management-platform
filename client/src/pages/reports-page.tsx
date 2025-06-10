@@ -496,8 +496,10 @@ export default function ReportsPage() {
   const { data: performanceData = [], isLoading: performanceLoading } = useEmployeePerformance();
   const { data: surveys = [], isLoading: surveysLoading } = useSurveysReport(surveyPeriod);
   const { data: installations = [], isLoading: installationsLoading } = useInstallationsReport(surveyPeriod);
+  const { data: budgetData = [], isLoading: budgetLoading } = useProjectBudgets();
+  const { data: approvalData = [], isLoading: approvalLoading } = useTimesheetApprovalStatus();
 
-  const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading || surveysLoading || installationsLoading;
+  const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading || surveysLoading || installationsLoading || budgetLoading || approvalLoading;
 
   const handleExportReport = () => {
     toast({
@@ -732,34 +734,30 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    { name: "Project A", budget: 45000 },
-                    { name: "Project B", budget: 78500 },
-                    { name: "Project C", budget: 32000 },
-                    { name: "Project D", budget: 125000 },
-                    { name: "Project E", budget: 95000 },
-                    { name: "Project F", budget: 67500 },
-                  ]}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip formatter={(value) => [`$${value}`, "Budget"]} />
-                  <Bar dataKey="budget" name="Budget" fill={CHART_COLORS[0]}>
-                    {[
-                      { name: "Project A", budget: 45000 },
-                      { name: "Project B", budget: 78500 },
-                      { name: "Project C", budget: 32000 },
-                      { name: "Project D", budget: 125000 },
-                      { name: "Project E", budget: 95000 },
-                      { name: "Project F", budget: 67500 },
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Bar>
-                </BarChart>
+                {budgetLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">Loading...</div>
+                  </div>
+                ) : budgetData && budgetData.length > 0 ? (
+                  <BarChart
+                    data={budgetData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="name" />
+                    <YAxis />
+                    <Tooltip formatter={(value) => [`$${value}`, "Budget"]} />
+                    <Bar dataKey="budget" name="Budget" fill={CHART_COLORS[0]}>
+                      {budgetData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">No project budgets available</div>
+                  </div>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -859,25 +857,28 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart
-                  data={[
-                    { name: "Jan", surveys: 3, installations: 5 },
-                    { name: "Feb", surveys: 4, installations: 6 },
-                    { name: "Mar", surveys: 2, installations: 4 },
-                    { name: "Apr", surveys: 3, installations: 5 },
-                    { name: "May", surveys: 5, installations: 7 },
-                    { name: "Jun", surveys: 4, installations: 6 },
-                  ]}
-                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
-                >
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" />
-                  <YAxis label={{ value: 'Days', angle: -90, position: 'insideLeft' }} />
-                  <Tooltip />
-                  <Legend />
-                  <Bar dataKey="surveys" name="Survey Lead Time (Days)" fill={CHART_COLORS[0]} />
-                  <Bar dataKey="installations" name="Installation Lead Time (Days)" fill={CHART_COLORS[1]} />
-                </BarChart>
+                {scheduleLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">Loading...</div>
+                  </div>
+                ) : scheduleData && scheduleData.length > 0 ? (
+                  <BarChart
+                    data={scheduleData}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                  >
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" />
+                    <YAxis />
+                    <Tooltip />
+                    <Legend />
+                    <Bar dataKey="surveys" name="Surveys" fill={CHART_COLORS[0]} />
+                    <Bar dataKey="installations" name="Installations" fill={CHART_COLORS[1]} />
+                  </BarChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">No schedule data available</div>
+                  </div>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
@@ -968,32 +969,34 @@ export default function ReportsPage() {
             </CardHeader>
             <CardContent className="h-80">
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={[
-                      { name: "Approved", value: 28 },
-                      { name: "Pending", value: 15 },
-                      { name: "Rejected", value: 3 }
-                    ]}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {[
-                      { name: "Approved", value: 28 },
-                      { name: "Pending", value: 15 },
-                      { name: "Rejected", value: 3 }
-                    ].map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip formatter={(value, name) => [value, name]} />
-                  <Legend />
-                </PieChart>
+                {approvalLoading ? (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">Loading...</div>
+                  </div>
+                ) : approvalData && approvalData.length > 0 ? (
+                  <PieChart>
+                    <Pie
+                      data={approvalData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      outerRadius={80}
+                      fill="#8884d8"
+                      dataKey="value"
+                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
+                    >
+                      {approvalData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={CHART_COLORS[index % CHART_COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip formatter={(value, name) => [value, name]} />
+                    <Legend />
+                  </PieChart>
+                ) : (
+                  <div className="flex items-center justify-center h-full">
+                    <div className="text-sm text-muted-foreground">No timesheet data available</div>
+                  </div>
+                )}
               </ResponsiveContainer>
             </CardContent>
           </Card>
