@@ -1,0 +1,66 @@
+Those two bars are still being drawn from the static placeholder array that shipped with the original template (dummyEmployeeReportData) – only the API calls you repaired for surveys / projects were wired up, the employee charts were never switched over.
+
+Where the dummy names come from
+ts
+Copy
+// client/src/pages/reports-page.tsx
+const defaultEmployees = [
+  { employee: "John",  hours: 160, projects: 5 },
+  { employee: "Sarah", hours: 150, projects: 4 },
+  …
+];
+When hoursByEmployee or projectsPerEmployee queries return undefined (or throw), the code falls back to that array.
+Because you have only one real employee, the query currently returns an empty list, so the fallback branch is taken.
+
+Fix in three small steps
+#	What to do	Code sketch
+1	Return the single row even when there are zero hours / projects. Build the result with a LEFT JOIN so every employee in the table appears.	sql SELECT e.name, COALESCE(SUM(h.hours),0)::int AS hours FROM employee e LEFT JOIN ( SELECT employeeId, EXTRACT(EPOCH FROM (end-start))/3600 AS hours FROM timesheet WHERE start >= $1 AND start <= $2 ) h ON h.employeeId = e.id GROUP BY e.name ORDER BY e.name;
+2	Remove the fallback array. In reports-page.tsx replace:	diff - const chartData = hours?.length ? hours : defaultEmployees; + const chartData = hours;
+3	Guard the chart. If there is still no data (fresh database), show a friendly message instead of dummy bars:	tsx if (!hours.length) return <EmptyChart msg="No time logged this month" />;
+
+The same pattern applies to Projects per Employee:
+
+sql
+Copy
+SELECT e.name,
+       COUNT(p.id) FILTER (WHERE p.status IN ('active','in-progress')) AS projects
+FROM employee e
+LEFT JOIN project p ON p.assigned_employee_id = e.id
+GROUP BY e.name
+ORDER BY e.name;
+Quick test
+Add one timesheet entry for “Akshay Ramporam”.
+
+Call the endpoint manually:
+
+bash
+Copy
+curl -s "http://localhost:5000/api/reports/hours-by-employee?start=2025-06-01&end=2025-06-30" | jq .
+# → [{ "employee":"Akshay Ramparam", "hours": 8 }]
+Refresh the Reports page – the chart now shows one bar with the real value; no “John / Sarah / Mike”.
+
+One-line prompt for the Replit AI agent
+“Replace the hard-coded defaultEmployees fallback; always fetch employees with a LEFT JOIN so even zero-hour staff appear, and only render the chart when the query returns rows.”
+
+After this change the dashboard will exactly mirror the real employees you have in the system, no more placeholders.
+
+
+
+
+
+You said:
+
+
+ChatGPT said:
+I see the Employees table now shows exactly one active record— Akshay Ramparam.
+That confirms the employee collection itself is correct; the extra “John / Sarah / Mike …” bars on the report were purely the fallback dummy data, not phantom employees in the database.
+
+Next steps to keep everything in sync
+Task	Why	Quick pointer
+1 Remove the fallback array in reports-page.tsx	Prevents charts from showing fake names when the query returns [].	Replace chartData = hours?.length ? hours : dummyEmployees with just hours.
+2 LEFT-JOIN employees in the hours/projects queries	Ensures every real employee appears (even 0 hours / 0 projects).	See SQL snippets in the previous message.
+3 (Option) Seed more demo employees & timesheets	Lets you visually test the charts without waiting for real data	prisma.employee.createMany([...])
+
+After step 1 the report will show “No data” until you log time or projects for your single employee (or until you seed demo rows). That is expected.
+
+Need help with any of the queries or front-end patch? Let me know and we’ll wire it up!
