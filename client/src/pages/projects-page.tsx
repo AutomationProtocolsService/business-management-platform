@@ -58,6 +58,7 @@ import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { formatDate } from "@/lib/date-utils";
 import ProjectForm from "@/components/forms/project-form";
+import { exportArrayToExcel } from "@/lib/exportCsv";
 
 export default function ProjectsPage() {
   const [location, navigate] = useLocation();
@@ -197,6 +198,22 @@ export default function ProjectsPage() {
     }
   };
 
+  // Export projects to Excel
+  const onExportProjects = () => {
+    if (!projects?.length) return;
+
+    const rows = projects.map((p: any) => ({
+      Project: p.name,
+      Client: p.customerId ? getCustomerName(p.customerId) : "—",
+      Status: p.status,
+      StartDate: p.startDate ? formatDate(p.startDate, "MMM dd, yyyy") : "—",
+      Deadline: p.deadline ? formatDate(p.deadline, "MMM dd, yyyy") : "—", 
+      Budget: p.budget ? `$${p.budget.toLocaleString()}` : "—"
+    }));
+
+    exportArrayToExcel(rows, `Projects-${Date.now()}.xlsx`, "Projects");
+  };
+
   return (
     <div className="h-full">
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
@@ -224,6 +241,15 @@ export default function ProjectsPage() {
               <SelectItem value="delayed">Delayed</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline" 
+            onClick={onExportProjects}
+            disabled={!projects?.length}
+            className="flex items-center whitespace-nowrap"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center">

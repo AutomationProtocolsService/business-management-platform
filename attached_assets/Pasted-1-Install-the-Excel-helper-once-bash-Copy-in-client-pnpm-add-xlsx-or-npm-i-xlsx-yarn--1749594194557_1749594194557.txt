@@ -1,0 +1,77 @@
+1 Install the Excel helper once
+bash
+Copy
+# in client/
+pnpm add xlsx      # or  npm i xlsx  /  yarn add xlsx
+client/src/lib/downloadExcel.ts
+
+ts
+Copy
+import { utils, writeFileXLSX } from "xlsx";
+
+/** Turns an array of objects into an .xlsx download */
+export function downloadExcel<T extends Record<string, unknown>>(
+  rows: T[],
+  fileName = "customers.xlsx",
+  sheet = "Customers"
+) {
+  if (!rows.length) return;
+
+  const ws  = utils.json_to_sheet(rows, { header: Object.keys(rows[0]) });
+  const wb  = utils.book_new();
+  utils.book_append_sheet(wb, ws, sheet);
+  writeFileXLSX(wb, fileName);
+}
+2 Wire the button on CustomersPage
+tsx
+Copy
+// CustomersPage.tsx  (fragment)
+
+import { Download } from "lucide-react";
+import { downloadExcel } from "@/lib/downloadExcel";
+import { Button } from "@/components/ui/button";
+
+// …
+
+const onExport = () => {
+  if (!customers?.length) return;
+
+  const rows = customers.map(c => ({
+    Name:      c.name,
+    Email:     c.email,
+    Phone:     c.phone       ?? "",
+    Address:   c.address     ?? "",
+    Quotes:    c.stats.quotes,
+    Invoices:  c.stats.invoices,
+    Projects:  c.stats.projects
+  }));
+
+  downloadExcel(rows, `Customers-${Date.now()}.xlsx`);
+};
+
+// JSX – place next to “New Customer”
+<Button variant="outline" onClick={onExport} className="gap-2">
+  <Download className="h-4 w-4" />
+  Export
+</Button>
+Nothing else to change: the component already holds customers with the stats, so the mapping works offline.
+
+3 Result
+Click Export – the browser immediately downloads
+Customers-1728894278432.xlsx.
+
+When you open it, every customer row shows e-mail, phone, address and the exact counts you see on screen.
+
+Need CSV instead?
+Replace writeFileXLSX with
+
+ts
+Copy
+import { write, utils } from "xlsx";
+const csv = write(wb, { bookType: "csv", type: "string" });
+const blob = new Blob([csv], { type: "text/csv" });
+and create an a download link – but the XLSX version usually satisfies accountants.
+
+One-line prompt for your Replit AI agent
+
+“Add an ‘Export’ outline button to CustomersPage that uses xlsx to download an Excel file with columns Name, Email, Phone, Address, Quotes, Invoices, Projects – see downloadExcel helper.”

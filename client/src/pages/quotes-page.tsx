@@ -58,6 +58,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
 import { formatDate } from "@/lib/date-utils";
 import QuoteForm from "@/components/forms/quote-form-new";
+import { exportArrayToExcel } from "@/lib/exportCsv";
 
 export default function QuotesPage() {
   const [location, navigate] = useLocation();
@@ -237,6 +238,22 @@ export default function QuotesPage() {
     }
   };
 
+  // Export quotes to Excel
+  const onExportQuotes = () => {
+    if (!quotes?.length) return;
+
+    const rows = quotes.map((q: any) => ({
+      QuoteNumber: q.quoteNumber,
+      Customer: q.customerId ? getCustomerName(q.customerId) : "—",
+      Project: q.projectId ? getProjectName(q.projectId) : "—",
+      IssueDate: q.issueDate ? formatDate(q.issueDate, "MMM dd, yyyy") : "—",
+      Status: q.status,
+      Amount: `${getCurrencySymbol()}${q.total.toLocaleString()}`
+    }));
+
+    exportArrayToExcel(rows, `Quotes-${Date.now()}.xlsx`, "Quotes");
+  };
+
   return (
     <div className="h-full">
       <div className="mb-6 flex flex-col md:flex-row md:items-center md:justify-between">
@@ -265,6 +282,15 @@ export default function QuotesPage() {
               <SelectItem value="converted">Converted</SelectItem>
             </SelectContent>
           </Select>
+          <Button 
+            variant="outline" 
+            onClick={onExportQuotes}
+            disabled={!quotes?.length}
+            className="flex items-center whitespace-nowrap"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Export
+          </Button>
           <Button 
             className="flex items-center bg-primary hover:bg-primary/90"
             onClick={() => setIsCreateDialogOpen(true)}
