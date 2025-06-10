@@ -233,6 +233,14 @@ export default function InvoicesPage() {
     return today > due;
   };
 
+  // Get customer email by ID
+  const getCustomerEmail = (customerId: number) => {
+    const customer = Array.isArray(customers) 
+      ? customers.find((c: any) => c.id === customerId)
+      : null;
+    return customer ? customer.email || "—" : "—";
+  };
+
   // Export invoices to Excel
   const onExportInvoices = () => {
     if (!invoices?.length) return;
@@ -240,6 +248,7 @@ export default function InvoicesPage() {
     const rows = invoices.map((i: any) => ({
       InvoiceNumber: i.invoiceNumber,
       Customer: i.customerId ? getCustomerName(i.customerId) : "—",
+      CustomerEmail: i.customerId ? getCustomerEmail(i.customerId) : "—",
       Project: i.projectId ? getProjectName(i.projectId) : "—",
       IssueDate: i.issueDate ? formatDate(i.issueDate, "MMM dd, yyyy") : "—",
       DueDate: i.dueDate ? formatDate(i.dueDate, "MMM dd, yyyy") : "—",

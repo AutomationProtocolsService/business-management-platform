@@ -198,6 +198,12 @@ export default function ProjectsPage() {
     }
   };
 
+  // Get customer email by ID
+  const getCustomerEmail = (customerId: number) => {
+    const customer = customers.find((c: any) => c.id === customerId);
+    return customer ? customer.email || "—" : "—";
+  };
+
   // Export projects to Excel
   const onExportProjects = () => {
     if (!projects?.length) return;
@@ -205,6 +211,7 @@ export default function ProjectsPage() {
     const rows = projects.map((p: any) => ({
       Project: p.name,
       Client: p.customerId ? getCustomerName(p.customerId) : "—",
+      ClientEmail: p.customerId ? getCustomerEmail(p.customerId) : "—",
       Status: p.status,
       StartDate: p.startDate ? formatDate(p.startDate, "MMM dd, yyyy") : "—",
       Deadline: p.deadline ? formatDate(p.deadline, "MMM dd, yyyy") : "—", 
