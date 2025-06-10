@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import {
   Card,
   CardContent,
@@ -580,7 +581,7 @@ export default function ReportsPage() {
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <AreaChart
-                    data={processSalesData(invoices, salesPeriod)}
+                    data={salesData}
                     margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
                   >
                     <defs>
@@ -598,7 +599,7 @@ export default function ReportsPage() {
                     <Legend />
                     <Area 
                       type="monotone" 
-                      dataKey="value" 
+                      dataKey="total" 
                       stroke={CHART_COLORS[0]} 
                       fillOpacity={1} 
                       fill="url(#colorValue)" 
@@ -611,24 +612,23 @@ export default function ReportsPage() {
             
             <Card>
               <CardHeader>
-                <CardTitle>Quotes vs. Invoices</CardTitle>
+                <CardTitle>Projects per Employee</CardTitle>
                 <CardDescription>
-                  Comparison of quotes issued and invoices billed
+                  Active projects managed by each employee
                 </CardDescription>
               </CardHeader>
               <CardContent className="h-80">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={processQuotesVsInvoicesData(quotes, invoices)}
+                    data={projectsData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="name" />
+                    <XAxis dataKey="employee" />
                     <YAxis />
-                    <Tooltip formatter={(value) => [`$${value}`, ""]} />
+                    <Tooltip />
                     <Legend />
-                    <Bar dataKey="quotes" name="Quotes" fill={CHART_COLORS[1]} />
-                    <Bar dataKey="invoices" name="Invoices" fill={CHART_COLORS[2]} />
+                    <Bar dataKey="projects" name="Projects" fill={CHART_COLORS[1]} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>
@@ -637,23 +637,23 @@ export default function ReportsPage() {
           
           <Card>
             <CardHeader>
-              <CardTitle>Sales by Customer</CardTitle>
+              <CardTitle>Employee Performance</CardTitle>
               <CardDescription>
-                Top customers by revenue
+                Total hours worked by each employee
               </CardDescription>
             </CardHeader>
             <CardContent className="h-96">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
                   layout="vertical"
-                  data={processSalesByCustomer(invoices, customers)}
+                  data={performanceData}
                   margin={{ top: 20, right: 30, left: 100, bottom: 5 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" horizontal={false} />
                   <XAxis type="number" />
-                  <YAxis type="category" dataKey="name" width={100} />
-                  <Tooltip formatter={(value) => [`$${value}`, "Revenue"]} />
-                  <Bar dataKey="value" name="Revenue" fill={CHART_COLORS[0]} />
+                  <YAxis type="category" dataKey="employee" width={100} />
+                  <Tooltip formatter={(value) => [value, "Hours"]} />
+                  <Bar dataKey="total_hours" name="Total Hours" fill={CHART_COLORS[0]} />
                 </BarChart>
               </ResponsiveContainer>
             </CardContent>
