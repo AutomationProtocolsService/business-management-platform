@@ -2390,10 +2390,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Calculate totals from items
+      let subtotal = 0;
+      if (items && items.length > 0) {
+        subtotal = items.reduce((sum: number, item: any) => {
+          return sum + (item.quantity * item.unitPrice);
+        }, 0);
+      }
+
+      const tax = subtotal * 0.1; // 10% tax rate - can be made configurable
+      const total = subtotal + tax;
+
       const purchaseOrderData = {
         ...orderData,
         supplierId: supplier.id,
         issueDate: orderDate, // Map orderDate to issueDate
+        subtotal,
+        tax,
+        total,
         tenantId,
         createdBy: req.user?.id
       };
