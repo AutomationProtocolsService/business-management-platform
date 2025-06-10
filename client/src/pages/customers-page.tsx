@@ -13,6 +13,7 @@ import {
   Folder,
   FileText, 
   Loader2,
+  Download,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,7 @@ import { useTerminology, getPlural } from "@/hooks/use-terminology";
 import { usePageTitle } from "@/hooks/use-page-title";
 import { PageLayout } from "@/components/layout/page-layout";
 import CustomerForm from "@/components/forms/customer-form";
+import { exportArrayToExcel } from "@/lib/exportCsv";
 
 export default function CustomersPage() {
   const { toast } = useToast();
@@ -158,6 +160,29 @@ export default function CustomersPage() {
     return parts.join(', ');
   };
 
+  // Export customers to Excel
+  const onExportCustomers = () => {
+    if (!customers?.length) return;
+
+    // Build a "flat" object for every customer
+    const rows = customers.map((c: any) => ({
+      Name: c.name,
+      Email: c.email || "",
+      Phone: c.phone || "",
+      Address: c.address || "",
+      City: c.city || "",
+      State: c.state || "",
+      ZipCode: c.zipCode || "",
+      Country: c.country || "",
+      Quotes: getQuoteCount(c.id),
+      Invoices: getInvoiceCount(c.id), 
+      Projects: getProjectCount(c.id)
+    }));
+
+    // Call the helper
+    exportArrayToExcel(rows, `Customers-${Date.now()}.xlsx`, "Customers");
+  };
+
   // Search and create actions for the page header
   const pageActions = (
     <>
@@ -171,6 +196,15 @@ export default function CustomersPage() {
         />
         <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
       </div>
+      <Button 
+        variant="outline" 
+        onClick={onExportCustomers}
+        disabled={!customers?.length}
+        className="flex items-center whitespace-nowrap"
+      >
+        <Download className="h-4 w-4 mr-2" />
+        Export
+      </Button>
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogTrigger asChild>
           <Button className="flex items-center whitespace-nowrap">
