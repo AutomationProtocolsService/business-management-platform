@@ -1,0 +1,59 @@
+Understood — the horizontal rule is still being drawn before the description finishes wrapping, so the text “punches” through the rule.
+With PDFKit that means the Y-cursor isn’t moved down far enough before we draw the next line.
+
+Below is the simplest patch (≈ 25 lines) you can drop into server/services/pdf-service.ts inside the loop that draws each row.
+It measures how tall the wrapped description really is, then draws the rule after that height instead of at the original line-start.
+
+ts
+Copy
+// ─── constants ────────────────────────────────────────────────
+const COL = {
+  item:      45,
+  desc:      95,
+  qty:       370,
+  price:     430,
+  amt:       510,
+  rightEdge: 570,          // right-most X of the table
+};
+const DESC_WIDTH = COL.qty - COL.desc - 8;   // 260px of usable text width
+const ROW_GAP     = 6;                       // white-space below each row
+
+items.forEach((row, idx) => {
+  const { description, qty, price, amount } = row;
+  const yTop = doc.y;                        // save starting Y
+
+  // ── draw cell contents ─────────────────────────────────────
+  doc.text(String(idx + 1), COL.item, yTop);
+  doc.text(description, COL.desc, yTop, { width: DESC_WIDTH });
+  doc.text(String(qty),    COL.qty,  yTop, { width: 32, align: 'right' });
+  doc.text(price,          COL.price,yTop, { width: 60, align: 'right' });
+  doc.text(amount,         COL.amt,  yTop, { width: 60, align: 'right' });
+
+  // How tall did the wrapped description make this row?
+  const yBottom = doc.y;                     // cursor now sits *after* wrapped text
+
+  // ── row rule ────────────────────────────────────────────────
+  doc.moveTo(COL.item, yBottom + 2)          // +2 for a tiny inner padding
+     .lineTo(COL.rightEdge, yBottom + 2)
+     .stroke();
+
+  // ── gap before next row ─────────────────────────────────────
+  doc.moveDown(ROW_GAP / doc.currentLineHeight());
+});
+Why this fixes the problem
+doc.text() with width: wraps the paragraph and leaves the internal cursor at the last baseline.
+By reading doc.y after the text output we now know the true bottom of the row.
+
+The rule is drawn after that point, so it can never collide with text.
+
+moveDown() (or manually setting doc.y += ROW_GAP) gives consistent spacing before the next row.
+
+Next steps
+Insert the snippet (adjust column X values once to suit your page width).
+
+Add a commit stamp (doc.fontSize(8).text('rev 2025-06-11', 520, 20);) so you know you’re seeing the new build.
+
+Re-generate a quote; the line will now sit cleanly underneath the wrapped paragraph.
+
+If you later migrate to an HTML+Puppeteer renderer the CSS equivalent is simply
+td.description { max-width: 260px; word-wrap: break-word; } — but for PDFKit the above is the minimal, safe fix.
