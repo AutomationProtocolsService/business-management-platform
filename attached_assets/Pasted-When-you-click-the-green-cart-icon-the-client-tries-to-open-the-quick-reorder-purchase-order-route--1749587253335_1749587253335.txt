@@ -1,0 +1,136 @@
+When you click the green cart icon the client tries to open the quick-reorder purchase-order route:
+
+ruby
+Copy
+POST  /api/inventory/:itemId/reorder
+If any of the data it forwards is missing (supplierId, costPrice, quantity, etc.) the server throws and the dialog shows “Failed to create purchase order.”
+
+Below is a short checklist your Replit AI agent can follow to make that path work.
+(The same PO-builder code you already fixed for manual POs is reused, so 99 % of the plumbing is there—only the inventory-specific fields are missing.)
+
+1 Confirm the failing request
+Open DevTools → Network.
+
+Click the cart icon again.
+
+You will see the request body—usually:
+
+json
+Copy
+{
+  "itemId": 17,
+  "reorderQty": 90,          // or null
+  "supplierId": null,        // ← often missing
+  "costPrice": 120,
+  "notes": "Reorder for inventory item"
+}
+Note the response: 500 plus a JSON { "message": "Failed to create purchase order" }.
+
+2 Watch the server console
+In the terminal where npm run dev is running you’ll see the real error:
+
+vbnet
+Copy
+PrismaClientKnownRequestError:
+  Foreign key constraint failed on the field: supplierId
+or
+
+pgsql
+Copy
+Null constraint failed on the column: total
+Copy the first line; that tells you exactly which value is missing or invalid.
+
+3 Patch the /inventory/:id/reorder route
+Locate the route handler—usually in routes/inventory.ts:
+
+ts
+Copy
+router.post("/:id/reorder", async (req, res) => {
+  const itemId = Number(req.params.id);
+  const { reorderQty, supplierId, notes } = req.body;
+
+  // 0) make sure item exists
+  const item = await prisma.inventoryItem.findUnique({ where: { id: itemId } });
+  if (!item) return res.status(404).json({ message: "Item not found" });
+
+  // 1) choose supplier – fall back to item's preferredSupplierId
+  const finalSupplierId = supplierId ?? item.preferredSupplierId;
+  if (!finalSupplierId) {
+    return res.status(400).json({ message: "No supplier specified" });
+  }
+
+  // 2) quantity – fallback to reorderLevel - current stock
+  const qty = reorderQty ?? Math.max((item.reorderLevel ?? 0) - item.currentStock, 1);
+
+  // 3) calculate totals
+  const unit = item.costPrice ?? 0;
+  const subtotal = unit * qty;
+  const tax = subtotal * 0.2;          // or pull from settings
+  const total = subtotal + tax;
+
+  try {
+    // 4) reuse normal PO create logic
+    const po = await prisma.purchaseOrder.create({
+      data: {
+        supplierId: finalSupplierId,
+        orderDate:  new Date(),
+        status:     "draft",
+        subtotal,
+        tax,
+        total,
+        notes,
+        items: {
+          create: [{
+            description: item.name,
+            quantity: qty,
+            unitPrice: unit,
+          }],
+        },
+      },
+      include: { items: true }
+    });
+
+    // 5) respond with the new PO
+    return res.status(201).json(po);
+  } catch (err) {
+    console.error("Reorder PO error:", err);
+    return res.status(500).json({ message: "Failed to create purchase order" });
+  }
+});
+Key fixes
+
+Symptom in console	Patch
+supplierId FK failed	Pick supplierId from request or item.preferredSupplierId; validate not null.
+Null constraint on subtotal/total	Calculate those numbers before calling purchaseOrder.create.
+Decimal error	Wrap numbers with new Prisma.Decimal() if using Decimal columns.
+
+4 Update the front-end call (optional)
+In InventoryTableRow.tsx the handler likely does:
+
+tsx
+Copy
+await fetch(`/api/inventory/${item.id}/reorder`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ reorderQty: item.reorderQty }),   // ← add supplierId
+});
+Add supplierId (the value chosen in the Preferred Supplier field) and maybe default costPrice if you keep it in the item:
+
+js
+Copy
+body: JSON.stringify({
+  reorderQty: item.reorderQty,
+  supplierId: item.preferredSupplierId,
+  notes: `Reorder for inventory item: ${item.name}`,
+})
+5 Retest
+Cart icon → Dialog opens → Create Purchase Order
+
+Observe 201 in Network; success toast appears
+
+List of purchase orders now shows the new auto-generated PO
+
+One-sentence instruction for the AI agent
+“In routes/inventory.ts enhance the POST /:id/reorder handler: if supplierId is undefined fall back to item.preferredSupplierId; compute subtotal, tax, total, wrap them in Decimal, then create the PO using the existing purchaseOrder.create logic. Return 201 JSON; on success the client refetches purchase-orders.”
+
+With that server patch the reorder-from-inventory flow will create purchase orders just like the manual screen.
