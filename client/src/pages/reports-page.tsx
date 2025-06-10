@@ -45,7 +45,9 @@ import {
   useProjectsPerEmployee, 
   useSalesData, 
   useScheduleLoad, 
-  useEmployeePerformance 
+  useEmployeePerformance,
+  useSurveysReport,
+  useInstallationsReport
 } from "@/hooks/use-reports";
 
 // Define chart colors
@@ -496,8 +498,10 @@ export default function ReportsPage() {
   const { data: salesData = [], isLoading: salesLoading } = useSalesData(currentDate.getFullYear());
   const { data: scheduleData = [], isLoading: scheduleLoading } = useScheduleLoad(dateRange);
   const { data: performanceData = [], isLoading: performanceLoading } = useEmployeePerformance();
+  const { data: surveys = [], isLoading: surveysLoading } = useSurveysReport(surveyPeriod);
+  const { data: installations = [], isLoading: installationsLoading } = useInstallationsReport(surveyPeriod);
 
-  const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading;
+  const isLoading = hoursLoading || projectsLoading || salesLoading || scheduleLoading || performanceLoading || surveysLoading || installationsLoading;
 
   const handleExportReport = () => {
     toast({
