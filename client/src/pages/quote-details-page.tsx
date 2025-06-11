@@ -433,6 +433,16 @@ export default function QuoteDetailsPage() {
           <Button 
             variant="outline" 
             size="sm"
+            onClick={() => window.open(`/api/quotes/${quoteId}/pdf`, '_blank')}
+            disabled={quote.status === 'draft'}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download PDF
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="sm"
             onClick={() => setIsEmailDialogOpen(true)}
             disabled={quote.status === 'draft'}
           >
@@ -440,7 +450,6 @@ export default function QuoteDetailsPage() {
             Email
           </Button>
           
-
           
           <Button 
             variant="outline" 

@@ -424,6 +424,16 @@ export default function QuotesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="text-green-600"
+                              title="Download PDF"
+                              onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, '_blank')}
+                              disabled={quote.status === 'draft'}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="text-purple-500"
                               title="Email Quote"
                               onClick={() => {
