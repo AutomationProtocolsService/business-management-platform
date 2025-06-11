@@ -1,6 +1,8 @@
 import PDFDocument from "pdfkit";
 import { createWriteStream } from "fs";
 import * as stream from "stream";
+// @ts-ignore - pdfkit-table doesn't have types
+import "pdfkit-table";
 
 /**
  * Helper function to wrap long words for better text wrapping
@@ -11,6 +13,13 @@ function wrapLongWords(txt: string, every = 30): string {
     new RegExp(`([^\\s]{${every}})(?=[^\\s])`, 'g'),
     '$1\u200B'
   );
+}
+
+/**
+ * Helper function to format money values
+ */
+function formatMoney(amount: number): string {
+  return `$${amount.toFixed(2)}`;
 }
 
 // Table column constants
@@ -140,37 +149,37 @@ class PDFServiceImpl {
         // Table rows
         let y = lineY + 10;
         
-        // Add items with surgical fix for proper border positioning
+        // Items table using pdfkit-table for stable layout
         if (quoteData.items && quoteData.items.length) {
-          quoteData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
-            const yStart = doc.y;
+          const rows = quoteData.items.map((item: any, i: number) => [
+            i + 1,
+            item.description || '',
+            item.quantity || 0,
+            formatMoney(item.unitPrice || 0),
+            formatMoney(item.total || 0),
+          ]);
 
-            // Draw cell contents
-            doc.text(String(i + 1), COLS.item, yStart);
-            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
-            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
-            doc.text(`$${unitPrice.toFixed(2)}`, COLS.price, yStart, { width: 60, align: 'right' });
-            doc.text(`$${total.toFixed(2)}`, COLS.amt, yStart, { width: 60, align: 'right' });
+          const table = {
+            headers: [
+              { label: 'Item', width: 40, align: 'left' },
+              { label: 'Description', width: 280, align: 'left' },
+              { label: 'Qty', width: 40, align: 'right' },
+              { label: 'Price', width: 80, align: 'right' },
+              { label: 'Amount', width: 80, align: 'right' },
+            ],
+            rows,
+            options: {
+              columnSpacing: 5,
+              padding: 5,
+              prepareHeader: () => doc.font('Helvetica-Bold'),
+              prepareRow: () => doc.font('Helvetica'),
+            },
+          };
 
-            // How tall did the wrapped description make this row?
-            const yBottom = doc.y; // cursor now sits *after* wrapped text
-
-            // Row rule drawn after measuring actual height
-            const rowBottom = yBottom + 4; // add 4-pt padding
-            doc.moveTo(COLS.item, rowBottom)
-               .lineTo(COLS.amt + 60, rowBottom)
-               .stroke();
-
-            // Gap before next row
-            doc.y = rowBottom + ROW_GAP;
-            
-            // Check if we need a new page
-            if (doc.y > doc.page.height - 150) {
-              doc.addPage();
-            }
-          });
+          doc.moveDown(0.5);
+          (doc as any).table(table);
         } else {
-          doc.text('No items', COLS.desc, doc.y);
+          doc.text('No items', 50, doc.y);
           doc.moveDown();
         }
         
@@ -350,37 +359,37 @@ class PDFServiceImpl {
         const lineY = doc.y + 5;
         doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
         
-        // Add items with surgical fix for proper border positioning
+        // Items table using pdfkit-table for stable layout
         if (invoiceData.items && invoiceData.items.length) {
-          invoiceData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
-            const yStart = doc.y;
+          const rows = invoiceData.items.map((item: any, i: number) => [
+            i + 1,
+            item.description || '',
+            item.quantity || 0,
+            formatMoney(item.unitPrice || 0),
+            formatMoney(item.total || 0),
+          ]);
 
-            // Draw cell contents
-            doc.text(String(i + 1), COLS.item, yStart);
-            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
-            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
-            doc.text(`$${unitPrice.toFixed(2)}`, COLS.price, yStart, { width: 60, align: 'right' });
-            doc.text(`$${total.toFixed(2)}`, COLS.amt, yStart, { width: 60, align: 'right' });
+          const table = {
+            headers: [
+              { label: 'Item', width: 40, align: 'left' },
+              { label: 'Description', width: 280, align: 'left' },
+              { label: 'Qty', width: 40, align: 'right' },
+              { label: 'Unit Price', width: 80, align: 'right' },
+              { label: 'Amount', width: 80, align: 'right' },
+            ],
+            rows,
+            options: {
+              columnSpacing: 5,
+              padding: 5,
+              prepareHeader: () => doc.font('Helvetica-Bold'),
+              prepareRow: () => doc.font('Helvetica'),
+            },
+          };
 
-            // How tall did the wrapped description make this row?
-            const yBottom = doc.y; // cursor now sits *after* wrapped text
-
-            // Row rule drawn after measuring actual height
-            const rowBottom = yBottom + 4; // add 4-pt padding
-            doc.moveTo(COLS.item, rowBottom)
-               .lineTo(COLS.amt + 60, rowBottom)
-               .stroke();
-
-            // Gap before next row
-            doc.y = rowBottom + ROW_GAP;
-            
-            // Check if we need a new page
-            if (doc.y > doc.page.height - 150) {
-              doc.addPage();
-            }
-          });
+          doc.moveDown(0.5);
+          (doc as any).table(table);
         } else {
-          doc.text('No items', COLS.desc, doc.y);
+          doc.text('No items', 50, doc.y);
           doc.moveDown();
         }
         
