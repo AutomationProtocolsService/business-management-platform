@@ -1199,75 +1199,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Generate invoice PDF
-  app.get("/api/invoices/:id/pdf", requireAuth, async (req, res) => {
-    try {
-      const invoiceId = Number(req.params.id);
-      const tenantId = getTenantIdFromRequest(req);
-      
-      console.log(`[PDF Route] Generating PDF for Invoice ID: ${invoiceId}`);
-      console.log(`[PDF Route] Tenant ID: ${tenantId}`);
-      
-      // Fetch the invoice data with tenant context
-      const invoice = await storage.getInvoice(invoiceId, tenantId);
-      
-      if (!invoice) {
-        console.log(`[PDF Route] Invoice not found with ID: ${invoiceId}`);
-        return res.status(404).json({ message: "Invoice not found" });
-      }
-      
-      // Check if user has access to this resource - using tenantId for proper tenant isolation
-      if (req.isTenantResource && !req.isTenantResource(invoice.tenantId)) {
-        console.log(`[PDF Route] Access denied for user to Invoice ID: ${invoiceId}`);
-        return res.status(403).json({ message: "Access denied" });
-      }
-      
-      // Get invoice items
-      const invoiceItems = await storage.getInvoiceItemsByInvoice(invoiceId);
-      console.log(`[PDF Route] Found ${invoiceItems.length} invoice items`);
-      
-      // Get customer and project information for the PDF
-      let customer = null;
-      let project = null;
-      
-      if (invoice.customerId) {
-        customer = await storage.getCustomer(invoice.customerId, tenantId);
-        console.log(`[PDF Route] Customer:`, customer ? { id: customer.id, name: customer.name } : 'Not found');
-      }
-      
-      if (invoice.projectId) {
-        project = await storage.getProject(invoice.projectId, tenantId);
-        console.log(`[PDF Route] Project:`, project ? { id: project.id, name: project.name } : 'Not found');
-      }
-      
-      const completeInvoiceData = {
-        ...invoice,
-        items: invoiceItems,
-        customer,
-        project
-      };
-      
-      console.log('[PDF Route] Generating PDF with data:', {
-        invoiceNumber: completeInvoiceData.invoiceNumber,
-        items: invoiceItems.length,
-        hasCustomer: !!customer,
-        hasProject: !!project
-      });
-      
-      // Generate PDF using the PDFService
-      const pdfBuffer = await PDFService.generateInvoicePDF(completeInvoiceData);
-      
-      // Set appropriate headers for PDF download
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', `attachment; filename=Invoice_${invoice.invoiceNumber}.pdf`);
-      
-      // Send the PDF buffer to the client
-      res.send(pdfBuffer);
-    } catch (error) {
-      console.error('Error generating invoice PDF:', error);
-      res.status(500).json({ message: "Failed to generate PDF" });
-    }
-  });
+
 
   app.post("/api/invoices/:id/email", requireAuth, async (req, res) => {
     try {
