@@ -2838,6 +2838,103 @@ export async function registerRoutes(app: Express): Promise<Server> {
   const { registerDocumentRoutes } = await import('./routes/document-routes');
   registerDocumentRoutes(app);
 
+  // Test endpoints for PDF generation verification using PDFKit
+  app.get("/api/test-quote-pdf", async (req: Request, res: Response) => {
+    try {
+      const testQuoteData = {
+        id: 999,
+        quoteNumber: 'Q-TEST-001',
+        issueDate: new Date(),
+        expiryDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status: 'draft',
+        subtotal: 1980.00,
+        tax: 198.00,
+        total: 2178.00,
+        notes: 'Test quote generated using PDFKit service',
+        terms: 'Standard terms and conditions apply',
+        customer: {
+          name: 'Test Customer Ltd',
+          email: 'test@example.com',
+          phone: '+44 1234 567890',
+          address: '37 Larkfield',
+          city: 'Chorley',
+          state: 'Lancashire',
+          zipCode: 'PR7 5RN'
+        },
+        project: {
+          name: 'Test Project',
+          description: 'Test project for PDF verification'
+        },
+        items: [
+          {
+            description: 'To supply and install single-phase roller shutter with tubular motor 150NM. Motor to have manual override in case of power failure.',
+            quantity: 1,
+            unitPrice: 1980.00,
+            total: 1980.00
+          }
+        ]
+      };
+
+      const pdfBuffer = await PDFService.generateQuotePDF(testQuoteData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Test_Quote.pdf"');
+      res.send(pdfBuffer);
+      
+    } catch (error) {
+      console.error("Error generating test quote PDF:", error);
+      res.status(500).json({ message: "Failed to generate test quote PDF" });
+    }
+  });
+
+  app.get("/api/test-invoice-pdf", async (req: Request, res: Response) => {
+    try {
+      const testInvoiceData = {
+        id: 999,
+        invoiceNumber: 'I-TEST-001',
+        issueDate: new Date(),
+        dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        status: 'sent',
+        subtotal: 2500.00,
+        tax: 250.00,
+        total: 2750.00,
+        notes: 'Test invoice generated using PDFKit service',
+        terms: 'Payment due within 30 days',
+        customer: {
+          name: 'Test Customer Ltd',
+          email: 'billing@testcustomer.com',
+          phone: '+44 1234 567890',
+          address: '123 Business Street',
+          city: 'Manchester',
+          state: 'Greater Manchester',
+          zipCode: 'M1 1AA'
+        },
+        project: {
+          name: 'Test Installation Project',
+          description: 'Commercial installation project'
+        },
+        items: [
+          {
+            description: 'Professional installation services including site survey, materials, and 2-year warranty coverage',
+            quantity: 1,
+            unitPrice: 2500.00,
+            total: 2500.00
+          }
+        ]
+      };
+
+      const pdfBuffer = await PDFService.generateInvoicePDF(testInvoiceData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Test_Invoice.pdf"');
+      res.send(pdfBuffer);
+      
+    } catch (error) {
+      console.error("Error generating test invoice PDF:", error);
+      res.status(500).json({ message: "Failed to generate test invoice PDF" });
+    }
+  });
+
   // We'll create a server in index.ts
   console.log('API routes registered successfully');
   
