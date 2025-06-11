@@ -114,25 +114,25 @@ class PDFServiceImpl {
         doc.text('ITEMS', { underline: true });
         doc.moveDown(0.5);
         
-        // Clean table layout without borders
+        // Clean table layout without borders - fixed column spacing
         const pageWidth = doc.page.width - 100;
-        const descriptionWidth = 300;
-        const quantityWidth = 50;
-        const priceWidth = 80;
+        const descriptionWidth = 280;
+        const quantityWidth = 60;
+        const priceWidth = 90;
         const amountWidth = 90;
         
-        // Table header positions
+        // Table header positions with proper spacing
         const descriptionX = 50;
-        const quantityX = descriptionX + descriptionWidth;
-        const priceX = quantityX + quantityWidth;
-        const amountX = priceX + priceWidth;
+        const quantityX = 370;  // Fixed position for quantity
+        const priceX = 450;     // Fixed position for price
+        const amountX = 480;    // Fixed position for amount
         
         // Table header - clean design
         doc.font('Helvetica-Bold');
         doc.text('Description', descriptionX, doc.y);
-        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { align: 'center' });
-        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { align: 'right' });
-        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { width: quantityWidth, align: 'center' });
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { width: priceWidth, align: 'right' });
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
         
         doc.moveDown(0.5);
         
@@ -322,25 +322,25 @@ class PDFServiceImpl {
         doc.text('ITEMS', { underline: true });
         doc.moveDown(0.5);
         
-        // Clean table layout without borders
+        // Clean table layout without borders - fixed column spacing
         const pageWidth = doc.page.width - 100;
-        const descriptionWidth = 300;
-        const quantityWidth = 50;
-        const priceWidth = 80;
+        const descriptionWidth = 280;
+        const quantityWidth = 60;
+        const priceWidth = 90;
         const amountWidth = 90;
         
-        // Table header positions
+        // Table header positions with proper spacing
         const descriptionX = 50;
-        const quantityX = descriptionX + descriptionWidth;
-        const priceX = quantityX + quantityWidth;
-        const amountX = priceX + priceWidth;
+        const quantityX = 370;  // Fixed position for quantity
+        const priceX = 450;     // Fixed position for price
+        const amountX = 480;    // Fixed position for amount
         
         // Table header - clean design
         doc.font('Helvetica-Bold');
         doc.text('Description', descriptionX, doc.y);
-        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { align: 'center' });
-        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { align: 'right' });
-        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { width: quantityWidth, align: 'center' });
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { width: priceWidth, align: 'right' });
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
         
         doc.moveDown(0.5);
         
