@@ -2778,7 +2778,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get related data
       const customer = quote.customerId ? await storage.getCustomer(quote.customerId) : null;
       const project = quote.projectId ? await storage.getProject(quote.projectId) : null;
-      const items = await storage.getQuoteItems(quoteId);
+      const items = await storage.getQuoteItemsByQuote(quoteId);
 
       // Generate PDF
       const pdfBuffer = await renderPdf('quote', {
