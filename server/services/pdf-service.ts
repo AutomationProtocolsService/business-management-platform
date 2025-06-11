@@ -1,6 +1,7 @@
 import PDFDocument from "pdfkit";
 import { createWriteStream } from "fs";
 import * as stream from "stream";
+import { storage } from "../storage";
 
 /**
  * Helper function to wrap long words for better text wrapping
@@ -36,13 +37,64 @@ const ROW_GAP = 6; // White-space below each row
  */
 class PDFServiceImpl {
   /**
+   * Add company header to PDF document
+   */
+  private async addCompanyHeader(doc: any, docType: string): Promise<void> {
+    try {
+      const companySettings = await storage.getCompanySettings();
+      
+      if (companySettings) {
+        // Company name at the top
+        doc.fontSize(16).fillColor('#000').text(companySettings.companyName, { align: 'center' });
+        
+        // Company address and contact info centered
+        if (companySettings.address || companySettings.city || companySettings.state || companySettings.zipCode) {
+          let addressLine = '';
+          if (companySettings.address) addressLine += companySettings.address;
+          if (companySettings.city) addressLine += (addressLine ? ', ' : '') + companySettings.city;
+          if (companySettings.state) addressLine += (addressLine ? ', ' : '') + companySettings.state;
+          if (companySettings.zipCode) addressLine += (addressLine ? ' ' : '') + companySettings.zipCode;
+          if (companySettings.country) addressLine += (addressLine ? ', ' : '') + companySettings.country;
+          
+          doc.fontSize(10).text(addressLine, { align: 'center' });
+        }
+        
+        // Contact information
+        let contactLine = '';
+        if (companySettings.phone) contactLine += companySettings.phone;
+        if (companySettings.email) contactLine += (contactLine ? ' | ' : '') + companySettings.email;
+        if (companySettings.website) contactLine += (contactLine ? ' | ' : '') + companySettings.website;
+        
+        if (contactLine) {
+          doc.fontSize(10).text(contactLine, { align: 'center' });
+        }
+        
+        doc.moveDown(0.5);
+        
+        // Add a separator line
+        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
+        doc.moveDown(0.5);
+      }
+      
+      // Document type header
+      doc.fontSize(20).fillColor('#000').text(docType, { align: 'center' });
+      doc.moveDown();
+      
+    } catch (error) {
+      console.error('Error fetching company settings for PDF:', error);
+      // Fallback to just document type if company settings fetch fails
+      doc.fontSize(20).fillColor('#000').text(docType, { align: 'center' });
+      doc.moveDown();
+    }
+  }
+  /**
    * Generate a PDF for a quote
    * @param quoteData The quote data including related items, customer, and project
    * @returns Buffer containing the PDF
    */
   async generateQuotePDF(quoteData: any): Promise<Buffer> {
     console.log("PDF table layout patch loaded - Quote generation starting");
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         // Create a PDF document with optimized margins
         const doc = new PDFDocument({ 
@@ -76,9 +128,8 @@ class PDFServiceImpl {
           .fillColor('#999')
           .text(`feat(pdf): stable table layout`, 400, 20);
         
-        // Add company header
-        doc.fontSize(20).fillColor('#000').text('QUOTE', { align: 'center' });
-        doc.moveDown();
+        // Add company header with company information
+        await this.addCompanyHeader(doc, 'QUOTE');
         
         // Add quote information - left aligned
         doc.fontSize(12).text(`Quote Number: ${quoteData.quoteNumber}`, 50);
@@ -246,7 +297,7 @@ class PDFServiceImpl {
    * @returns Buffer containing the PDF
    */
   async generateInvoicePDF(invoiceData: any, useTestData = false): Promise<Buffer> {
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
       try {
         // Create a PDF document with larger margins
         const doc = new PDFDocument({
@@ -280,9 +331,8 @@ class PDFServiceImpl {
           doc.fillColor('black');
         }
         
-        // Add company header
-        doc.fontSize(20).text('INVOICE', { align: 'center' });
-        doc.moveDown();
+        // Add company header with company information
+        await this.addCompanyHeader(doc, 'INVOICE');
         
         // Add invoice information
         doc.fontSize(12).text(`Invoice Number: ${invoiceData.invoiceNumber}`);
