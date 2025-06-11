@@ -1,0 +1,77 @@
+It looks like your client is calling the “update settings” endpoint but getting back an HTML error page (the Unexpected token '<' means it tried to parse an HTML document as JSON). In practice that almost always means one of two things:
+
+You never hit your JSON API route, but instead were redirected (or errored) to some HTML page (often your index.html or a login page)
+
+Your fetch call isn’t sending the right headers/body, so Express is rejecting it before your JSON-body middleware even runs
+
+Let’s tackle them both in turn.
+
+1. Verify you’re calling the correct API route
+Open your browser Network tab (F12 → Network) and look for the PATCH (or PUT) request to /api/settings/company (or wherever your settings endpoint lives).
+
+URL should be exactly /api/settings/company (or /api/settings/system, etc.)
+
+Response preview should be JSON, not HTML
+
+Status should be 200 (or 204), not 302 or 500
+
+If the network log shows a 302 redirect (or an HTML 200) you’re being bounced to a login page or an error page. That usually means your tenantContext or session middleware ran first and aborted the request.
+
+Fix: Make sure your settings route is mounted after your session/tenant middleware, and that the client is properly authenticated.
+
+In your server/index.ts (or routes.ts) something like:
+
+ts
+Copy
+app.use(sessionMiddleware);
+app.use(tenantMiddleware);      // MUST come before any /api routes
+app.use("/api/settings", settingsRouter);
+2. Ensure your client is sending JSON correctly
+Your fetch must include:
+
+ts
+Copy
+await fetch("/api/settings/company", {
+  method: "PATCH",
+  headers: {
+    "Content-Type": "application/json",
+    // if you’re using CSRF or auth tokens, include those too
+  },
+  body: JSON.stringify({
+    companyName: "...",
+    email: "...",
+    phone: "...",
+    // etc
+  }),
+});
+Double-check:
+
+You’re not accidentally using FormData or omitting headers, which would cause Express to not call express.json()
+
+Your route handler actually reads req.body (and not req.query)
+
+In your settings page component:
+
+tsx
+Copy
+const save = async (data) => {
+  const res = await fetch("/api/settings/company", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) throw new Error("Failed to update settings");
+  // done
+};
+Quick‐check steps
+Network Tab → confirm the request URL, method, response content‐type
+
+Backend Logs → do you see your app.patch("/settings/company", ...) handler firing?
+
+Middleware Order → tenant/session MUST run before body‐parsing & your settings route
+
+Headers & Body → client must send Content-Type: application/json and valid JSON
+
+Once your PATCH actually hits the JSON route, Express will reply with JSON and the client .json() call will succeed instead of choking on <!DOCTYPE…>. That will clear the “Unexpected token <” error and let you save your company settings.
+
+Let me know what you see in the Network tab and the server log when you press “Save”—that will pin down whether it’s a routing/middleware issue vs. a bad fetch call.

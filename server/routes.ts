@@ -222,6 +222,92 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Company settings endpoints
+  app.get("/api/settings/company", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getCompanySettings();
+      res.json(settings || null);
+    } catch (error) {
+      console.error('Error fetching company settings:', error);
+      res.status(500).json({ message: "Failed to fetch company settings" });
+    }
+  });
+
+  app.patch("/api/settings/company", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const existingSettings = await storage.getCompanySettings();
+      
+      let updatedSettings;
+      if (existingSettings) {
+        updatedSettings = await storage.updateCompanySettings(existingSettings.id, req.body);
+      } else {
+        updatedSettings = await storage.createCompanySettings(req.body);
+      }
+      
+      if (!updatedSettings) {
+        return res.status(404).json({ message: "Failed to update company settings" });
+      }
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error('Error updating company settings:', error);
+      res.status(500).json({ message: "Failed to update company settings" });
+    }
+  });
+
+  app.post("/api/settings/company", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const newSettings = await storage.createCompanySettings(req.body);
+      res.json(newSettings);
+    } catch (error) {
+      console.error('Error creating company settings:', error);
+      res.status(500).json({ message: "Failed to create company settings" });
+    }
+  });
+
+  // System settings endpoints
+  app.get("/api/settings/system", async (req: Request, res: Response) => {
+    try {
+      const settings = await storage.getSystemSettings();
+      res.json(settings || null);
+    } catch (error) {
+      console.error('Error fetching system settings:', error);
+      res.status(500).json({ message: "Failed to fetch system settings" });
+    }
+  });
+
+  app.patch("/api/settings/system", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const existingSettings = await storage.getSystemSettings();
+      
+      let updatedSettings;
+      if (existingSettings) {
+        updatedSettings = await storage.updateSystemSettings(existingSettings.id, req.body);
+      } else {
+        updatedSettings = await storage.createSystemSettings(req.body);
+      }
+      
+      if (!updatedSettings) {
+        return res.status(404).json({ message: "Failed to update system settings" });
+      }
+      
+      res.json(updatedSettings);
+    } catch (error) {
+      console.error('Error updating system settings:', error);
+      res.status(500).json({ message: "Failed to update system settings" });
+    }
+  });
+
+  app.post("/api/settings/system", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const newSettings = await storage.createSystemSettings(req.body);
+      res.json(newSettings);
+    } catch (error) {
+      console.error('Error creating system settings:', error);
+      res.status(500).json({ message: "Failed to create system settings" });
+    }
+  });
+
   // Customer routes
   app.get("/api/customers", requireAuth, async (req: Request, res: Response) => {
     try {
