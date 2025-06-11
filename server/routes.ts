@@ -2815,7 +2815,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get related data
       const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
       const project = invoice.projectId ? await storage.getProject(invoice.projectId) : null;
-      const items = await storage.getInvoiceItems(invoiceId);
+      const items = await storage.getInvoiceItemsByInvoice(invoiceId);
 
       // Generate PDF
       const pdfBuffer = await renderPdf('invoice', {

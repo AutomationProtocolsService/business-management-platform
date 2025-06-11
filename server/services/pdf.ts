@@ -2,6 +2,10 @@ import path from 'path';
 import fs from 'fs/promises';
 import puppeteer from 'puppeteer';
 import ejs from 'ejs';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export async function renderPdf(type: 'quote' | 'invoice', data: any): Promise<Buffer> {
   let browser;
