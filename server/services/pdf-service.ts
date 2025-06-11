@@ -118,14 +118,14 @@ class PDFServiceImpl {
         const pageWidth = doc.page.width - 100;
         const descriptionWidth = 280;
         const quantityWidth = 60;
-        const priceWidth = 90;
-        const amountWidth = 90;
+        const priceWidth = 80;
+        const amountWidth = 80;
         
-        // Table header positions with proper spacing
+        // Table header positions with wider spacing
         const descriptionX = 50;
-        const quantityX = 370;  // Fixed position for quantity
-        const priceX = 450;     // Fixed position for price
-        const amountX = 480;    // Fixed position for amount
+        const quantityX = 360;  // Quantity column
+        const priceX = 430;     // Price column
+        const amountX = 515;    // Amount column with more space
         
         // Table header - clean design
         doc.font('Helvetica-Bold');
@@ -326,14 +326,14 @@ class PDFServiceImpl {
         const pageWidth = doc.page.width - 100;
         const descriptionWidth = 280;
         const quantityWidth = 60;
-        const priceWidth = 90;
-        const amountWidth = 90;
+        const priceWidth = 80;
+        const amountWidth = 80;
         
-        // Table header positions with proper spacing
+        // Table header positions with wider spacing
         const descriptionX = 50;
-        const quantityX = 370;  // Fixed position for quantity
-        const priceX = 450;     // Fixed position for price
-        const amountX = 480;    // Fixed position for amount
+        const quantityX = 360;  // Quantity column
+        const priceX = 430;     // Price column
+        const amountX = 515;    // Amount column with more space
         
         // Table header - clean design
         doc.font('Helvetica-Bold');
