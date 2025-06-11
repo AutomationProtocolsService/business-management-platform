@@ -413,6 +413,16 @@ export default function InvoicesPage() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              className="text-green-600"
+                              title="Download PDF"
+                              onClick={() => window.open(`/api/invoices/${invoice.id}/pdf`, '_blank')}
+                              disabled={invoice.status === 'draft'}
+                            >
+                              <Download className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               className="text-purple-500"
                               title="Email Invoice"
                               onClick={() => {

@@ -2759,56 +2759,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Debug route for PDF table border testing
-  app.get("/debug/pdf-test", async (req: Request, res: Response) => {
+  // PDF Generation Routes
+  app.get("/api/quotes/:id/pdf", requireAuth, async (req: Request, res: Response) => {
     try {
-      const testQuoteData = {
-        quoteNumber: 'TEST-123',
-        issueDate: '2025-06-10',
-        expiryDate: '2025-07-10',
-        customer: {
-          name: 'Alice Very-Long-Surname-With-No-Spaces',
-          email: 'alice@example.com',
-          phone: '0123456789',
-          address: '123 Long Street, Big City, UK'
-        },
-        project: { 
-          name: 'Demo', 
-          description: 'Demo project' 
-        },
-        items: [
-          {
-            description: 'Short description with exactly ten words for testing basic functionality.',
-            quantity: 1,
-            unitPrice: 100.00,
-            total: 100.00
-          },
-          {
-            description: 'Verylongwordwithoutanyspacestotestwordbreaking50characters',
-            quantity: 2,
-            unitPrice: 250.00,
-            total: 500.00
-          },
-          {
-            description: 'Lorem ipsum dolor sit amet consectetur adipiscing elit sed do eiusmod tempor incididunt ut labore et dolore magna aliqua ut enim ad minim veniam quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur excepteur sint occaecat cupidatat non proident sunt in culpa qui officia deserunt mollit anim id est laborum sed ut perspiciatis unde omnis iste natus error sit voluptatem accusantium doloremque laudantium totam rem aperiam eaque ipsa quae ab illo inventore veritatis et quasi architecto beatae vitae dicta sunt explicabo',
-            quantity: 1,
-            unitPrice: 750.00,
-            total: 750.00
-          }
-        ],
-        subtotal: 1350.00,
-        tax: 135.00,
-        total: 1485.00
-      };
+      const quoteId = parseInt(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
 
-      const pdfBuffer = await PDFService.generateQuotePDF(testQuoteData);
-      
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      // Get quote data
+      const quote = await storage.getQuote(quoteId);
+      if (!quote || quote.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Quote not found" });
+      }
+
+      // Get related data
+      const customer = quote.customerId ? await storage.getCustomer(quote.customerId) : null;
+      const project = quote.projectId ? await storage.getProject(quote.projectId) : null;
+      const items = await storage.getQuoteItems(quoteId);
+
+      // Generate PDF
+      const pdfBuffer = await renderPdf('quote', {
+        quote,
+        customer,
+        project,
+        items
+      });
+
       res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'inline; filename="test.pdf"');
+      res.setHeader('Content-Disposition', `attachment; filename="Quote_${quote.quoteNumber}.pdf"`);
       res.send(pdfBuffer);
     } catch (error) {
-      console.error('Debug PDF test error:', error);
-      res.status(500).json({ message: "Failed to generate test PDF" });
+      console.error('Error generating quote PDF:', error);
+      res.status(500).json({ message: "Failed to generate quote PDF" });
+    }
+  });
+
+  app.get("/api/invoices/:id/pdf", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const invoiceId = parseInt(req.params.id);
+      const tenantId = getTenantIdFromRequest(req);
+
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant context required" });
+      }
+
+      // Get invoice data
+      const invoice = await storage.getInvoice(invoiceId);
+      if (!invoice || invoice.tenantId !== tenantId) {
+        return res.status(404).json({ message: "Invoice not found" });
+      }
+
+      // Get related data
+      const customer = invoice.customerId ? await storage.getCustomer(invoice.customerId) : null;
+      const project = invoice.projectId ? await storage.getProject(invoice.projectId) : null;
+      const items = await storage.getInvoiceItems(invoiceId);
+
+      // Generate PDF
+      const pdfBuffer = await renderPdf('invoice', {
+        invoice,
+        customer,
+        project,
+        items
+      });
+
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="Invoice_${invoice.invoiceNumber}.pdf"`);
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error('Error generating invoice PDF:', error);
+      res.status(500).json({ message: "Failed to generate invoice PDF" });
     }
   });
 

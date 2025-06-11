@@ -34,10 +34,10 @@ export async function renderPdf(type: 'quote' | 'invoice', data: any): Promise<B
       }
     });
     
-    return pdf;
+    return Buffer.from(pdf);
   } catch (error) {
     console.error('Error generating PDF:', error);
-    throw new Error(`Failed to generate ${type} PDF: ${error.message}`);
+    throw new Error(`Failed to generate ${type} PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
   } finally {
     if (browser) {
       await browser.close();
