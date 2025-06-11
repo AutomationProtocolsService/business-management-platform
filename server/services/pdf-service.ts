@@ -80,33 +80,33 @@ class PDFServiceImpl {
         doc.fontSize(20).fillColor('#000').text('QUOTE', { align: 'center' });
         doc.moveDown();
         
-        // Add quote information
-        doc.fontSize(12).text(`Quote Number: ${quoteData.quoteNumber}`);
-        doc.text(`Date: ${new Date(quoteData.issueDate || quoteData.createdAt).toLocaleDateString()}`);
+        // Add quote information - left aligned
+        doc.fontSize(12).text(`Quote Number: ${quoteData.quoteNumber}`, 50);
+        doc.text(`Date: ${new Date(quoteData.issueDate || quoteData.createdAt).toLocaleDateString()}`, 50);
         if (quoteData.expiryDate) {
-          doc.text(`Expiry Date: ${new Date(quoteData.expiryDate).toLocaleDateString()}`);
+          doc.text(`Expiry Date: ${new Date(quoteData.expiryDate).toLocaleDateString()}`, 50);
         }
         doc.moveDown();
         
-        // Add customer information if available
+        // Add customer information - left aligned to match invoice
         if (quoteData.customer) {
-          doc.text('CUSTOMER INFORMATION', { underline: true });
-          doc.text(`Name: ${quoteData.customer.name || 'N/A'}`);
-          doc.text(`Email: ${quoteData.customer.email || 'N/A'}`);
-          if (quoteData.customer.phone) doc.text(`Phone: ${quoteData.customer.phone}`);
-          if (quoteData.customer.address) doc.text(`Address: ${quoteData.customer.address}`);
+          doc.text('CUSTOMER INFORMATION', 50, doc.y, { underline: true });
+          doc.text(`Name: ${quoteData.customer.name || 'N/A'}`, 50);
+          doc.text(`Email: ${quoteData.customer.email || 'N/A'}`, 50);
+          if (quoteData.customer.phone) doc.text(`Phone: ${quoteData.customer.phone}`, 50);
+          if (quoteData.customer.address) doc.text(`Address: ${quoteData.customer.address}`, 50);
           doc.moveDown();
         } else {
-          doc.text('CUSTOMER INFORMATION', { underline: true });
-          doc.text('No customer information available');
+          doc.text('CUSTOMER INFORMATION', 50, doc.y, { underline: true });
+          doc.text('No customer information available', 50);
           doc.moveDown();
         }
         
-        // Add project information if available
+        // Add project information if available - left aligned
         if (quoteData.project) {
-          doc.text('PROJECT INFORMATION', { underline: true });
-          doc.text(`Project: ${quoteData.project.name}`);
-          if (quoteData.project.description) doc.text(`Description: ${quoteData.project.description}`, { width: maxWidth });
+          doc.text('PROJECT INFORMATION', 50, doc.y, { underline: true });
+          doc.text(`Project: ${quoteData.project.name}`, 50);
+          if (quoteData.project.description) doc.text(`Description: ${quoteData.project.description}`, 50, doc.y, { width: maxWidth });
           doc.moveDown();
         }
         
