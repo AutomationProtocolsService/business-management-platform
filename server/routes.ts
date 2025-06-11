@@ -237,11 +237,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const existingSettings = await storage.getCompanySettings();
       
+      // Filter out fields that shouldn't be updated by client
+      const { id, updatedAt, updatedBy, ...updateData } = req.body;
+      
       let updatedSettings;
       if (existingSettings) {
-        updatedSettings = await storage.updateCompanySettings(existingSettings.id, req.body);
+        updatedSettings = await storage.updateCompanySettings(existingSettings.id, updateData);
       } else {
-        updatedSettings = await storage.createCompanySettings(req.body);
+        updatedSettings = await storage.createCompanySettings(updateData);
       }
       
       if (!updatedSettings) {
