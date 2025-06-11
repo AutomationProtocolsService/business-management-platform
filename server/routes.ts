@@ -27,7 +27,7 @@ import EmailService from "./services/email-service";
 import PDFService from "./services/pdf-service";
 import FileService from "./services/file-service";
 import SecurityService from "./services/security-service";
-import { renderPdf } from "./services/pdf";
+// Removed Puppeteer PDF service - now using PDFKit service
 import { 
   getNumberedDocument, 
   countInvoicesForTenant,
@@ -2780,9 +2780,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = quote.projectId ? await storage.getProject(quote.projectId) : null;
       const items = await storage.getQuoteItemsByQuote(quoteId);
 
-      // Generate PDF
-      const pdfBuffer = await renderPdf('quote', {
-        quote,
+      // Generate PDF using PDFKit service
+      const pdfBuffer = await PDFService.generateQuotePDF({
+        ...quote,
         customer,
         project,
         items
@@ -2817,9 +2817,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const project = invoice.projectId ? await storage.getProject(invoice.projectId) : null;
       const items = await storage.getInvoiceItemsByInvoice(invoiceId);
 
-      // Generate PDF
-      const pdfBuffer = await renderPdf('invoice', {
-        invoice,
+      // Generate PDF using PDFKit service
+      const pdfBuffer = await PDFService.generateInvoicePDF({
+        ...invoice,
         customer,
         project,
         items
