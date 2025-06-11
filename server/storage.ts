@@ -3198,10 +3198,7 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createCompanySettings(settings: InsertCompanySettings): Promise<CompanySettings> {
-    const result = await db.insert(schema.companySettings).values({
-      ...settings,
-      createdAt: new Date()
-    }).returning();
+    const result = await db.insert(schema.companySettings).values(settings).returning();
     return result[0];
   }
 
