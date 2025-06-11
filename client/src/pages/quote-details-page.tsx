@@ -239,75 +239,7 @@ export default function QuoteDetailsPage() {
     },
   });
   
-  // Download PDF function
-  const downloadPdf = useCallback(async () => {
-    if (!quoteId) return;
-    
-    try {
-      // Make API request to get the PDF with proper headers
-      const response = await fetch(`/api/quotes/${quoteId}/pdf`, {
-        headers: {
-          'Accept': 'application/pdf',
-        },
-      });
 
-      if (!response.ok) {
-        // Handle HTTP errors more informatively
-        let errorMessage = `Failed to fetch PDF: ${response.status} ${response.statusText}`;
-        try {
-          // Attempt to get JSON error message if available
-          const errorJson = await response.json();
-          if (errorJson?.message) {
-            errorMessage += ` - ${errorJson.message}`;
-          }
-        } catch (parseError) {
-          // If JSON parsing fails, just use the original message
-          console.warn("Failed to parse error JSON", parseError);
-        }
-        console.error(errorMessage);
-        toast({
-          title: "Error",
-          description: errorMessage,
-          variant: "destructive",
-          duration: 5000, // Show for a longer time
-        });
-        throw new Error(errorMessage); // Throw to stop further processing
-      }
-
-      // Get the PDF as a blob
-      const blob = await response.blob();
-      
-      // Verify that we got a PDF file
-      if (blob.type !== 'application/pdf' && blob.size < 100) {
-        throw new Error('Invalid PDF data received. Please try again.');
-      }
-      
-      // Create a download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Quote_${quote?.quoteNumber}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      window.URL.revokeObjectURL(url);
-      
-      // Show success notification
-      toast({
-        title: "Success",
-        description: "PDF downloaded successfully",
-        variant: "default",
-      });
-    } catch (error) {
-      console.error("Error downloading PDF:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to download PDF. Please try again.",
-        variant: "destructive",
-        duration: 5000,
-      });
-    }
-  }, [quoteId, quote, toast]);
 
   // Convert quote to invoice mutation
   const convertToInvoice = useMutation({
@@ -510,14 +442,7 @@ export default function QuoteDetailsPage() {
             Email
           </Button>
           
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={downloadPdf}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            PDF
-          </Button>
+
           
           <Button 
             variant="outline" 
@@ -715,15 +640,6 @@ export default function QuoteDetailsPage() {
               >
                 <Mail className="h-4 w-4 mr-2" />
                 Email Quote
-              </Button>
-              
-              <Button 
-                variant="outline"
-                className="w-full justify-start"
-                onClick={downloadPdf}
-              >
-                <FileText className="h-4 w-4 mr-2" />
-                Download PDF
               </Button>
               
               <Separator />
