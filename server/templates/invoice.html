@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    /* Global resets and base styles */
+    body { 
+      font-family: 'Arial', sans-serif; 
+      margin: 0.75in; 
+      font-size: 12px;
+      line-height: 1.4;
+      color: #333;
+    }
+    
+    h1 { 
+      text-align: center; 
+      font-size: 24px;
+      margin: 0 0 20px 0;
+      color: #dc2626;
+    }
+    
+    h2 {
+      font-size: 14px;
+      margin: 20px 0 10px 0;
+      text-decoration: underline;
+      color: #1f2937;
+    }
+    
+    /* Layout sections */
+    .header-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 30px;
+    }
+    
+    .invoice-info {
+      text-align: left;
+    }
+    
+    .invoice-info p {
+      margin: 5px 0;
+    }
+    
+    /* Customer and project sections */
+    .info-section {
+      margin: 20px 0;
+    }
+    
+    .info-section p {
+      margin: 3px 0;
+      line-height: 1.3;
+    }
+    
+    /* Items table */
+    table { 
+      width: 100%; 
+      border-collapse: collapse; 
+      margin: 20px 0;
+      font-size: 11px;
+    }
+    
+    th {
+      background-color: #fef2f2;
+      border: 1px solid #d1d5db;
+      padding: 8px;
+      font-weight: bold;
+      text-align: left;
+    }
+    
+    td { 
+      padding: 8px; 
+      border: 1px solid #d1d5db;
+      vertical-align: top;
+    }
+    
+    .description { 
+      max-width: 300px; 
+      word-wrap: break-word;
+      word-break: break-word;
+    }
+    
+    .right { 
+      text-align: right; 
+    }
+    
+    .center {
+      text-align: center;
+    }
+    
+    /* Status badge */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .status-draft { background-color: #f3f4f6; color: #374151; }
+    .status-sent { background-color: #dbeafe; color: #1e40af; }
+    .status-paid { background-color: #d1fae5; color: #065f46; }
+    .status-overdue { background-color: #fee2e2; color: #dc2626; }
+    .status-cancelled { background-color: #f3f4f6; color: #6b7280; }
+    
+    /* Totals section */
+    .totals-section {
+      margin-top: 20px;
+      text-align: right;
+    }
+    
+    .totals-section p {
+      margin: 5px 0;
+    }
+    
+    .total-line {
+      font-size: 16px;
+      font-weight: bold;
+      border-top: 2px solid #374151;
+      padding-top: 8px;
+      margin-top: 10px;
+    }
+    
+    /* Footer */
+    .footer-section {
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #d1d5db;
+    }
+    
+    .footer-section h3 {
+      font-size: 12px;
+      margin: 15px 0 5px 0;
+    }
+    
+    .footer-section p {
+      margin: 5px 0;
+      font-size: 11px;
+      line-height: 1.3;
+    }
+    
+    /* Utility classes */
+    .bold {
+      font-weight: bold;
+    }
+    
+    hr {
+      border: none;
+      border-top: 1px solid #d1d5db;
+      margin: 20px 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>INVOICE</h1>
+  
+  <div class="header-section">
+    <div class="invoice-info">
+      <p><strong>Invoice Number:</strong> <%= invoice.invoiceNumber %></p>
+      <p><strong>Issue Date:</strong> <%= new Date(invoice.issueDate).toLocaleDateString() %></p>
+      <% if (invoice.dueDate) { %>
+      <p><strong>Due Date:</strong> <%= new Date(invoice.dueDate).toLocaleDateString() %></p>
+      <% } %>
+      <p><strong>Status:</strong> 
+        <span class="status-badge status-<%= invoice.status %>"><%= invoice.status %></span>
+      </p>
+    </div>
+  </div>
+
+  <div class="info-section">
+    <h2>CUSTOMER INFORMATION</h2>
+    <% if (customer) { %>
+    <p><strong>Name:</strong> <%= customer.name %></p>
+    <% if (customer.email) { %>
+    <p><strong>Email:</strong> <%= customer.email %></p>
+    <% } %>
+    <% if (customer.phone) { %>
+    <p><strong>Phone:</strong> <%= customer.phone %></p>
+    <% } %>
+    <% if (customer.address) { %>
+    <p><strong>Address:</strong> <%= customer.address %></p>
+    <% } %>
+    <% } else { %>
+    <p><em>No customer information</em></p>
+    <% } %>
+  </div>
+
+  <% if (project) { %>
+  <div class="info-section">
+    <h2>PROJECT INFORMATION</h2>
+    <p><strong>Project:</strong> <%= project.name %></p>
+    <% if (project.description) { %>
+    <p><strong>Description:</strong> <%= project.description %></p>
+    <% } %>
+  </div>
+  <% } %>
+
+  <h2>ITEMS</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="center" style="width: 40px;">#</th>
+        <th>Description</th>
+        <th class="right" style="width: 60px;">Qty</th>
+        <th class="right" style="width: 100px;">Price</th>
+        <th class="right" style="width: 100px;">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% items.forEach((item, i) => { %>
+      <tr>
+        <td class="center"><%= i + 1 %></td>
+        <td class="description"><%= item.description %></td>
+        <td class="right"><%= item.quantity %></td>
+        <td class="right">$<%= item.unitPrice.toFixed(2) %></td>
+        <td class="right">$<%= (item.quantity * item.unitPrice).toFixed(2) %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <div class="totals-section">
+    <p><strong>Subtotal:</strong> $<%= invoice.subtotal.toFixed(2) %></p>
+    <% if (invoice.tax > 0) { %>
+    <p><strong>Tax:</strong> $<%= invoice.tax.toFixed(2) %></p>
+    <% } %>
+    <% if (invoice.discount > 0) { %>
+    <p><strong>Discount:</strong> -$<%= invoice.discount.toFixed(2) %></p>
+    <% } %>
+    <p class="total-line"><strong>TOTAL: $<%= invoice.total.toFixed(2) %></strong></p>
+  </div>
+  
+  <div class="footer-section">
+    <% if (invoice.notes) { %>
+    <h3>Notes:</h3>
+    <p><%= invoice.notes %></p>
+    <% } %>
+    
+    <% if (invoice.terms) { %>
+    <h3>Terms & Conditions:</h3>
+    <p><%= invoice.terms %></p>
+    <% } %>
+  </div>
+</body>
+</html>
