@@ -74,7 +74,7 @@ const quoteFormSchema = insertQuoteSchema.extend({
   // Email options
   emailSubject: z.string().optional(),
   emailMessage: z.string().optional(),
-  includePdf: z.boolean().optional().default(true),
+
   total: z.number(),
   notes: z.string().optional(),
   terms: z.string().optional(),
@@ -155,7 +155,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       // Default email options
       emailSubject: `Quote from ${settings?.companyName || "Your Company"}`,
       emailMessage: "Please find attached our quote for your review. Please let us know if you have any questions.",
-      includePdf: true,
+
       items: [
         {
           description: "",
