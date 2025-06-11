@@ -114,62 +114,59 @@ class PDFServiceImpl {
         doc.text('ITEMS', { underline: true });
         doc.moveDown(0.5);
         
-        // Define table layout
-        const pageWidth = doc.page.width - 100; // 50 margin on each side
-        const itemWidth = 30;
-        const descriptionWidth = pageWidth - 210; // Allocate more space for description
-        const quantityWidth = 40;
-        const priceWidth = 60;
-        const amountWidth = 80;
+        // Clean table layout without borders
+        const pageWidth = doc.page.width - 100;
+        const descriptionWidth = 300;
+        const quantityWidth = 50;
+        const priceWidth = 80;
+        const amountWidth = 90;
         
         // Table header positions
-        const itemX = 50;
-        const descriptionX = itemX + itemWidth;
+        const descriptionX = 50;
         const quantityX = descriptionX + descriptionWidth;
         const priceX = quantityX + quantityWidth;
         const amountX = priceX + priceWidth;
         
-        // Table header
+        // Table header - clean design
         doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, doc.y);
-        doc.text('Description', descriptionX, doc.y - doc.currentLineHeight());
-        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight());
-        doc.text('Price', priceX, doc.y - doc.currentLineHeight());
-        doc.text('Amount', amountX, doc.y - doc.currentLineHeight());
+        doc.text('Description', descriptionX, doc.y);
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { align: 'center' });
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        
+        doc.moveDown(0.5);
+        
+        // Single line under header only
+        const headerLineY = doc.y;
+        doc.moveTo(descriptionX, headerLineY).lineTo(amountX + amountWidth, headerLineY).stroke();
+        doc.moveDown(0.5);
         
         // Reset font
         doc.font('Helvetica');
         
-        // Add horizontal line
-        const lineY = doc.y + 5;
-        doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
-        
-        // Table rows
-        let y = lineY + 10;
-        
-        // Items table with improved stable layout
+        // Items without table borders
         if (quoteData.items && quoteData.items.length) {
           quoteData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
             const yStart = doc.y;
 
-            // Draw cell contents with proper alignment
-            doc.text(String(i + 1), COLS.item, yStart);
-            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
-            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
-            doc.text(formatMoney(unitPrice || 0), COLS.price, yStart, { width: 80, align: 'right' });
-            doc.text(formatMoney(total || 0), COLS.amt, yStart, { width: 80, align: 'right' });
+            // Description with wrapping
+            doc.text(wrapLongWords(description || ''), descriptionX, yStart, { 
+              width: descriptionWidth - 10,
+              continued: false 
+            });
 
-            // Measure actual height after text wrapping
-            const yBottom = doc.y;
+            // Get the height after description text wrapping
+            const descriptionHeight = doc.y - yStart;
+            
+            // Center align quantity, price, and amount with the description
+            const centerY = yStart + (descriptionHeight / 2) - 6;
+            
+            doc.text(String(quantity), quantityX, centerY, { width: quantityWidth, align: 'center' });
+            doc.text(formatMoney(unitPrice || 0), priceX, centerY, { width: priceWidth, align: 'right' });
+            doc.text(formatMoney(total || 0), amountX, centerY, { width: amountWidth, align: 'right' });
 
-            // Draw row border after measuring actual height - surgical fix
-            const rowBottom = yBottom + 4;
-            doc.moveTo(COLS.item, rowBottom)
-               .lineTo(COLS.amt + 80, rowBottom)
-               .stroke();
-
-            // Consistent gap before next row
-            doc.y = rowBottom + ROW_GAP;
+            // Move to next row with proper spacing
+            doc.y = yStart + Math.max(descriptionHeight, 20) + 8;
             
             // Check for new page
             if (doc.y > doc.page.height - 150) {
@@ -177,35 +174,33 @@ class PDFServiceImpl {
             }
           });
         } else {
-          doc.text('No items', COLS.desc, doc.y);
+          doc.text('No items', descriptionX, doc.y);
           doc.moveDown();
         }
         
-        // Add horizontal line
-        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
-        doc.moveDown();
+        doc.moveDown(1);
         
-        // Add totals
-        const totalsX = amountX - 100;
-        doc.text('Subtotal:', totalsX, doc.y);
-        doc.text(`$${quoteData.subtotal ? quoteData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
-        doc.moveDown();
+        // Clean totals section aligned to the right
+        const totalsX = priceX;
+        doc.text('Subtotal:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${quoteData.subtotal ? quoteData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+        doc.moveDown(0.3);
         
         if (quoteData.tax) {
-          doc.text('Tax:', totalsX, doc.y);
-          doc.text(`$${quoteData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
-          doc.moveDown();
+          doc.text('Tax:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${quoteData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
         if (quoteData.discount) {
-          doc.text('Discount:', totalsX, doc.y);
-          doc.text(`$${quoteData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
-          doc.moveDown();
+          doc.text('Discount:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${quoteData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
         doc.font('Helvetica-Bold');
-        doc.text('TOTAL:', totalsX, doc.y);
-        doc.text(`$${quoteData.total ? quoteData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
+        doc.text('TOTAL:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${quoteData.total ? quoteData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
         doc.font('Helvetica');
         doc.moveDown();
         
@@ -327,59 +322,59 @@ class PDFServiceImpl {
         doc.text('ITEMS', { underline: true });
         doc.moveDown(0.5);
         
-        // Define table layout
-        const pageWidth = doc.page.width - 100; // 50 margin on each side
-        const itemWidth = 30;
-        const descriptionWidth = pageWidth - 210; // Allocate more space for description
-        const quantityWidth = 40;
-        const priceWidth = 60;
-        const amountWidth = 80;
+        // Clean table layout without borders
+        const pageWidth = doc.page.width - 100;
+        const descriptionWidth = 300;
+        const quantityWidth = 50;
+        const priceWidth = 80;
+        const amountWidth = 90;
         
         // Table header positions
-        const itemX = 50;
-        const descriptionX = itemX + itemWidth;
+        const descriptionX = 50;
         const quantityX = descriptionX + descriptionWidth;
         const priceX = quantityX + quantityWidth;
         const amountX = priceX + priceWidth;
         
-        // Table header
+        // Table header - clean design
         doc.font('Helvetica-Bold');
-        doc.text('Item', itemX, doc.y);
-        doc.text('Description', descriptionX, doc.y - doc.currentLineHeight());
-        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight());
-        doc.text('Price', priceX, doc.y - doc.currentLineHeight());
-        doc.text('Amount', amountX, doc.y - doc.currentLineHeight());
+        doc.text('Description', descriptionX, doc.y);
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { align: 'center' });
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { align: 'right' });
+        
+        doc.moveDown(0.5);
+        
+        // Single line under header only
+        const headerLineY = doc.y;
+        doc.moveTo(descriptionX, headerLineY).lineTo(amountX + amountWidth, headerLineY).stroke();
+        doc.moveDown(0.5);
         
         // Reset font
         doc.font('Helvetica');
         
-        // Add horizontal line
-        const lineY = doc.y + 5;
-        doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
-        
-        // Items table with improved stable layout
+        // Items without table borders
         if (invoiceData.items && invoiceData.items.length) {
           invoiceData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
             const yStart = doc.y;
 
-            // Draw cell contents with proper alignment
-            doc.text(String(i + 1), COLS.item, yStart);
-            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
-            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
-            doc.text(formatMoney(unitPrice || 0), COLS.price, yStart, { width: 80, align: 'right' });
-            doc.text(formatMoney(total || 0), COLS.amt, yStart, { width: 80, align: 'right' });
+            // Description with wrapping
+            doc.text(wrapLongWords(description || ''), descriptionX, yStart, { 
+              width: descriptionWidth - 10,
+              continued: false 
+            });
 
-            // Measure actual height after text wrapping
-            const yBottom = doc.y;
+            // Get the height after description text wrapping
+            const descriptionHeight = doc.y - yStart;
+            
+            // Center align quantity, price, and amount with the description
+            const centerY = yStart + (descriptionHeight / 2) - 6;
+            
+            doc.text(String(quantity), quantityX, centerY, { width: quantityWidth, align: 'center' });
+            doc.text(formatMoney(unitPrice || 0), priceX, centerY, { width: priceWidth, align: 'right' });
+            doc.text(formatMoney(total || 0), amountX, centerY, { width: amountWidth, align: 'right' });
 
-            // Draw row border after measuring actual height - surgical fix
-            const rowBottom = yBottom + 4;
-            doc.moveTo(COLS.item, rowBottom)
-               .lineTo(COLS.amt + 80, rowBottom)
-               .stroke();
-
-            // Consistent gap before next row
-            doc.y = rowBottom + ROW_GAP;
+            // Move to next row with proper spacing
+            doc.y = yStart + Math.max(descriptionHeight, 20) + 8;
             
             // Check for new page
             if (doc.y > doc.page.height - 150) {
@@ -387,35 +382,33 @@ class PDFServiceImpl {
             }
           });
         } else {
-          doc.text('No items', COLS.desc, doc.y);
+          doc.text('No items', descriptionX, doc.y);
           doc.moveDown();
         }
         
-        // Add horizontal line
-        doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
-        doc.moveDown();
+        doc.moveDown(1);
         
-        // Add totals
-        const totalsX = amountX - 100;
-        doc.text('Subtotal:', totalsX, doc.y);
-        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
-        doc.moveDown();
+        // Clean totals section aligned to the right
+        const totalsX = priceX;
+        doc.text('Subtotal:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+        doc.moveDown(0.3);
         
         if (invoiceData.tax) {
-          doc.text('Tax:', totalsX, doc.y);
-          doc.text(`$${invoiceData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
-          doc.moveDown();
+          doc.text('Tax:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${invoiceData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
         if (invoiceData.discount) {
-          doc.text('Discount:', totalsX, doc.y);
-          doc.text(`$${invoiceData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight());
-          doc.moveDown();
+          doc.text('Discount:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${invoiceData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
         doc.font('Helvetica-Bold');
-        doc.text('TOTAL DUE:', totalsX, doc.y);
-        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight());
+        doc.text('TOTAL DUE:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
         doc.font('Helvetica');
         doc.moveDown();
         
