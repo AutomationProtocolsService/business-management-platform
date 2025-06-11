@@ -2935,44 +2935,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Test Puppeteer PDF generation with new system dependencies
-  app.get("/api/test-puppeteer-pdf", async (req: Request, res: Response) => {
-    try {
-      console.log("Testing Puppeteer PDF generation with new system dependencies...");
-      
-      const testQuoteData = {
-        id: 998,
-        quoteNumber: 'Q-PUPPETEER-TEST',
-        issueDate: new Date(),
-        status: 'draft',
-        subtotal: 1980.00,
-        total: 1980.00,
-        customer: { name: 'Puppeteer Test Customer', email: 'test@puppeteer.com' },
-        project: { name: 'Puppeteer Test Project' },
-        items: [{ description: 'Puppeteer test item', quantity: 1, unitPrice: 1980.00, total: 1980.00 }]
-      };
 
-      // Import the Puppeteer PDF service
-      const { renderPdf } = await import("./services/pdf");
-      const pdfBuffer = await renderPdf('quote', {
-        quote: testQuoteData,
-        customer: testQuoteData.customer,
-        project: testQuoteData.project,
-        items: testQuoteData.items
-      });
-      
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="Puppeteer_Test_Quote.pdf"');
-      res.send(pdfBuffer);
-      
-    } catch (error) {
-      console.error("Puppeteer test failed:", error);
-      res.status(500).json({ 
-        message: "Puppeteer test failed", 
-        error: error instanceof Error ? error.message : 'Unknown error' 
-      });
-    }
-  });
 
   // We'll create a server in index.ts
   console.log('API routes registered successfully');
