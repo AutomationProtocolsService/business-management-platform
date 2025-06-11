@@ -1,0 +1,152 @@
+1. Pick a battle-tested HTML→PDF engine
+We’ll use Puppeteer (the headless Chrome library) to render a fully-responsive HTML/CSS template and “print” it to PDF. That gives you perfect control over styling, wrapping, page breaks, headers/footers, etc.
+
+bash
+Copy
+# in your server folder
+npm install puppeteer ejs
+2. Create a reusable HTML template
+In server/templates/quote.html (and later invoice.html), write plain HTML + inline or linked CSS to match your sample. For example (very rough):
+
+html
+Copy
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <style>
+    /* global resets */
+    body { font-family: sans-serif; margin: 1in; }
+    h1 { text-align: center; }
+    table { width: 100%; border-collapse: collapse; margin-top: 1em; }
+    th, td { padding: 0.5em; border-bottom: 1px solid #333; }
+    .description { max-width: 300px; word-wrap: break-word; }
+    .right { text-align: right; }
+  </style>
+</head>
+<body>
+  <h1>QUOTE</h1>
+  <p><strong>Quote Number:</strong> <%= quote.number %></p>
+  <p><strong>Date:</strong> <%= quote.date %>  <strong>Expiry:</strong> <%= quote.expiry %></p>
+  <hr/>
+  <h2>CUSTOMER INFORMATION</h2>
+  <p><%= customer.name %><br/>
+     <%= customer.email %><br/>
+     <%= customer.phone %><br/>
+     <%= customer.address %></p>
+  
+  <h2>ITEMS</h2>
+  <table>
+    <thead>
+      <tr>
+        <th class="right">#</th>
+        <th>Description</th>
+        <th class="right">Qty</th>
+        <th class="right">Unit Price</th>
+        <th class="right">Amount</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% items.forEach((item,i) => { %>
+      <tr>
+        <td class="right"><%= i+1 %></td>
+        <td class="description"><%= item.description %></td>
+        <td class="right"><%= item.quantity %></td>
+        <td class="right"><%= item.unitPrice.toFixed(2) %></td>
+        <td class="right"><%= (item.quantity * item.unitPrice).toFixed(2) %></td>
+      </tr>
+      <% }) %>
+    </tbody>
+  </table>
+
+  <hr/>
+  <p class="right"><strong>Subtotal:</strong> $<%= subtotal.toFixed(2) %></p>
+  <p class="right"><strong>VAT (20%):</strong> $<%= vat.toFixed(2) %></p>
+  <h2 class="right">TOTAL:&nbsp;$<%= total.toFixed(2) %></h2>
+  
+  <hr/>
+  <p>Terms & Conditions:<br/><%= quote.terms %></p>
+</body>
+</html>
+Do the same for invoice.html (swap titles, fields).
+
+3. Wire up an EJS renderer + Puppeteer PDF service
+Create server/services/pdf.ts:
+
+ts
+Copy
+import path from 'path';
+import fs from 'fs/promises';
+import puppeteer from 'puppeteer';
+import ejs from 'ejs';
+
+export async function renderPdf(type: 'quote'|'invoice', data: any): Promise<Buffer> {
+  // 1) load template
+  const templatePath = path.join(__dirname, '..', 'templates', `${type}.html`);
+  const template = await fs.readFile(templatePath, 'utf-8');
+
+  // 2) render with EJS
+  const html = ejs.render(template, data);
+
+  // 3) launch headless Chrome & generate PDF
+  const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+  const pdf = await page.pdf({
+    format: 'A4',
+    printBackground: true,
+    margin: { top: '1in', bottom: '1in', left: '1in', right: '1in' }
+  });
+  await browser.close();
+  return pdf;
+}
+4. Expose a download endpoint
+In server/routes/pdf.ts add:
+
+ts
+Copy
+import { Router } from 'express';
+import { renderPdf } from './services/pdf';
+
+const router = Router();
+
+router.get('/quotes/:id/pdf', async (req, res, next) => {
+  try {
+    const quote = await getQuoteData(req.params.id); // load from DB
+    const customer = await getCustomer(quote.customerId);
+    const items = await getQuoteItems(quote.id);
+    const subtotal = items.reduce((sum, i) => sum + i.quantity * i.unitPrice,0);
+    const vat = subtotal * 0.2;
+    const total = subtotal + vat;
+
+    const pdfBuffer = await renderPdf('quote', { quote, customer, items, subtotal, vat, total });
+    res.type('application/pdf').send(pdfBuffer);
+  } catch (err) {
+    next(err);
+  }
+});
+
+// same for invoice
+router.get('/invoices/:id/pdf', /* ... */);
+
+export default router;
+Wire this router into your main server/index.ts.
+
+5. Hook the front-end “Download PDF” button
+In client/src/pages/quotes-page.tsx (and details page), replace your old handler with:
+
+ts
+Copy
+<Button
+  onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, '_blank')}
+>
+  <FileTextIcon /> Download PDF
+</Button>
+Same for invoices.
+
+6. Test, tweak & polish
+Fire up your server.
+
+Hit Quote → Download PDF. Chrome should pop open with the rendered PDF, complete with proper wrapping and borders.
+
+Tweak your HTML/CSS template until it exactly matches your sample layout (fonts, spacing, header/footer).

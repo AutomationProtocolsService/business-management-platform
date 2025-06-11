@@ -27,6 +27,7 @@ import EmailService from "./services/email-service";
 import PDFService from "./services/pdf-service";
 import FileService from "./services/file-service";
 import SecurityService from "./services/security-service";
+import { renderPdf } from "./services/pdf";
 import { 
   getNumberedDocument, 
   countInvoicesForTenant,
