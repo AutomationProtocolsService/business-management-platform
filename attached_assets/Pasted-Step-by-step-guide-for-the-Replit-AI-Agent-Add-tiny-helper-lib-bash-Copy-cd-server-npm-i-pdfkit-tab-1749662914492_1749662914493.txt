@@ -1,0 +1,93 @@
+Step-by-step guide for the Replit AI Agent
+Add tiny helper lib
+
+bash
+Copy
+cd server
+npm i pdfkit-table      # or  @opdavid/pdfkit-table
+Refactor quote generation (server/services/pdf-service.ts)
+
+ts
+Copy
+import PDFDocument from 'pdfkit';
+import { Table } from 'pdfkit-table';
+
+...
+
+export async function generateQuotePdf(q: Quote) {
+  const doc = new PDFDocument({ margin: 40 });
+  const buffers: Buffer[] = [];
+  doc.on('data', b => buffers.push(b));
+  doc.on('end', () => resolve(Buffer.concat(buffers)));
+
+  /* 1️⃣  header / customer / project blocks exactly as today … */
+
+  /* 2️⃣  items table */
+  const rows = q.items.map((it, i) => [
+    i + 1,
+    it.description,
+    it.quantity,
+    formatMoney(it.unitPrice),
+    formatMoney(it.total),
+  ]);
+
+  const table: Table = {
+    headers: [
+      { label:'Item',        width:40,  align:'left' },
+      { label:'Description', width:280, align:'left' },
+      { label:'Qty',         width:40,  align:'right' },
+      { label:'Price',       width:80,  align:'right' },
+      { label:'Amount',      width:80,  align:'right' },
+    ],
+    rows,
+    options: {
+      columnSpacing: 5,
+      padding: 5,
+      prepareHeader: () => doc.font('Helvetica-Bold'),
+      prepareRow:     () => doc.font('Helvetica'),
+    },
+  };
+
+  doc.moveDown(0.5);
+  await doc.table(table);
+
+  /* 3️⃣  summary block – now just continue writing; doc.y is correct */
+  addSummary(doc, q);
+
+  doc.end();
+}
+Notes
+
+doc.table() takes care of wrapping, per-row borders and automatic page breaks.
+
+We no longer draw our own horizontal rules.
+
+Duplicate for invoice PDFs
+
+Simply copy the code, adjust headers (Item / Description / Qty / Unit / Amount).
+For multi-tax-rate invoices you can add another summary row.
+
+Remove the previous ad-hoc border drawing
+
+Delete the leftover doc.moveTo(...).lineTo(...).stroke() calls that painted the long rule.
+
+Unit test (quick)
+
+ts
+Copy
+const buf = await generateQuotePdf(fakeQuote);
+fs.writeFileSync('/tmp/quote.pdf', buf);
+// manually open to verify
+Hook into existing route
+
+Nothing changes for callers – same return Buffer contract.
+
+If you really prefer HTML-to-PDF (Path C)
+Install puppeteer (≈120 MB) or @react-pdf/renderer (client-side only).
+
+Build a React/Handlebars template.
+
+Render headless → slower, heavier. Only choose this if you need brand-grade design (images, CSS grid, etc.).
+
+Why this solves the “black line cuts text” problem
+Because the row border is now generated after the library measured the wrapped height of that row. You no longer guess where the Y coordinate ends – pdfkit-table does the math and page-split.
