@@ -1,8 +1,6 @@
 import PDFDocument from "pdfkit";
 import { createWriteStream } from "fs";
 import * as stream from "stream";
-// @ts-ignore - pdfkit-table doesn't have types
-import "pdfkit-table";
 
 /**
  * Helper function to wrap long words for better text wrapping
@@ -76,7 +74,7 @@ class PDFServiceImpl {
         doc
           .fontSize(8)
           .fillColor('#999')
-          .text(`rev 2025-06-11`, 520, 20);
+          .text(`feat(pdf): stable table layout`, 400, 20);
         
         // Add company header
         doc.fontSize(20).fillColor('#000').text('QUOTE', { align: 'center' });
@@ -149,37 +147,37 @@ class PDFServiceImpl {
         // Table rows
         let y = lineY + 10;
         
-        // Items table using pdfkit-table for stable layout
+        // Items table with improved stable layout
         if (quoteData.items && quoteData.items.length) {
-          const rows = quoteData.items.map((item: any, i: number) => [
-            i + 1,
-            item.description || '',
-            item.quantity || 0,
-            formatMoney(item.unitPrice || 0),
-            formatMoney(item.total || 0),
-          ]);
+          quoteData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
+            const yStart = doc.y;
 
-          const table = {
-            headers: [
-              { label: 'Item', width: 40, align: 'left' },
-              { label: 'Description', width: 280, align: 'left' },
-              { label: 'Qty', width: 40, align: 'right' },
-              { label: 'Price', width: 80, align: 'right' },
-              { label: 'Amount', width: 80, align: 'right' },
-            ],
-            rows,
-            options: {
-              columnSpacing: 5,
-              padding: 5,
-              prepareHeader: () => doc.font('Helvetica-Bold'),
-              prepareRow: () => doc.font('Helvetica'),
-            },
-          };
+            // Draw cell contents with proper alignment
+            doc.text(String(i + 1), COLS.item, yStart);
+            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
+            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
+            doc.text(formatMoney(unitPrice || 0), COLS.price, yStart, { width: 80, align: 'right' });
+            doc.text(formatMoney(total || 0), COLS.amt, yStart, { width: 80, align: 'right' });
 
-          doc.moveDown(0.5);
-          (doc as any).table(table);
+            // Measure actual height after text wrapping
+            const yBottom = doc.y;
+
+            // Draw row border after measuring actual height - surgical fix
+            const rowBottom = yBottom + 4;
+            doc.moveTo(COLS.item, rowBottom)
+               .lineTo(COLS.amt + 80, rowBottom)
+               .stroke();
+
+            // Consistent gap before next row
+            doc.y = rowBottom + ROW_GAP;
+            
+            // Check for new page
+            if (doc.y > doc.page.height - 150) {
+              doc.addPage();
+            }
+          });
         } else {
-          doc.text('No items', 50, doc.y);
+          doc.text('No items', COLS.desc, doc.y);
           doc.moveDown();
         }
         
@@ -359,37 +357,37 @@ class PDFServiceImpl {
         const lineY = doc.y + 5;
         doc.moveTo(50, lineY).lineTo(doc.page.width - 50, lineY).stroke();
         
-        // Items table using pdfkit-table for stable layout
+        // Items table with improved stable layout
         if (invoiceData.items && invoiceData.items.length) {
-          const rows = invoiceData.items.map((item: any, i: number) => [
-            i + 1,
-            item.description || '',
-            item.quantity || 0,
-            formatMoney(item.unitPrice || 0),
-            formatMoney(item.total || 0),
-          ]);
+          invoiceData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
+            const yStart = doc.y;
 
-          const table = {
-            headers: [
-              { label: 'Item', width: 40, align: 'left' },
-              { label: 'Description', width: 280, align: 'left' },
-              { label: 'Qty', width: 40, align: 'right' },
-              { label: 'Unit Price', width: 80, align: 'right' },
-              { label: 'Amount', width: 80, align: 'right' },
-            ],
-            rows,
-            options: {
-              columnSpacing: 5,
-              padding: 5,
-              prepareHeader: () => doc.font('Helvetica-Bold'),
-              prepareRow: () => doc.font('Helvetica'),
-            },
-          };
+            // Draw cell contents with proper alignment
+            doc.text(String(i + 1), COLS.item, yStart);
+            doc.text(wrapLongWords(description || ''), COLS.desc, yStart, { width: DESC_WIDTH });
+            doc.text(String(quantity), COLS.qty, yStart, { width: 40, align: 'right' });
+            doc.text(formatMoney(unitPrice || 0), COLS.price, yStart, { width: 80, align: 'right' });
+            doc.text(formatMoney(total || 0), COLS.amt, yStart, { width: 80, align: 'right' });
 
-          doc.moveDown(0.5);
-          (doc as any).table(table);
+            // Measure actual height after text wrapping
+            const yBottom = doc.y;
+
+            // Draw row border after measuring actual height - surgical fix
+            const rowBottom = yBottom + 4;
+            doc.moveTo(COLS.item, rowBottom)
+               .lineTo(COLS.amt + 80, rowBottom)
+               .stroke();
+
+            // Consistent gap before next row
+            doc.y = rowBottom + ROW_GAP;
+            
+            // Check for new page
+            if (doc.y > doc.page.height - 150) {
+              doc.addPage();
+            }
+          });
         } else {
-          doc.text('No items', 50, doc.y);
+          doc.text('No items', COLS.desc, doc.y);
           doc.moveDown();
         }
         
