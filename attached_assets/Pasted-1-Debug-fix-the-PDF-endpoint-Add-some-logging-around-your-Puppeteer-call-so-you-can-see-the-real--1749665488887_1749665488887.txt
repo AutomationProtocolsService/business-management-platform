@@ -1,0 +1,56 @@
+1) Debug & fix the PDF endpoint
+Add some logging around your Puppeteer call so you can see the real error. In your renderPdf(…) wrapper, do:
+
+ts
+Copy
+try {
+  // …puppeteer.launch, page.setContent, page.pdf…
+} catch (err) {
+  console.error("❌ PDF render failed:", err);
+  throw new Error("Failed to generate quote PDF");
+}
+Restart your server, hit /api/quotes/1234/pdf in Postman or your browser, and look at your server console. You’ll now see the underlying Puppeteer error (missing binary? sandbox issue? template typo?) and can correct it (e.g. install Puppeteer dependencies, point at the correct HTML template path, etc).
+
+Once the server can actually produce a PDF buffer, it will return 200 OK with application/pdf—you should see gibberish binary in the browser instead of your JSON error.
+
+2) Replace that broken <Download /> icon with a real button
+In your quote-details-page.tsx you currently have:
+
+tsx
+Copy
+<Button onClick={…}>
+  <Download className="h-4 w-4 mr-2" /> Download PDF
+</Button>
+But you never imported Download—so React chokes. Let’s swap it for the Lucide FileText icon you’re already using elsewhere:
+
+At the top of the file, add:
+
+ts
+Copy
+import { FileText } from "lucide-react";
+Replace <Download …/> with <FileText …/>. For example:
+
+tsx
+Copy
+<Button
+  onClick={() => window.open(`/api/quotes/${quote.id}/pdf`, "_blank")}
+  disabled={quote.status === "draft"}
+>
+  <FileText className="h-4 w-4 mr-2" /> Download PDF
+</Button>
+Save, your front-end should now compile, and the button will open the PDF route in a new tab once the server actually generates it.
+
+Final smoke test
+Restart your backend (npm run dev) and front-end (npm start).
+
+Navigate to a Quote details page.
+
+Click “Download PDF.”
+
+If you still see the JSON error in your browser, check the server console for the real Puppeteer error and fix that.
+
+Once the server returns a PDF, you’ll get a “Save as…” prompt from the browser and your rendered PDF (with correct wrapping and borders).
+
+After that’s rock-solid, repeat the same two steps for your Invoice PDF route and button.
+
+Let me know what your server logs show once you’ve added the logging around renderPdf!
