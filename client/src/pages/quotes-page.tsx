@@ -420,17 +420,7 @@ export default function QuotesPage() {
                                 <Pencil className="h-4 w-4" />
                               </Link>
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="text-blue-500"
-                              title="Download PDF"
-                              onClick={() => {
-                                window.open(`/api/quotes/${quote.id}/pdf`, '_blank');
-                              }}
-                            >
-                              <FileText className="h-4 w-4" />
-                            </Button>
+
                             <Button
                               variant="ghost"
                               size="icon"
