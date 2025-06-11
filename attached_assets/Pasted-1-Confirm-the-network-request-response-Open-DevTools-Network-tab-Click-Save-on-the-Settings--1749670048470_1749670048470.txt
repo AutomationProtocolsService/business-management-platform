@@ -1,0 +1,102 @@
+1. Confirm the network request & response
+Open DevTools ▶️ Network tab.
+
+Click Save on the Settings page.
+
+Look for the PATCH /api/settings/company entry.
+
+Status code — do you get a 200 or a 4xx/5xx?
+
+Response body — is it JSON ({"companyName":…}) or HTML (an entire login page or error page)?
+
+Expand the Request Headers and Request Payload:
+
+Content-Type must be application/json.
+
+Payload should be your company fields ({ name, email, phone, address, terms, … }).
+
+If the response is HTML (you’ll see <!DOCTYPE html> in the Preview), that means your fetch never hit your JSON route — it was intercepted (often by auth/tenant middleware) and redirected to your app’s index.html or a login page.
+
+2. Verify middleware & route order
+In your server/index.ts (or wherever you mount Express routes):
+
+ts
+Copy
+import express from "express";
+import sessionMiddleware from "./middleware/session";
+import tenantMiddleware  from "./middleware/tenant";
+// … other imports
+
+const app = express();
+
+// 1) Body‐parser
+app.use(express.json());
+
+// 2) Session + tenant
+app.use(sessionMiddleware);
+app.use(tenantMiddleware);
+
+// 3) Public routes (login, public tenants…)
+app.use("/api/public", publicRouter);
+
+// 4) Authenticated API
+app.use("/api/settings", settingsRouter);
+app.use("/api/quotes",   quotesRouter);
+app.use("/api/invoices", invoicesRouter);
+// etc
+If you have the settings router mounted before your session/tenant middleware, the tenant context check (No tenant context available) will fire and block you.
+
+Fix: Make sure app.use("/api/settings", …) comes after the tenant/session middleware.
+
+3. Check your settings router
+Open server/routes/settings.ts (or wherever your settings endpoints live). You should have something like:
+
+ts
+Copy
+router.patch("/company", async (req, res) => {
+  const { companyName, email, phone, address, terms } = req.body;
+  // Validate…
+  await prisma.companySettings.update({
+    where: { tenantId: req.tenant.id },
+    data: { companyName, email, phone, address, terms },
+  });
+  res.json({ success: true });
+});
+Make sure you’re using router.patch / router.put not router.get.
+
+Confirm you call res.json(...) and do not end up calling res.sendFile(...) or redirect.
+
+4. Fix the client fetch
+In your React settings page, your save handler must look like:
+
+ts
+Copy
+async function handleSave(values) {
+  try {
+    const res = await fetch("/api/settings/company", {
+      method:  "PATCH",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",  // if you rely on cookies for session
+      body: JSON.stringify(values),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => null);
+      throw new Error(err?.message || res.statusText);
+    }
+    toast({ title: "Settings saved" });
+  } catch (e) {
+    toast({ variant: "destructive", title: "Failed to update settings", description: e.message });
+  }
+}
+credentials: "include" if your session is cookie‐based.
+
+Always check res.ok before calling res.json().
+
+5. Re‐test & confirm
+Hit Save again.
+
+In Network tab, ensure the PATCH goes to /api/settings/company and returns a 200 with {"success":true}.
+
+The toast should now show “Settings saved” and the form stays on the page.
+
+Once the network call line turns green (200/204 JSON), the <Unexpected token '<'…> message will disappear and you’ll be back in business.
