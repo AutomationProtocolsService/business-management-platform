@@ -19,10 +19,12 @@ type CombinedSettings = CompanySettings & Partial<SystemSettings>;
 
 type SettingsContextType = {
   settings: CombinedSettings | null;
+  systemSettings: SystemSettings | null;
   isLoading: boolean;
   error: Error | null;
   updateSettingsMutation: UseMutationResult<CompanySettings, Error, Partial<CompanySettings>>;
   updateSystemSettingsMutation: UseMutationResult<SystemSettings, Error, Partial<SystemSettings>>;
+  updateSystemSettings: (data: Partial<SystemSettings>) => void;
   formatMoney: (amount: number) => string;
   getCurrencySymbol: () => string;
 };
@@ -135,14 +137,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return companySettings?.currencySymbol || "$";
   };
 
+  // Helper function to update system settings
+  const updateSystemSettings = (data: Partial<SystemSettings>) => {
+    updateSystemSettingsMutation.mutate(data);
+  };
+
   return (
     <SettingsContext.Provider
       value={{
         settings: combinedSettings,
+        systemSettings: systemSettings || null,
         isLoading,
         error,
         updateSettingsMutation,
         updateSystemSettingsMutation,
+        updateSystemSettings,
         formatMoney,
         getCurrencySymbol,
       }}
