@@ -56,29 +56,34 @@
     table {
       width: 100%;
       border-collapse: collapse;
+      table-layout: fixed;
       margin-bottom: 30px;
+      font-family: Arial, sans-serif;
     }
     thead th {
       background: #f5f5f5;
-      padding: 12px;
+      padding: 8px;
       border: 1px solid #ddd;
-      text-align: left;
       font-weight: 600;
       color: #2563eb;
     }
     tbody td {
-      padding: 10px;
+      padding: 8px;
       border: 1px solid #ddd;
       vertical-align: top;
     }
+    tfoot {
+      display: table-footer-group;
+    }
     tfoot td {
-      padding: 10px;
+      padding: 8px;
       border: 1px solid #ddd;
       font-weight: 600;
     }
     tfoot tr:last-child td {
       background: #f0f0f0;
-      font-size: 1.1em;
+      font-weight: 700;
+      border-top: 2px solid #333;
       color: #2563eb;
     }
 
@@ -175,46 +180,76 @@
 
   <!-- ITEMS TABLE -->
   <table>
+    <!-- 1) Define fixed column widths -->
+    <colgroup>
+      <col style="width:60%;" />
+      <col style="width:10%;" />
+      <col style="width:15%;" />
+      <col style="width:15%;" />
+    </colgroup>
+
+    <!-- 2) Header with inline widths -->
     <thead>
       <tr>
-        <th>Description</th>
-        <th style="width:60px;">Qty</th>
-        <th style="width:100px;">Unit Price</th>
-        <th style="width:100px;">Amount</th>
+        <th style="text-align:left;" width="60%">Description</th>
+        <th style="text-align:right;" width="10%">Qty</th>
+        <th style="text-align:right;" width="15%">Price</th>
+        <th style="text-align:right;" width="15%">Amount</th>
       </tr>
     </thead>
-    <tbody>
-      {{#items}}
+
+    <!-- 3) Footer before body, forced to render as table-footer-group -->
+    <tfoot style="display: table-footer-group;">
       <tr>
-        <td>{{description}}</td>
-        <td>{{quantity}}</td>
-        <td>{{unit_price}}</td>
-        <td>{{total}}</td>
-      </tr>
-      {{/items}}
-    </tbody>
-    <tfoot>
-      <tr>
-        <td colspan="3">Subtotal</td>
-        <td>{{subtotal}}</td>
+        <td colspan="3" style="text-align:right; font-weight:600;">
+          Subtotal:
+        </td>
+        <td style="text-align:right;">
+          {{subtotal}}
+        </td>
       </tr>
       {{#tax}}
       <tr>
-        <td colspan="3">Tax</td>
-        <td>{{tax}}</td>
+        <td colspan="3" style="text-align:right; font-weight:600;">
+          Tax:
+        </td>
+        <td style="text-align:right;">
+          {{tax}}
+        </td>
       </tr>
       {{/tax}}
-      {{#discount}}
+      <!-- Conditionally render Discount only if hasDiscount is true -->
+      {{#hasDiscount}}
       <tr>
-        <td colspan="3">Discount</td>
-        <td>{{discount}}</td>
+        <td colspan="3" style="text-align:right; font-weight:600;">
+          Discount:
+        </td>
+        <td style="text-align:right;">
+          {{discount}}
+        </td>
       </tr>
-      {{/discount}}
+      {{/hasDiscount}}
       <tr>
-        <td colspan="3">{{#is_invoice}}TOTAL DUE{{/is_invoice}}{{#is_quote}}TOTAL{{/is_quote}}</td>
-        <td>{{total}}</td>
+        <td colspan="3" style="text-align:right; font-weight:700; border-top:2px solid #333;">
+          {{#is_invoice}}TOTAL DUE{{/is_invoice}}{{#is_quote}}TOTAL{{/is_quote}}:
+        </td>
+        <td style="text-align:right; font-weight:700; border-top:2px solid #333;">
+          {{total}}
+        </td>
       </tr>
     </tfoot>
+
+    <!-- 4) Body after footer -->
+    <tbody>
+      {{#items}}
+      <tr>
+        <td style="vertical-align:top;">{{description}}</td>
+        <td style="text-align:right;">{{quantity}}</td>
+        <td style="text-align:right;">{{unit_price}}</td>
+        <td style="text-align:right;">{{total}}</td>
+      </tr>
+      {{/items}}
+    </tbody>
   </table>
 
   {{#is_invoice}}
