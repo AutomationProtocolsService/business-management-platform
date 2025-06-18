@@ -28,6 +28,10 @@ const companyFormSchema = z.object({
   website: z.string().url("Must be a valid URL").or(z.string().length(0)),
   currencyCode: z.string().min(1, "Currency code is required"),
   termsAndConditions: z.string().optional(),
+  bankAccountName: z.string().optional(),
+  bankSortCode: z.string().optional(),
+  bankAccountNumber: z.string().optional(),
+  bankName: z.string().optional(),
 });
 
 type CompanyFormValues = z.infer<typeof companyFormSchema>;
@@ -92,6 +96,10 @@ export default function SettingsPage() {
       website: settings?.website || "",
       currencyCode: settings?.currencyCode || "USD",
       termsAndConditions: settings?.termsAndConditions || "",
+      bankAccountName: settings?.bankAccountName || "",
+      bankSortCode: settings?.bankSortCode || "",
+      bankAccountNumber: settings?.bankAccountNumber || "",
+      bankName: settings?.bankName || "",
     },
   });
 
@@ -345,6 +353,65 @@ export default function SettingsPage() {
                       </FormItem>
                     )}
                   />
+
+                  {/* Bank Details Section */}
+                  <div className="space-y-4">
+                    <h3 className="text-lg font-medium">Bank Payment Details</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={companyForm.control}
+                        name="bankAccountName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="Your Company Name" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={companyForm.control}
+                        name="bankName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bank Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="HSBC Business Banking" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={companyForm.control}
+                        name="bankSortCode"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Sort Code</FormLabel>
+                            <FormControl>
+                              <Input placeholder="04-00-04" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={companyForm.control}
+                        name="bankAccountNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Account Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="41026518" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                 </form>
               </Form>
             </CardContent>

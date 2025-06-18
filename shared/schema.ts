@@ -491,6 +491,10 @@ export const companySettings = pgTable("company_settings", {
   defaultQuoteTerms: text("default_quote_terms"),
   termsAndConditions: text("terms_and_conditions"), // General terms and conditions
   bankDetails: text("bank_details"),
+  bankAccountName: text("bank_account_name"),
+  bankSortCode: text("bank_sort_code"),
+  bankAccountNumber: text("bank_account_number"),
+  bankName: text("bank_name"),
   footerText: text("footer_text"),
   primaryColor: text("primary_color").default("#2563eb"), // Default brand color for documents
   currency: text("currency").default("USD"), // Default currency for quotes and invoices
