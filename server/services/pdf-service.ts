@@ -783,6 +783,39 @@ class PDFServiceImpl {
   }
 }
 
-// Export a singleton instance
-const PDFService = new PDFServiceImpl();
+// Export the class and a factory function
+export { PDFServiceImpl };
+
+// Factory function to create PDFService with storage
+export function createPDFService(storage: any) {
+  return new PDFServiceImpl(storage);
+}
+
+// Legacy singleton for backward compatibility - will be deprecated
+let _instance: PDFServiceImpl | null = null;
+export function getPDFService(storage?: any) {
+  if (!_instance && storage) {
+    _instance = new PDFServiceImpl(storage);
+  }
+  return _instance;
+}
+
+const PDFService = {
+  generateQuotePDF: async (data: any) => {
+    const { storage } = await import('../storage');
+    const service = new PDFServiceImpl(storage);
+    return service.generateQuotePDF(data);
+  },
+  generateInvoicePDF: async (data: any) => {
+    const { storage } = await import('../storage');
+    const service = new PDFServiceImpl(storage);
+    return service.generateInvoicePDF(data);
+  },
+  generatePurchaseOrderPDF: async (data: any) => {
+    const { storage } = await import('../storage');
+    const service = new PDFServiceImpl(storage);
+    return service.generatePurchaseOrderPDF(data);
+  }
+};
+
 export default PDFService;
