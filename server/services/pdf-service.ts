@@ -574,33 +574,36 @@ class PDFServiceImpl {
         // Totals section with perfect right-alignment using same method as quote
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
         
-        // Right-aligned totals using same positioning as quote PDF
+        // Perfect right-aligned totals matching quote exactly
         let currentY = doc.y;
         
+        // Use the exact same positioning and method as quote PDF
+        const rightMargin = 550;
+        
         // Subtotal
-        doc.text('Subtotal:', 380, currentY, { width: 100, align: 'right' });
-        doc.text(formatMoney(invoiceData.subtotal || 0), 500, currentY, { width: 50, align: 'right' });
-        currentY += 15;
+        doc.text('Subtotal:', rightMargin - 130, currentY);
+        doc.text(formatMoney(invoiceData.subtotal || 0), rightMargin - 50, currentY, { width: 50, align: 'right' });
+        currentY += 12;
         
         // Tax (only if exists and > 0)
         if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', 380, currentY, { width: 100, align: 'right' });
-          doc.text(formatMoney(invoiceData.tax), 500, currentY, { width: 50, align: 'right' });
-          currentY += 15;
+          doc.text('Tax:', rightMargin - 130, currentY);
+          doc.text(formatMoney(invoiceData.tax), rightMargin - 50, currentY, { width: 50, align: 'right' });
+          currentY += 12;
         }
         
         // Discount (only if exists and > 0)
         if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', 380, currentY, { width: 100, align: 'right' });
-          doc.text(formatMoney(invoiceData.discount), 500, currentY, { width: 50, align: 'right' });
-          currentY += 15;
+          doc.text('Discount:', rightMargin - 130, currentY);
+          doc.text(formatMoney(invoiceData.discount), rightMargin - 50, currentY, { width: 50, align: 'right' });
+          currentY += 12;
         }
         
         // Total with emphasis
-        currentY += 5;
+        currentY += 3;
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
-        doc.text('TOTAL DUE:', 380, currentY, { width: 100, align: 'right' });
-        doc.text(formatMoney(invoiceData.total || 0), 500, currentY, { width: 50, align: 'right' });
+        doc.text('TOTAL DUE:', rightMargin - 130, currentY);
+        doc.text(formatMoney(invoiceData.total || 0), rightMargin - 50, currentY, { width: 50, align: 'right' });
         
         // Set doc.y to continue below totals
         doc.y = currentY + 30;
