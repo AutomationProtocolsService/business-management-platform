@@ -2,6 +2,8 @@ import PDFDocument from "pdfkit";
 import { createWriteStream } from "fs";
 import * as stream from "stream";
 import { storage } from "../storage";
+import axios from "axios";
+import path from "path";
 
 /**
  * Helper function to wrap long words for better text wrapping
@@ -37,6 +39,37 @@ const ROW_GAP = 6; // White-space below each row
  */
 class PDFServiceImpl {
   /**
+   * Download image from URL and return buffer
+   */
+  private async downloadImage(url: string): Promise<Buffer | null> {
+    try {
+      // Handle local file URLs
+      if (url.startsWith('/uploads/') || url.startsWith('./uploads/')) {
+        const fs = await import('fs');
+        const filePath = url.startsWith('./') ? url : `.${url}`;
+        if (fs.existsSync(filePath)) {
+          return fs.readFileSync(filePath);
+        }
+        return null;
+      }
+      
+      // Handle remote URLs
+      if (url.startsWith('http')) {
+        const response = await axios.get(url, { 
+          responseType: 'arraybuffer',
+          timeout: 5000 
+        });
+        return Buffer.from(response.data);
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error downloading image:', error);
+      return null;
+    }
+  }
+
+  /**
    * Add company header to PDF document
    */
   private async addCompanyHeader(doc: any, docType: string): Promise<void> {
@@ -44,34 +77,79 @@ class PDFServiceImpl {
       const companySettings = await storage.getCompanySettings();
       
       if (companySettings) {
-        // Company name at the top
-        doc.fontSize(16).fillColor('#000').text(companySettings.companyName, { align: 'center' });
+        const currentY = doc.y;
         
-        // Company address and contact info centered
-        if (companySettings.address || companySettings.city || companySettings.state || companySettings.zipCode) {
-          let addressLine = '';
-          if (companySettings.address) addressLine += companySettings.address;
-          if (companySettings.city) addressLine += (addressLine ? ', ' : '') + companySettings.city;
-          if (companySettings.state) addressLine += (addressLine ? ', ' : '') + companySettings.state;
-          if (companySettings.zipCode) addressLine += (addressLine ? ' ' : '') + companySettings.zipCode;
-          if (companySettings.country) addressLine += (addressLine ? ', ' : '') + companySettings.country;
-          
-          doc.fontSize(10).text(addressLine, { align: 'center' });
+        // Add company logo if available
+        if (companySettings.companyLogo) {
+          try {
+            const logoBuffer = await this.downloadImage(companySettings.companyLogo);
+            if (logoBuffer) {
+              // Calculate logo position (left-aligned with company info on right)
+              const logoX = 50;
+              const logoY = currentY;
+              const logoMaxWidth = 120;
+              const logoMaxHeight = 60;
+              
+              doc.image(logoBuffer, logoX, logoY, {
+                fit: [logoMaxWidth, logoMaxHeight],
+                align: 'left'
+              });
+              
+              // Company name and info positioned to the right of logo
+              const textX = logoX + logoMaxWidth + 20;
+              const textWidth = doc.page.width - textX - 50;
+              
+              doc.fontSize(16).fillColor('#000')
+                .text(companySettings.companyName, textX, logoY, { 
+                  width: textWidth, 
+                  align: 'left' 
+                });
+              
+              // Company address
+              if (companySettings.address || companySettings.city || companySettings.state || companySettings.zipCode) {
+                let addressLine = '';
+                if (companySettings.address) addressLine += companySettings.address;
+                if (companySettings.city) addressLine += (addressLine ? ', ' : '') + companySettings.city;
+                if (companySettings.state) addressLine += (addressLine ? ', ' : '') + companySettings.state;
+                if (companySettings.zipCode) addressLine += (addressLine ? ' ' : '') + companySettings.zipCode;
+                if (companySettings.country) addressLine += (addressLine ? ', ' : '') + companySettings.country;
+                
+                doc.fontSize(10).text(addressLine, textX, doc.y + 5, { 
+                  width: textWidth, 
+                  align: 'left' 
+                });
+              }
+              
+              // Contact information
+              let contactLine = '';
+              if (companySettings.phone) contactLine += companySettings.phone;
+              if (companySettings.email) contactLine += (contactLine ? ' | ' : '') + companySettings.email;
+              if (companySettings.website) contactLine += (contactLine ? ' | ' : '') + companySettings.website;
+              
+              if (contactLine) {
+                doc.fontSize(10).text(contactLine, textX, doc.y + 3, { 
+                  width: textWidth, 
+                  align: 'left' 
+                });
+              }
+              
+              // Move to below the logo/text area
+              doc.y = Math.max(doc.y + 10, logoY + logoMaxHeight + 10);
+            } else {
+              // Fallback to text-only header if logo fails
+              await this.addTextOnlyHeader(doc, companySettings);
+            }
+          } catch (error) {
+            console.error('Error adding logo to PDF:', error);
+            // Fallback to text-only header if logo fails
+            await this.addTextOnlyHeader(doc, companySettings);
+          }
+        } else {
+          // No logo, use centered text layout
+          await this.addTextOnlyHeader(doc, companySettings);
         }
         
-        // Contact information
-        let contactLine = '';
-        if (companySettings.phone) contactLine += companySettings.phone;
-        if (companySettings.email) contactLine += (contactLine ? ' | ' : '') + companySettings.email;
-        if (companySettings.website) contactLine += (contactLine ? ' | ' : '') + companySettings.website;
-        
-        if (contactLine) {
-          doc.fontSize(10).text(contactLine, { align: 'center' });
-        }
-        
-        doc.moveDown(0.5);
-        
-        // Add a separator line
+        // Add separator line
         doc.moveTo(50, doc.y).lineTo(doc.page.width - 50, doc.y).stroke();
         doc.moveDown(0.5);
       }
@@ -86,6 +164,38 @@ class PDFServiceImpl {
       doc.fontSize(20).fillColor('#000').text(docType, { align: 'center' });
       doc.moveDown();
     }
+  }
+
+  /**
+   * Add text-only header (fallback when no logo)
+   */
+  private async addTextOnlyHeader(doc: any, companySettings: any): Promise<void> {
+    // Company name at the top
+    doc.fontSize(16).fillColor('#000').text(companySettings.companyName, { align: 'center' });
+    
+    // Company address and contact info centered
+    if (companySettings.address || companySettings.city || companySettings.state || companySettings.zipCode) {
+      let addressLine = '';
+      if (companySettings.address) addressLine += companySettings.address;
+      if (companySettings.city) addressLine += (addressLine ? ', ' : '') + companySettings.city;
+      if (companySettings.state) addressLine += (addressLine ? ', ' : '') + companySettings.state;
+      if (companySettings.zipCode) addressLine += (addressLine ? ' ' : '') + companySettings.zipCode;
+      if (companySettings.country) addressLine += (addressLine ? ', ' : '') + companySettings.country;
+      
+      doc.fontSize(10).text(addressLine, { align: 'center' });
+    }
+    
+    // Contact information
+    let contactLine = '';
+    if (companySettings.phone) contactLine += companySettings.phone;
+    if (companySettings.email) contactLine += (contactLine ? ' | ' : '') + companySettings.email;
+    if (companySettings.website) contactLine += (contactLine ? ' | ' : '') + companySettings.website;
+    
+    if (contactLine) {
+      doc.fontSize(10).text(contactLine, { align: 'center' });
+    }
+    
+    doc.moveDown(0.5);
   }
   /**
    * Generate a PDF for a quote
