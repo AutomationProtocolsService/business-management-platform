@@ -1,0 +1,119 @@
+That “updateSystemSettings is not a function” means your component is trying to call a function that never got passed down (or was mis-named) in your context/provider. Let’s go through a quick checklist to wire it up correctly:
+
+1. Define and export your provider’s API
+In your SettingsContext.js (or wherever you keep your context), make sure you both implement and export an updater called exactly updateSystemSettings. For example:
+
+js
+Copy
+Edit
+// src/context/SettingsContext.jsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { fetchSystemSettings, saveSystemSettings } from '../api/settings';
+
+const SettingsContext = createContext();
+
+export function SettingsProvider({ children }) {
+  const [systemSettings, setSystemSettings] = useState(null);
+
+  // Load on mount
+  useEffect(() => {
+    fetchSystemSettings().then(setSystemSettings);
+  }, []);
+
+  // This is the function your UI will call
+  async function updateSystemSettings(patch) {
+    const updated = await saveSystemSettings(patch);
+    setSystemSettings(updated);
+    return updated;
+  }
+
+  return (
+    <SettingsContext.Provider
+      value={{ systemSettings, updateSystemSettings }}
+    >
+      {children}
+    </SettingsContext.Provider>
+  );
+}
+
+// convenience hook
+export function useSettings() {
+  return useContext(SettingsContext);
+}
+Key points
+
+We create a function called exactly updateSystemSettings.
+
+We pass it (and the current settings) as the context value object.
+
+We export both the provider and a useSettings hook.
+
+2. Wrap your app in the provider
+In your entrypoint (e.g. index.jsx), make sure the SettingsProvider is around any component that calls useSettings():
+
+jsx
+Copy
+Edit
+import React from 'react'
+import ReactDOM from 'react-dom'
+import App from './App'
+import { SettingsProvider } from './context/SettingsContext'
+
+ReactDOM.render(
+  <SettingsProvider>
+    <App />
+  </SettingsProvider>,
+  document.getElementById('root')
+)
+3. Consume the right function in your Settings screen
+Now in your SystemSettings.jsx, import and call useSettings, and destructure updateSystemSettings:
+
+jsx
+Copy
+Edit
+import React from 'react';
+import { useSettings } from '../context/SettingsContext';
+import { Switch } from '@/components/ui/switch';
+
+export default function SystemSettings() {
+  const { systemSettings, updateSystemSettings } = useSettings();
+
+  if (!systemSettings) return <p>Loading…</p>;
+
+  return (
+    <div>
+      <div className="setting-row">
+        <div>
+          <h3>Dark Mode</h3>
+          <p>Enable dark mode for the application</p>
+        </div>
+        <Switch
+          checked={systemSettings.dark_mode}
+          onCheckedChange={async (val) => {
+            try {
+              await updateSystemSettings({ dark_mode: val });
+            } catch (err) {
+              console.error(err);
+            }
+          }}
+        />
+      </div>
+      {/* …other toggles here… */}
+    </div>
+  );
+}
+Common pitfalls:
+
+Forgetting to wrap the app in <SettingsProvider> (so useSettings() returns {}).
+
+Mismatched names (updateSettings vs. updateSystemSettings).
+
+Exporting the provider but not exporting the updater in the context’s value object.
+
+4. Verify in React DevTools
+Open React DevTools, select your SettingsProvider.
+
+Look at its “props”/“context” — you should see an object with both systemSettings and updateSystemSettings (a function).
+
+If updateSystemSettings is missing or undefined, go back to step 1 and make sure it’s in your value={{…}}.
+
