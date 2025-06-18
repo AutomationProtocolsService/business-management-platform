@@ -3228,6 +3228,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Unified PDF test endpoints with consistent styling
+  app.get("/api/test-unified-quote-pdf", async (req: Request, res: Response) => {
+    try {
+      const testQuoteData = {
+        quoteNumber: 'QUO-7776-1-06715',
+        issueDate: '5/24/2025',
+        expiryDate: '6/23/2025',
+        customerName: 'Praneeth',
+        customerEmail: 'yerasubhash2000@gmail.com',
+        customerPhone: '07468519682',
+        customerAddress: '45',
+        projectName: 'manchester',
+        subtotal: 1890.00,
+        tax: 20.00,
+        discount: 90.00,
+        total: 1820.00,
+        items: [
+          {
+            description: 'To supply and install single-phase roller shutter with tubular motor 150NM. Motor to have manual override in case of power failure. Roller shutters to have solid curtain laths, 2.5 inch guide rails and L-bottom for extra security. Shutter to be operated by remote FOB system. Shutter to be manufactured in RAL TBC.',
+            quantity: 1,
+            unitPrice: 1890.00,
+            total: 1890.00
+          }
+        ]
+      };
+
+      console.log("Generating unified quote PDF...");
+      const { generateQuotePDF } = await import('./services/unified-pdf-service');
+      const pdfBuffer = await generateQuotePDF(testQuoteData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Unified_Quote.pdf"');
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating unified quote PDF:", error);
+      res.status(500).json({ message: "Failed to generate unified quote PDF", error: error.message });
+    }
+  });
+
+  app.get("/api/test-unified-invoice-pdf", async (req: Request, res: Response) => {
+    try {
+      const testInvoiceData = {
+        invoiceNumber: 'INV-390097',
+        issueDate: '5/24/2025',
+        dueDate: '6/23/2025',
+        customerName: 'Akshay Ramporam',
+        customerEmail: 'akshayreddyramporam@gmail.com',
+        customerPhone: '07824046274',
+        customerAddress: '45',
+        projectName: 'Fisher aqua',
+        projectDescription: 'test it running',
+        quoteId: '7',
+        subtotal: 1800.00,
+        tax: 20.00,
+        discount: 70.00,
+        total: 1750.00,
+        items: [
+          {
+            description: 'To supply and install single-phase roller shutter with tubular motor 150NM. Motor to have manual override in case of power failure. Roller shutters to have solid curtain laths, 2.5 inch guide rails and L-bottom for extra security. Shutter to be operated by remote FOB system. Shutter to be manufactured in RAL TBC.',
+            quantity: 1,
+            unitPrice: 1800.00,
+            total: 1800.00
+          }
+        ]
+      };
+
+      console.log("Generating unified invoice PDF...");
+      const { generateInvoicePDF } = await import('./services/unified-pdf-service');
+      const pdfBuffer = await generateInvoicePDF(testInvoiceData);
+      
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', 'attachment; filename="Unified_Invoice.pdf"');
+      res.send(pdfBuffer);
+    } catch (error) {
+      console.error("Error generating unified invoice PDF:", error);
+      res.status(500).json({ message: "Failed to generate unified invoice PDF", error: error.message });
+    }
+  });
+
 
   // We'll create a server in index.ts
   console.log('API routes registered successfully');

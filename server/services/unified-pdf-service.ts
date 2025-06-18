@@ -24,22 +24,29 @@ class UnifiedPdfService {
    */
   private async generateUnifiedPDF(templateData: any): Promise<Buffer> {
     try {
+      console.log('Loading unified document template...');
       // Load the unified document template
       const templatePath = path.join(process.cwd(), 'server', 'templates', 'document.html');
       const template = await fs.readFile(templatePath, 'utf-8');
       
+      console.log('Rendering template with Mustache...');
       // Render the template with Mustache
       const html = Mustache.render(template, templateData);
       
-      // Convert to PDF
+      console.log('Starting Puppeteer PDF conversion...');
+      // Convert to PDF with timeout and error handling
       const browser = await this.getBrowser();
       const page = await browser.newPage();
       
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      // Set viewport and wait for content to load
+      await page.setViewport({ width: 1200, height: 1600 });
+      await page.setContent(html, { waitUntil: 'networkidle2', timeout: 30000 });
       
-      const pdf = await page.pdf({
+      console.log('Generating PDF...');
+      const pdfBuffer = await page.pdf({
         format: 'A4',
         printBackground: true,
+        preferCSSPageSize: false,
         margin: {
           top: '20mm',
           right: '15mm',
@@ -49,11 +56,16 @@ class UnifiedPdfService {
       });
       
       await page.close();
-      return Buffer.from(pdf);
+      console.log(`PDF generated successfully, size: ${pdfBuffer.length} bytes`);
+      return Buffer.from(pdfBuffer);
       
     } catch (error) {
       console.error('Error generating unified PDF:', error);
-      throw error;
+      // Fallback to returning the HTML for debugging if PDF generation fails
+      const templatePath = path.join(process.cwd(), 'server', 'templates', 'document.html');
+      const template = await fs.readFile(templatePath, 'utf-8');
+      const html = Mustache.render(template, templateData);
+      throw new Error(`PDF generation failed: ${error.message}. HTML content: ${html.substring(0, 500)}...`);
     }
   }
 
