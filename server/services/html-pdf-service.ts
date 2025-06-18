@@ -105,73 +105,84 @@ export class HtmlPdfService {
    * Generate professional quote PDF
    */
   async generateQuotePDF(quoteData: any, companySettings: any): Promise<Buffer> {
-    const template = await this.loadTemplate('quote-template');
-
-    // Prepare template data
-    const templateData: TemplateData = {
-      document_type: 'QUOTE',
-      logo_url: companySettings?.companyLogo ? `file://${path.resolve(companySettings.companyLogo.replace('./', ''))}` : undefined,
-      company_name: companySettings?.companyName || 'Company Name',
-      address: companySettings?.address,
-      city: companySettings?.city,
-      state: companySettings?.state,
-      zip_code: companySettings?.zipCode,
-      country: companySettings?.country,
-      phone: companySettings?.phone,
-      email: companySettings?.email,
-      number: quoteData.quoteNumber,
-      date: new Date(quoteData.issueDate || quoteData.createdAt).toLocaleDateString(),
-      expiry_date: quoteData.expiryDate ? new Date(quoteData.expiryDate).toLocaleDateString() : undefined,
-      reference: quoteData.reference,
-      customer: {
-        name: quoteData.customer?.name || 'Customer Name',
-        address: quoteData.customer?.address,
-        city: quoteData.customer?.city,
-        state: quoteData.customer?.state,
-        zip_code: quoteData.customer?.zipCode,
-        email: quoteData.customer?.email,
-        phone: quoteData.customer?.phone,
-      },
-      items: (quoteData.quoteItems || []).map((item: any) => ({
-        description: item.description,
-        quantity: item.quantity,
-        unit_price: this.formatCurrency(item.unitPrice),
-        total: this.formatCurrency(item.total),
-      })),
-      subtotal: this.formatCurrency(quoteData.subtotal || 0),
-      tax: quoteData.tax ? this.formatCurrency(quoteData.tax) : undefined,
-      discount: quoteData.discount ? this.formatCurrency(quoteData.discount) : undefined,
-      total: this.formatCurrency(quoteData.total || 0),
-      currency_symbol: companySettings?.currencySymbol || '$',
-      terms: companySettings?.termsAndConditions,
-    };
-
-    const html = this.renderTemplate(template, templateData);
-
-    // Generate PDF with Puppeteer
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-
     try {
-      const page = await browser.newPage();
-      await page.setContent(html, { waitUntil: 'networkidle0' });
+      console.log('Starting quote PDF generation...');
+      const template = await this.loadTemplate('quote-template');
 
-      const pdf = await page.pdf({
-        format: 'A4',
-        printBackground: true,
-        margin: {
-          top: '0.5in',
-          right: '0.5in',
-          bottom: '0.5in',
-          left: '0.5in'
-        }
+      // Prepare template data
+      const templateData: TemplateData = {
+        document_type: 'QUOTE',
+        logo_url: companySettings?.companyLogo ? `file://${path.resolve(companySettings.companyLogo.replace('./', ''))}` : undefined,
+        company_name: companySettings?.companyName || 'Company Name',
+        address: companySettings?.address,
+        city: companySettings?.city,
+        state: companySettings?.state,
+        zip_code: companySettings?.zipCode,
+        country: companySettings?.country,
+        phone: companySettings?.phone,
+        email: companySettings?.email,
+        number: quoteData.quoteNumber,
+        date: new Date(quoteData.issueDate || quoteData.createdAt).toLocaleDateString(),
+        expiry_date: quoteData.expiryDate ? new Date(quoteData.expiryDate).toLocaleDateString() : undefined,
+        reference: quoteData.reference,
+        customer: {
+          name: quoteData.customer?.name || 'Customer Name',
+          address: quoteData.customer?.address,
+          city: quoteData.customer?.city,
+          state: quoteData.customer?.state,
+          zip_code: quoteData.customer?.zipCode,
+          email: quoteData.customer?.email,
+          phone: quoteData.customer?.phone,
+        },
+        items: (quoteData.quoteItems || []).map((item: any) => ({
+          description: item.description,
+          quantity: item.quantity,
+          unit_price: this.formatCurrency(item.unitPrice),
+          total: this.formatCurrency(item.total),
+        })),
+        subtotal: this.formatCurrency(quoteData.subtotal || 0),
+        tax: quoteData.tax ? this.formatCurrency(quoteData.tax) : undefined,
+        discount: quoteData.discount ? this.formatCurrency(quoteData.discount) : undefined,
+        total: this.formatCurrency(quoteData.total || 0),
+        currency_symbol: companySettings?.currencySymbol || '$',
+        terms: companySettings?.termsAndConditions,
+      };
+
+      console.log('Template data prepared, rendering HTML...');
+      const html = this.renderTemplate(template, templateData);
+      console.log('HTML rendered, launching Puppeteer...');
+
+      // Generate PDF with Puppeteer
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
       });
 
-      return pdf;
-    } finally {
-      await browser.close();
+      try {
+        const page = await browser.newPage();
+        console.log('Setting HTML content...');
+        await page.setContent(html, { waitUntil: 'networkidle0' });
+        
+        console.log('Generating PDF...');
+        const pdf = await page.pdf({
+          format: 'A4',
+          printBackground: true,
+          margin: {
+            top: '0.5in',
+            right: '0.5in',
+            bottom: '0.5in',
+            left: '0.5in'
+          }
+        });
+
+        console.log('PDF generated successfully, size:', pdf.length, 'bytes');
+        return pdf;
+      } finally {
+        await browser.close();
+      }
+    } catch (error) {
+      console.error('Error in generateQuotePDF:', error);
+      throw error;
     }
   }
 
