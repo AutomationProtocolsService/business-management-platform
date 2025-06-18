@@ -1140,36 +1140,7 @@ export class MemStorage implements IStorage {
     return updatedSettings;
   }
 
-  // System Settings methods
-  async getSystemSettings(): Promise<SystemSettings | undefined> {
-    // System settings are singleton, so we get the first one if it exists
-    const settingsArray = Array.from(this.systemSettings.values());
-    return settingsArray.length > 0 ? settingsArray[0] : undefined;
-  }
 
-  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
-    // First check if settings already exist
-    const existingSettings = await this.getSystemSettings();
-    if (existingSettings) {
-      // If settings already exist, update them instead
-      return this.updateSystemSettings(existingSettings.id, settings);
-    }
-    
-    // Otherwise create new settings
-    const id = this.systemSettingsId++;
-    const newSettings: SystemSettings = { ...settings, id, createdAt: new Date() };
-    this.systemSettings.set(id, newSettings);
-    return newSettings;
-  }
-
-  async updateSystemSettings(id: number, settingsData: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
-    const settings = this.systemSettings.get(id);
-    if (!settings) return undefined;
-    
-    const updatedSettings = { ...settings, ...settingsData };
-    this.systemSettings.set(id, updatedSettings);
-    return updatedSettings;
-  }
 
   // Supplier methods
   async getSupplier(id: number): Promise<Supplier | undefined> {
@@ -1779,9 +1750,12 @@ export class DatabaseStorage implements IStorage {
   }
   
   async updateSystemSettings(id: number, settings: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
+    // Filter out any timestamp fields that might cause issues
+    const { id: settingsId, createdAt, updatedAt, ...settingsToUpdate } = settings;
+    
     const [updatedSettings] = await db.update(schema.systemSettings)
       .set({
-        ...settings,
+        ...settingsToUpdate,
         updatedAt: new Date()
       })
       .where(eq(schema.systemSettings.id, id))
@@ -3210,27 +3184,7 @@ export class DatabaseStorage implements IStorage {
     return result[0];
   }
   
-  // System Settings methods
-  async getSystemSettings(): Promise<SystemSettings | undefined> {
-    const result = await db.query.systemSettings.findFirst();
-    return result;
-  }
 
-  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
-    const result = await db.insert(schema.systemSettings).values({
-      ...settings,
-      updatedAt: new Date()
-    }).returning();
-    return result[0];
-  }
-
-  async updateSystemSettings(id: number, settingsData: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
-    const result = await db.update(schema.systemSettings)
-      .set(settingsData)
-      .where(eq(schema.systemSettings.id, id))
-      .returning();
-    return result[0];
-  }
 
   // Supplier methods
   async getSupplier(id: number): Promise<Supplier | undefined> {

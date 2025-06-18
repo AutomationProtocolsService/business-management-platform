@@ -1,0 +1,120 @@
+1) Browser DevTools → Network
+Field	Example Output
+Request URL	POST https://my-app.repl.co/api/system_settings
+Status Code	500 Internal Server Error
+Request Payload	```json
+{	
+"dark_mode": false,	
+"email_notifications": true,	
+"auto_save": true,	
+"default_page_size": 10	
+}	
+
+pgsql
+Copy
+Edit
+| **Response Body**  | ```json
+{
+  "error": "Failed to create system settings: Validation failed: default_page_size can't be blank"
+}
+2) Reproduce with curl
+bash
+Copy
+Edit
+$ curl -i -X POST https://my-app.repl.co/api/system_settings \
+    -H "Content-Type: application/json" \
+    -d '{"dark_mode":false,"email_notifications":true,"auto_save":true,"default_page_size":10}'
+Terminal output:
+
+pgsql
+Copy
+Edit
+HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+Date: Wed, 18 Jun 2025 14:22:10 GMT
+Content-Length: 100
+
+{"error":"Failed to create system settings: Validation failed: default_page_size can't be blank"}
+3) Server logs (e.g. log/development.log)
+php
+Copy
+Edit
+[2025-06-18 14:22:10] ERROR -- :   Parameters: {"dark_mode"=>false, "email_notifications"=>true, "auto_save"=>true}
+[2025-06-18 14:22:10] ERROR -- :   
+ActiveRecord::RecordInvalid (Validation failed: default_page_size can't be blank):
+  app/controllers/system_settings_controller.rb:25:in `create'
+Notice: the payload in the log is missing default_page_size entirely—your front-end never included it in the JSON body, so Rails stripped it out via strong-params.
+
+4) Database state
+sql
+Copy
+Edit
+-- Before any create/update...
+SELECT * FROM system_settings;
+ id | dark_mode | email_notifications | auto_save | default_page_size 
+----+-----------+---------------------+-----------+-------------------
+(no rows)
+
+Because the create call failed before writing, your table remains empty and every “POST” hits this validation again.
+
+5) Root cause
+Your front-end form is collecting the “Default Page Size” value but not including it in the JSON you call the API with. Rails then raises a validation error because that column is NOT NULL (or has a presence validation).
+
+6) Fix
+Front-end (e.g. React / fetch)
+Make sure your save handler serializes all four fields:
+
+js
+Copy
+Edit
+async function saveSettings(settings) {
+  const payload = {
+    dark_mode: settings.darkMode,
+    email_notifications: settings.emailNotifications,
+    auto_save: settings.autoSave,
+    default_page_size: Number(settings.defaultPageSize),   // ← ensure this is here!
+  };
+
+  const res = await fetch("/api/system_settings", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+
+  if (!res.ok) throw new Error(await res.text());
+  return res.json();
+}
+Back-end (Rails example)
+Permit the new parameter in your controller:
+
+ruby
+Copy
+Edit
+def system_settings_params
+  params
+    .require(:system_settings)
+    .permit(:dark_mode, :email_notifications, :auto_save, :default_page_size)
+end
+Or, if you’re not namespacing under system_settings:
+
+ruby
+Copy
+Edit
+def system_settings_params
+  params.permit(:dark_mode, :email_notifications, :auto_save, :default_page_size)
+end
+7) Re-test
+Browser → DevTools Network
+
+Payload now includes "default_page_size":10
+
+Response → 200 OK with your updated settings JSON
+
+DB → SELECT * FROM system_settings; now shows one row with all four values set
+
+Next steps
+Apply the front-end change to include default_page_size.
+
+Deploy your back-end strong‐params fix (if needed).
+
+Click Save System Settings again—this time you should get a 200 and see your values persisted in the table.
