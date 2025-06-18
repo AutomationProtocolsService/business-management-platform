@@ -428,7 +428,7 @@ class PDFServiceImpl {
   }
 
   /**
-   * Generate a PDF for an invoice
+   * Generate a PDF for an invoice with identical styling to quote PDF
    * @param invoiceData The invoice data including related items, customer, and project
    * @param useTestData Whether to use test data for development/debugging
    * @returns Buffer containing the PDF
@@ -436,7 +436,9 @@ class PDFServiceImpl {
   async generateInvoicePDF(invoiceData: any, useTestData = false): Promise<Buffer> {
     return new Promise(async (resolve, reject) => {
       try {
-        // Create a PDF document with larger margins
+        console.log("PDF table layout patch loaded - Invoice generation starting");
+        
+        // Create a PDF document with identical settings to quote
         const doc = new PDFDocument({
           margin: 50,
           size: 'letter',
@@ -471,97 +473,91 @@ class PDFServiceImpl {
         // Add company header with company information
         await this.addCompanyHeader(doc, 'INVOICE');
         
-        // Add invoice information
-        doc.fontSize(12).text(`Invoice Number: ${invoiceData.invoiceNumber}`);
-        doc.text(`Issue Date: ${new Date(invoiceData.issueDate).toLocaleDateString()}`);
-        doc.text(`Due Date: ${new Date(invoiceData.dueDate).toLocaleDateString()}`);
-        doc.moveDown();
+        // Add invoice information using professional formatting
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        doc.text(`Invoice Number: ${invoiceData.invoiceNumber}`, 50, doc.y);
+        doc.text(`Issue Date: ${invoiceData.issueDate}`, 50, doc.y);
+        doc.text(`Due Date: ${invoiceData.dueDate}`, 50, doc.y);
+        doc.moveDown(1);
         
-        // Add customer information if available
-        if (invoiceData.customer) {
-          doc.text('BILL TO:', { underline: true });
-          doc.text(`Name: ${invoiceData.customer.name || 'N/A'}`);
-          doc.text(`Email: ${invoiceData.customer.email || 'N/A'}`);
-          if (invoiceData.customer.phone) doc.text(`Phone: ${invoiceData.customer.phone}`);
-          if (invoiceData.customer.address) doc.text(`Address: ${invoiceData.customer.address}`);
-          doc.moveDown();
-        } else {
-          doc.text('BILL TO:', { underline: true });
-          doc.text('No customer information available');
-          doc.moveDown();
-        }
+        // Customer information section with professional styling
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
+           .text('BILL TO:', 50, doc.y);
+        doc.moveDown(0.5);
         
-        // Add project information if available
-        if (invoiceData.project) {
-          doc.text('PROJECT INFORMATION', { underline: true });
-          doc.text(`Project: ${invoiceData.project.name}`);
-          if (invoiceData.project.description) doc.text(`Description: ${invoiceData.project.description}`, { width: maxWidth });
-          doc.moveDown();
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        doc.text(`Name: ${invoiceData.customerName || 'N/A'}`, 50, doc.y);
+        doc.text(`Email: ${invoiceData.customerEmail || 'N/A'}`, 50, doc.y);
+        if (invoiceData.customerPhone) doc.text(`Phone: ${invoiceData.customerPhone}`, 50, doc.y);
+        if (invoiceData.customerAddress) doc.text(`Address: ${invoiceData.customerAddress}`, 50, doc.y);
+        doc.moveDown(1);
+        
+        // Project information section
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
+           .text('PROJECT INFORMATION', 50, doc.y);
+        doc.moveDown(0.5);
+        
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        doc.text(`Project: ${invoiceData.projectName || 'N/A'}`, 50, doc.y);
+        if (invoiceData.projectDescription) {
+          doc.text(`Description: ${invoiceData.projectDescription}`, 50, doc.y, { width: maxWidth });
         }
+        doc.moveDown(0.5);
         
         // Related quote information if available
         if (invoiceData.quoteId) {
-          doc.text(`Related Quote: ${invoiceData.quoteId}`);
-          doc.moveDown();
+          doc.text(`Related Quote: ${invoiceData.quoteId}`, 50, doc.y);
+          doc.moveDown(1);
+        } else {
+          doc.moveDown(0.5);
         }
         
-        // Add items table
-        doc.text('ITEMS', { underline: true });
-        doc.moveDown(0.5);
+        // Items table with professional styling matching quote exactly
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#374151')
+           .text('ITEMS', 50, doc.y);
+        doc.moveDown(0.8);
         
-        // Clean table layout without borders - fixed column spacing
-        const pageWidth = doc.page.width - 100;
-        const descriptionWidth = 280;
-        const quantityWidth = 60;
-        const priceWidth = 80;
-        const amountWidth = 80;
+        // Professional table header using exact quote formatting
+        doc.fontSize(10).font('Helvetica-Bold').fillColor('#000000');
         
-        // Table header positions with wider spacing
+        // Use exact same column positions as quote for consistency
         const descriptionX = 50;
-        const quantityX = 360;  // Quantity column
-        const priceX = 430;     // Price column
-        const amountX = 515;    // Amount column with more space
+        const quantityX = COLS.qty;
+        const priceX = COLS.price;  
+        const amountX = COLS.amt;
         
-        // Table header - clean design
-        doc.font('Helvetica-Bold');
+        // Table header
         doc.text('Description', descriptionX, doc.y);
-        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { width: quantityWidth, align: 'center' });
-        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { width: priceWidth, align: 'right' });
-        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+        doc.text('Qty', quantityX, doc.y - doc.currentLineHeight(), { width: 50, align: 'center' });
+        doc.text('Price', priceX, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+        doc.text('Amount', amountX, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
         
-        doc.moveDown(0.5);
+        doc.moveDown(0.8);
         
-        // Single line under header only
-        const headerLineY = doc.y;
-        doc.moveTo(descriptionX, headerLineY).lineTo(amountX + amountWidth, headerLineY).stroke();
-        doc.moveDown(0.5);
+        // Reset font for items
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
         
-        // Reset font
-        doc.font('Helvetica');
-        
-        // Items without table borders
+        // Items section with clean layout matching quote format
         if (invoiceData.items && invoiceData.items.length) {
           invoiceData.items.forEach(({ description, quantity, unitPrice, total }: any, i: number) => {
             const yStart = doc.y;
-
-            // Description with wrapping
+            
+            // Description with proper wrapping using quote format
             doc.text(wrapLongWords(description || ''), descriptionX, yStart, { 
-              width: descriptionWidth - 10,
+              width: DESC_WIDTH,
               continued: false 
             });
-
-            // Get the height after description text wrapping
-            const descriptionHeight = doc.y - yStart;
             
-            // Center align quantity, price, and amount with the description
-            const centerY = yStart + (descriptionHeight / 2) - 6;
+            const descHeight = doc.y - yStart;
+            const centerY = yStart + (descHeight / 2) - 6;
             
-            doc.text(String(quantity), quantityX, centerY, { width: quantityWidth, align: 'center' });
-            doc.text(formatMoney(unitPrice || 0), priceX, centerY, { width: priceWidth, align: 'right' });
-            doc.text(formatMoney(total || 0), amountX, centerY, { width: amountWidth, align: 'right' });
-
+            // Align other columns to center of description
+            doc.text(String(quantity), quantityX, centerY, { width: 50, align: 'center' });
+            doc.text(formatMoney(unitPrice || 0), priceX, centerY, { width: 50, align: 'right' });
+            doc.text(formatMoney(total || 0), amountX, centerY, { width: 50, align: 'right' });
+            
             // Move to next row with proper spacing
-            doc.y = yStart + Math.max(descriptionHeight, 20) + 8;
+            doc.y = yStart + Math.max(descHeight, 20) + ROW_GAP;
             
             // Check for new page
             if (doc.y > doc.page.height - 150) {
@@ -573,45 +569,41 @@ class PDFServiceImpl {
           doc.moveDown();
         }
         
-        doc.moveDown(1);
+        doc.moveDown(1.5);
         
-        // Clean totals section aligned to the right
-        const totalsX = priceX;
-        doc.text('Subtotal:', totalsX, doc.y, { align: 'left' });
-        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
-        doc.moveDown(0.3);
+        // Totals section with professional right-alignment matching quote
+        const totalsRightAlign = 450;
         
-        if (invoiceData.tax) {
-          doc.text('Tax:', totalsX, doc.y, { align: 'left' });
-          doc.text(`$${invoiceData.tax.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
-          doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        doc.text('Subtotal:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.subtotal || 0), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+        doc.moveDown(0.4);
+        
+        if (invoiceData.tax && invoiceData.tax > 0) {
+          doc.text('Tax:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.tax), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+          doc.moveDown(0.4);
         }
         
-        if (invoiceData.discount) {
-          doc.text('Discount:', totalsX, doc.y, { align: 'left' });
-          doc.text(`$${invoiceData.discount.toFixed(2)}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
-          doc.moveDown(0.3);
+        if (invoiceData.discount && invoiceData.discount > 0) {
+          doc.text('Discount:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.discount), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+          doc.moveDown(0.4);
         }
         
-        doc.font('Helvetica-Bold');
-        doc.text('TOTAL DUE:', totalsX, doc.y, { align: 'left' });
-        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, amountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
-        doc.font('Helvetica');
-        doc.moveDown();
+        // Total with emphasis
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
+        doc.text('TOTAL DUE:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.total || 0), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
         
-        // Add payment instructions
-        doc.moveDown();
-        doc.text('PAYMENT INSTRUCTIONS', { underline: true });
-        doc.text('Please reference invoice number when making payment.', { width: maxWidth });
+        doc.moveDown(2);
         
         // Add company terms & conditions from settings
         try {
           const { storage } = await import('../storage');
           const companySettings = await storage.getCompanySettings();
           if (companySettings?.termsAndConditions) {
-            doc.moveDown(2);
-            
-            // Professional terms section styling
+            // Professional terms section styling matching quote
             doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
                .text('Terms & Conditions', 50, doc.y);
             doc.moveDown(0.5);
@@ -625,7 +617,6 @@ class PDFServiceImpl {
           }
         } catch (error) {
           console.error('Error loading company settings for invoice PDF:', error);
-          // Continue without terms if there's an error
         }
         
         // Add notes if provided
@@ -638,10 +629,11 @@ class PDFServiceImpl {
              .text(invoiceData.notes, 50, doc.y, { width: maxWidth });
         }
         
-        // Add a footer
+        // Add footer with page numbers
         const pageCount = doc.bufferedPageRange().count;
         for (let i = 0; i < pageCount; i++) {
           doc.switchToPage(i);
+          doc.fontSize(9).font('Helvetica').fillColor('#666666');
           doc.text(
             `Page ${i + 1} of ${pageCount}`,
             50,
@@ -651,7 +643,9 @@ class PDFServiceImpl {
           
           // Add "Thank you" message on the last page
           if (i === pageCount - 1) {
-            doc.text('Thank you for your business!', 50, doc.page.height - 70, { align: 'center' });
+            doc.moveDown(1);
+            doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb');
+            doc.text('Thank you for your business!', 50, doc.page.height - 80, { align: 'center' });
           }
         }
         
