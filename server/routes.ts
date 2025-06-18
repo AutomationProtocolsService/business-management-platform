@@ -27,7 +27,7 @@ import { storage } from "./storage";
 import { getWebSocketManager } from "./websocket";
 import EmailService from "./services/email-service";
 import PDFService from "./services/pdf-service";
-import { HtmlPdfService } from "./services/html-pdf-service";
+
 import FileService from "./services/file-service";
 import SecurityService from "./services/security-service";
 // Removed Puppeteer PDF service - now using PDFKit service
@@ -3128,61 +3128,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Professional HTML-based PDF generation endpoints
-  const htmlPdfService = new HtmlPdfService();
-
-  app.get("/api/test-professional-quote-pdf", async (req: Request, res: Response) => {
-    try {
-      console.log("Professional quote PDF endpoint called");
-      const companySettings = await storage.getCompanySettings();
-      console.log("Company settings retrieved:", companySettings?.companyName);
-      
-      const testQuoteData = {
-        quoteNumber: 'QUO-7776-1-06715',
-        issueDate: '2025-05-24',
-        expiryDate: '2025-06-23',
-        createdAt: new Date(),
-        reference: 'REF-2025-001',
-        subtotal: 2500.00,
-        tax: 250.00,
-        discount: 0,
-        total: 2750.00,
-        customer: {
-          name: 'Test Customer Ltd',
-          address: '123 Business Street',
-          city: 'Manchester',
-          state: 'Greater Manchester',
-          zipCode: 'M1 1AA',
-          email: 'customer@testcompany.com',
-          phone: '0161 123 4567'
-        },
-        quoteItems: [
-          {
-            description: 'Professional shopfront installation with premium materials and 2-year warranty',
-            quantity: 1,
-            unitPrice: 2500.00,
-            total: 2500.00
-          }
-        ]
-      };
-
-      console.log("Calling htmlPdfService.generateQuotePDF...");
-      const pdfBuffer = await htmlPdfService.generateQuotePDF(testQuoteData, companySettings);
-      console.log("PDF generation completed, buffer size:", pdfBuffer?.length || 'undefined');
-      
-      if (!pdfBuffer || pdfBuffer.length === 0) {
-        throw new Error("PDF generation returned empty buffer");
-      }
-
-      res.setHeader('Content-Type', 'application/pdf');
-      res.setHeader('Content-Disposition', 'attachment; filename="Professional_Quote.pdf"');
-      res.send(pdfBuffer);
-      
-    } catch (error) {
-      console.error("Error generating professional quote PDF:", error);
-      res.status(500).json({ message: "Failed to generate professional quote PDF", error: error.message });
-    }
-  });
+  // Note: HTML PDF service removed - using PDFKit service for consistency
 
   app.get("/api/test-professional-invoice-pdf", async (req: Request, res: Response) => {
     try {
