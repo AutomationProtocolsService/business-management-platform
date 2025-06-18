@@ -1,0 +1,99 @@
+1. Verify that you’ve actually saved a logo_url
+Check the DB
+
+sql
+Copy
+Edit
+SELECT logo_url FROM company_settings LIMIT 1;
+– You should see a publicly accessible URL (e.g. https://…/logos/1234.png).
+– If this is NULL or blank, your upload endpoint didn’t persist it correctly.
+
+Smoke-test the URL
+Paste that URL into your browser.
+– If you get a 404 or redirect to your app’s “not found” page, fix your object-storage/public-static config.
+– Ideally it should show the logo PNG by itself.
+
+2. Ensure your PDF code actually uses logo_url
+Depending on your PDF generation approach, you need to pull in that URL and draw it before any text. Two common patterns:
+
+a) PDFKit (Node.js)
+js
+Copy
+Edit
+const PDFDocument = require('pdfkit');
+const fs = require('fs');
+
+async function generateQuotePDF(quoteData) {
+  const settings = await CompanySettings.getSingleton();
+  const doc = new PDFDocument({ margin: 50 });
+  const out = fs.createWriteStream(`/tmp/quote-${quoteData.id}.pdf`);
+  doc.pipe(out);
+
+  // **Insert logo here** ── use an absolute path or a buffer
+  // If logo_url is remote, download it into a Buffer first
+  if (settings.logo_url) {
+    const logoBuffer = await fetch(settings.logo_url).then(r => r.buffer());
+    doc.image(logoBuffer, 50, 45, { width: 150 });
+  }
+
+  doc
+    .fontSize(20)
+    .text('QUOTE', 50, 120);
+  // … rest of your layout …
+
+  doc.end();
+  return new Promise((res) => out.on('finish', () => res()));
+}
+b) HTML → PDF (Puppeteer / wkhtmltopdf)
+html
+Copy
+Edit
+<!DOCTYPE html>
+<html>
+<head>
+  <style>
+    header { display: flex; align-items: center; margin-bottom: 2rem; }
+    header img { max-height: 80px; margin-right: 1rem; }
+  </style>
+</head>
+<body>
+  <header>
+    <!-- logo_url must be absolute (e.g. https://...) or a file:// path -->
+    <img src="{{logo_url}}" alt="Company Logo" />
+    <div>
+      <h1>Quote #{{ quote.id }}</h1>
+      <p>Date: {{ quote.date }}</p>
+    </div>
+  </header>
+
+  <!-- ...items table, totals, etc... -->
+</body>
+</html>
+js
+Copy
+Edit
+const browser = await puppeteer.launch();
+const page = await browser.newPage();
+await page.setContent(htmlWithLogoUrl);       // make sure logo_url is injected
+const pdfBuffer = await page.pdf({ format: 'A4' });
+3. Common gotchas
+Relative paths won’t work in a PDF renderer; you need absolute URLs or file system paths.
+
+CORS or auth: if your logo endpoint requires a cookie or signed URL, puppeteer/fetch will get blocked. Use public URLs or generate a signed presigned URL that’s valid for a few minutes.
+
+Buffer vs stream: PDFKit’s .image() can accept a Buffer directly, but wkhtmltopdf needs the <img> tag in the HTML.
+
+4. End-to-end checklist
+Upload flow: upload logo → settings.logo_url in DB.
+
+Static serve: logo_url points to a real file (S3, CDN, or /public/uploads).
+
+PDF code:
+
+pulls in settings.logo_url
+
+injects it before drawing any text
+
+uses an absolute URL or downloaded Buffer
+
+Test: regenerate one quote/invoice and open the PDF—your logo should appear in the header.
