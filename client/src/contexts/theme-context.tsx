@@ -9,15 +9,15 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | undefined>(undefined);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { settings, updateSettings } = useSettings();
+  const { systemSettings, updateSystemSettings } = useSettings();
   const [darkMode, setDarkModeState] = useState(false);
 
   // Initialize dark mode from settings
   useEffect(() => {
-    if (settings?.darkMode !== undefined) {
-      setDarkModeState(settings.darkMode);
+    if (systemSettings?.darkMode !== undefined) {
+      setDarkModeState(systemSettings.darkMode);
     }
-  }, [settings?.darkMode]);
+  }, [systemSettings?.darkMode]);
 
   // Apply dark mode class to HTML element
   useEffect(() => {
@@ -32,7 +32,7 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const setDarkMode = (newDarkMode: boolean) => {
     setDarkModeState(newDarkMode);
     // Update settings in the backend
-    updateSettings({ darkMode: newDarkMode });
+    updateSystemSettings({ darkMode: newDarkMode });
   };
 
   return (
