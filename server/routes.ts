@@ -8,7 +8,9 @@ import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
+import sharp from "sharp";
 import { createInsertSchema } from "drizzle-zod";
+import { uploadFile, deleteFromS3 } from "./services/s3-service";
 import { 
   insertCustomerSchema, 
   insertQuoteSchema,
@@ -85,6 +87,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Set up middleware for file uploads
   const upload = multer({
+    storage: multer.memoryStorage(),
+    limits: {
+      fileSize: 2 * 1024 * 1024, // 2MB limit
+    },
+    fileFilter: (req, file, cb) => {
+      if (file.mimetype.startsWith('image/')) {
+        cb(null, true);
+      } else {
+        cb(new Error('Only image files are allowed'));
+      }
+    },
+  });
+
+  // Legacy file upload setup for other file types
+  const fileUpload = multer({
     storage: multer.diskStorage({
       destination: (req, file, cb) => {
         const uploadDir = './uploads';
@@ -267,6 +284,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "Failed to create company settings" });
     }
   });
+
+  // Logo upload endpoint
+  app.post("/api/settings/logo", requireAuth, upload.single('logo'), 
+    async (req: Request, res: Response) => {
+      try {
+        if (!req.file) {
+          return res.status(400).json({ error: 'No file provided' });
+        }
+
+        // Validate file type
+        if (!req.file.mimetype.startsWith('image/')) {
+          return res.status(415).json({ 
+            error: 'Unsupported file type. Only images are allowed.' 
+          });
+        }
+
+        // Process image with Sharp - resize to max 400x100
+        const processedBuffer = await sharp(req.file.buffer)
+          .resize({ width: 400, height: 100, fit: 'contain' })
+          .png()
+          .toBuffer();
+
+        // Upload to S3 or local storage
+        const logoUrl = await uploadFile(
+          processedBuffer, 
+          req.file.originalname, 
+          'image/png'
+        );
+
+        // Update company settings with new logo URL
+        const existingSettings = await storage.getCompanySettings();
+        let updatedSettings;
+
+        if (existingSettings) {
+          // Delete old logo if it exists
+          if (existingSettings.companyLogo) {
+            await deleteFromS3(existingSettings.companyLogo);
+          }
+          
+          updatedSettings = await storage.updateCompanySettings(
+            existingSettings.id, 
+            { companyLogo: logoUrl }
+          );
+        } else {
+          updatedSettings = await storage.createCompanySettings({ 
+            companyName: "Company Name",
+            companyLogo: logoUrl 
+          });
+        }
+
+        res.json({ logoUrl, settings: updatedSettings });
+      } catch (error) {
+        console.error('Logo upload error:', error);
+        res.status(500).json({ 
+          error: 'Failed to upload logo' 
+        });
+      }
+    }
+  );
 
   // System settings endpoints
   app.get("/api/settings/system", async (req: Request, res: Response) => {
