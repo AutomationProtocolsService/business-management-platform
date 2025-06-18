@@ -215,8 +215,7 @@ class PDFServiceImpl {
         // Create a PDF document with optimized margins
         const doc = new PDFDocument({ 
           margin: 40, // Reduce margins to allow more space for content
-          size: 'letter',
-          bufferPages: true
+          size: 'letter'
         });
         
         // Set maximum width for text wrapping
@@ -405,17 +404,10 @@ class PDFServiceImpl {
              .text(quoteData.notes, 50, doc.y, { width: maxWidth });
         }
         
-        // Add a footer
-        const pageCount = doc.bufferedPageRange().count;
-        for (let i = 0; i < pageCount; i++) {
-          doc.switchToPage(i);
-          doc.text(
-            `Page ${i + 1} of ${pageCount}`,
-            50,
-            doc.page.height - 50,
-            { align: 'center' }
-          );
-        }
+        // Add simple footer without page numbers to prevent extra pages
+        doc.moveDown(1);
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb');
+        doc.text('Thank you for considering our services!', 50, doc.y, { align: 'center' });
         
         // Finalize the PDF
         doc.end();
@@ -441,8 +433,7 @@ class PDFServiceImpl {
         // Create a PDF document with identical settings to quote
         const doc = new PDFDocument({
           margin: 50,
-          size: 'letter',
-          bufferPages: true
+          size: 'letter'
         });
         
         // Set maximum width for text wrapping
@@ -665,25 +656,10 @@ class PDFServiceImpl {
              .text(invoiceData.notes, 50, doc.y, { width: maxWidth });
         }
         
-        // Add footer with page numbers
-        const pageCount = doc.bufferedPageRange().count;
-        for (let i = 0; i < pageCount; i++) {
-          doc.switchToPage(i);
-          doc.fontSize(9).font('Helvetica').fillColor('#666666');
-          doc.text(
-            `Page ${i + 1} of ${pageCount}`,
-            50,
-            doc.page.height - 50,
-            { align: 'center' }
-          );
-          
-          // Add "Thank you" message on the last page
-          if (i === pageCount - 1) {
-            doc.moveDown(1);
-            doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb');
-            doc.text('Thank you for your business!', 50, doc.page.height - 80, { align: 'center' });
-          }
-        }
+        // Add simple footer without page numbers to prevent extra pages
+        doc.moveDown(1);
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb');
+        doc.text('Thank you for your business!', 50, doc.y, { align: 'center' });
         
         // Finalize the PDF
         doc.end();
