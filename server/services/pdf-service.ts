@@ -571,30 +571,36 @@ class PDFServiceImpl {
         
         doc.moveDown(1.5);
         
-        // Totals section with professional right-alignment matching quote
-        const totalsRightAlign = 450;
-        
+        // Totals section with proper spacing and alignment to match quote format
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
-        doc.text('Subtotal:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
-        doc.text(formatMoney(invoiceData.subtotal || 0), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-        doc.moveDown(0.4);
         
+        // Use a consistent right-aligned layout
+        const labelX = 400;
+        const valueX = 500;
+        
+        // Subtotal row
+        doc.text('Subtotal:', labelX, doc.y, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.subtotal || 0), valueX, doc.y, { width: 50, align: 'right' });
+        doc.moveDown(0.5);
+        
+        // Tax row (only if tax exists)
         if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
-          doc.text(formatMoney(invoiceData.tax), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-          doc.moveDown(0.4);
+          doc.text('Tax:', labelX, doc.y, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.tax), valueX, doc.y, { width: 50, align: 'right' });
+          doc.moveDown(0.5);
         }
         
+        // Discount row (only if discount exists)  
         if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
-          doc.text(formatMoney(invoiceData.discount), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-          doc.moveDown(0.4);
+          doc.text('Discount:', labelX, doc.y, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.discount), valueX, doc.y, { width: 50, align: 'right' });
+          doc.moveDown(0.5);
         }
         
-        // Total with emphasis
+        // Total row with emphasis
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
-        doc.text('TOTAL DUE:', totalsRightAlign, doc.y, { width: 100, align: 'right' });
-        doc.text(formatMoney(invoiceData.total || 0), totalsRightAlign + 50, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+        doc.text('TOTAL DUE:', labelX, doc.y, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.total || 0), valueX, doc.y, { width: 50, align: 'right' });
         
         doc.moveDown(2);
         
