@@ -9,8 +9,10 @@ import {
   Search, 
   Plus,
   ArrowRight,
-  User
+  User,
+  Users
 } from "lucide-react";
+import { MetricCard } from "@/components/dashboard/metric-card";
 import { useTerminology, getPlural } from "@/hooks/use-terminology";
 import BusinessWorkflow from "@/components/dashboard/business-workflow";
 import { Button } from "@/components/ui/button";
@@ -224,70 +226,46 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Active {terminology.project}s</CardTitle>
-              <FolderClosed className="h-4 w-4 text-blue-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.activeProjects}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.totalProjects} total {getPlural(terminology.project).toLowerCase()}
-            </p>
-          </CardContent>
-        </Card>
+      {/* Metrics Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <MetricCard
+          title={`Active ${terminology.project}s`}
+          value={metrics.activeProjects}
+          subtitle={`${metrics.totalProjects} total ${getPlural(terminology.project).toLowerCase()}`}
+          icon={FolderClosed}
+          variant="default"
+          onClick={() => navigate('/projects')}
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Pending {getPlural(terminology.quote)}</CardTitle>
-              <FileText className="h-4 w-4 text-indigo-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.pendingQuotes}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.totalQuotes > 0 
-                ? `${Math.round((metrics.pendingQuotes / metrics.totalQuotes) * 100)}% awaiting response` 
-                : "No quotes"
-              }
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title={`Pending ${getPlural(terminology.quote)}`}
+          value={metrics.pendingQuotes}
+          subtitle={metrics.totalQuotes > 0 
+            ? `${Math.round((metrics.pendingQuotes / metrics.totalQuotes) * 100)}% awaiting response` 
+            : "No quotes"
+          }
+          icon={FileText}
+          variant="info"
+          onClick={() => navigate('/quotes')}
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">Unpaid {getPlural(terminology.invoice)}</CardTitle>
-              <DollarSign className="h-4 w-4 text-yellow-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.unpaidInvoices}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              ${metrics.totalUnpaidAmount?.toLocaleString() || "0"} outstanding
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title={`Unpaid ${getPlural(terminology.invoice)}`}
+          value={metrics.unpaidInvoices}
+          subtitle={`$${metrics.totalUnpaidAmount?.toLocaleString() || "0"} outstanding`}
+          icon={DollarSign}
+          variant="warning"
+          onClick={() => navigate('/invoices')}
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-sm font-medium">{getPlural(terminology.customer)}</CardTitle>
-              <Clipboard className="h-4 w-4 text-green-500" />
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{metrics.totalCustomers}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {metrics.newCustomersThisMonth} new this month
-            </p>
-          </CardContent>
-        </Card>
+        <MetricCard
+          title={getPlural(terminology.customer)}
+          value={metrics.totalCustomers}
+          subtitle={`${metrics.newCustomersThisMonth} new this month`}
+          icon={Users}
+          variant="success"
+          onClick={() => navigate('/customers')}
+        />
       </div>
 
       {/* Main Dashboard Content */}
