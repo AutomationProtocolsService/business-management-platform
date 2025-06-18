@@ -1,0 +1,212 @@
+To give your quotes & invoices a truly polished, on-brand look you’ll want to do three things:
+
+Make the logo really pop (bigger, properly aligned)
+
+Store & inject your Terms & Conditions under the line-items
+
+Apply consistent, professional styling (typography, spacing, borders)
+
+Below is an end-to-end recipe using an HTML→PDF approach (Puppeteer or wkhtmltopdf). You can adapt to PDFKit in a similar way.
+
+1. Extend Company Settings for Terms & Conditions
+a) DB migration
+sql
+Copy
+Edit
+ALTER TABLE company_settings
+  ADD COLUMN terms TEXT;
+b) Front-end Settings form
+Add a <textarea> under your logo uploader:
+
+jsx
+Copy
+Edit
+<div className="setting-row">
+  <div>
+    <h3>Terms &amp; Conditions</h3>
+    <p>This text will appear at the bottom of every quote & invoice.</p>
+  </div>
+  <textarea
+    className="w-full border rounded p-2"
+    rows={6}
+    value={systemSettings.terms || ''}
+    onChange={(e) =>
+      updateSystemSettings({ terms: e.target.value })
+    }
+  />
+</div>
+2. HTML Template for Quotes & Invoices
+Create a shared template (e.g. templates/quote.html) with placeholders:
+
+html
+Copy
+Edit
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    body { font-family: Arial, sans-serif; margin: 40px; color: #333; }
+    header { display: flex; align-items: center; margin-bottom: 30px; }
+    .logo { max-width: 200px; margin-right: 20px; }
+    .company-info { line-height: 1.3; }
+    h1 { font-size: 24px; margin: 0; flex-grow: 1; text-align: right; }
+    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: left; }
+    th { background: #f5f5f5; }
+    tfoot td { font-weight: bold; }
+    .terms { font-size: 10px; color: #666; margin-top: 40px; line-height: 1.4; }
+  </style>
+</head>
+<body>
+  <header>
+    <img class="logo" src="{{logo_url}}" alt="Company Logo"/>
+    <div class="company-info">
+      <strong>{{company_name}}</strong><br>
+      {{address_line1}}<br>
+      {{address_line2}}<br>
+      {{city}}, {{postcode}}<br>
+      {{country}}<br>
+      {{phone}} | {{email}}
+    </div>
+    <h1>{{document_type}}</h1>
+  </header>
+
+  <!-- Quote/Invoice metadata -->
+  <p>
+    <strong>{{document_type}} #:</strong> {{number}}<br>
+    <strong>Date:</strong> {{date}}<br>
+    {% if document_type == 'QUOTE' %}
+      <strong>Expiry:</strong> {{expiry_date}}<br>
+    {% endif %}
+  </p>
+
+  <!-- Customer info -->
+  <section>
+    <h2>Bill To:</h2>
+    <p>
+      {{customer.name}}<br>
+      {{customer.address}}<br>
+      {{customer.email}}<br>
+      {{customer.phone}}
+    </p>
+  </section>
+
+  <!-- Items table -->
+  <table>
+    <thead>
+      <tr><th>Description</th><th>Qty</th><th>Unit Price</th><th>Amount</th></tr>
+    </thead>
+    <tbody>
+      {% for item in items %}
+      <tr>
+        <td>{{item.description}}</td>
+        <td>{{item.qty}}</td>
+        <td>{{item.unit_price}}</td>
+        <td>{{item.amount}}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr><td colspan="3">Subtotal</td><td>{{subtotal}}</td></tr>
+      <tr><td colspan="3">Tax</td><td>{{tax}}</td></tr>
+      <tr><td colspan="3">Discount</td><td>{{discount}}</td></tr>
+      <tr><td colspan="3">Total</td><td>{{total}}</td></tr>
+    </tfoot>
+  </table>
+
+  <!-- Terms & Conditions -->
+  <div class="terms">
+    <h3>Terms &amp; Conditions</h3>
+    <p>{{terms}}</p>
+  </div>
+</body>
+</html>
+Key styling points
+• .logo at up to 200px wide
+• Flex header: logo + company info + document title on one line
+• Table with light grey header, borders, bold footer
+• Small, muted terms section at bottom
+
+3. Server-side Rendering (Node + Puppeteer)
+js
+Copy
+Edit
+import puppeteer from 'puppeteer';
+import fs from 'fs';
+import { CompanySettings } from './models';
+import { renderTemplate } from './utils'; // e.g. mustache or ejs
+
+export async function generateDocumentPDF(data) {
+  // 1. Load company settings
+  const settings = await CompanySettings.getSingleton();
+  const html = renderTemplate('templates/quote.html', {
+    logo_url: settings.logo_url,
+    company_name: settings.company_name,
+    address_line1: settings.address1,
+    address_line2: settings.address2,
+    city: settings.city,
+    postcode: settings.postcode,
+    country: settings.country,
+    phone: settings.phone,
+    email: settings.email,
+    terms: settings.terms,
+    document_type: data.type,      // 'QUOTE' or 'INVOICE'
+    number: data.number,
+    date: data.date,
+    expiry_date: data.expiry_date,  // only for quotes
+    customer: data.customer,
+    items: data.items,
+    subtotal: data.subtotal,
+    tax: data.tax,
+    discount: data.discount,
+    total: data.total,
+  });
+
+  // 2. Launch Puppeteer
+  const browser = await puppeteer.launch();
+  const page = await browser.newPage();
+  await page.setContent(html, { waitUntil: 'networkidle0' });
+
+  // 3. Generate PDF
+  const pdf = await page.pdf({ format: 'A4', printBackground: true });
+
+  await browser.close();
+  return pdf; // return Buffer to send to client or save to disk
+}
+4. Hook it into Your API
+js
+Copy
+Edit
+app.get('/api/quotes/:id/download', async (req, res) => {
+  const quote = await loadQuote(req.params.id);
+  const pdfBuffer = await generateDocumentPDF({
+    type: 'QUOTE',
+    number: quote.number,
+    date: quote.date,
+    expiry_date: quote.expiry,
+    customer: quote.customer,
+    items: quote.lineItems,
+    subtotal: quote.subtotal,
+    tax: quote.tax,
+    discount: quote.discount,
+    total: quote.total,
+  });
+
+  res
+    .set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="Quote-${quote.number}.pdf"`
+    })
+    .send(pdfBuffer);
+});
+Do the same for invoices—just change type to "INVOICE" and drop expiry_date.
+
+Result
+Bigger, aligned logo in the top-left
+
+Clean, corporate table layout for line-items
+
+Terms & Conditions printed in a neat footer section
+
+Consistent typography and spacing
