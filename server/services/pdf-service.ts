@@ -571,39 +571,33 @@ class PDFServiceImpl {
         
         doc.moveDown(1.5);
         
-        // Simple totals section without any positioning variables
+        // Use EXACT same totals alignment as quotes
+        const totalsX = COLS.price; // Use same position as quote totals
+        const totalsAmountX = COLS.amt;   // Use same amount column as quote
+        const amountWidth = 80;     // Use same width as quote
+        
         doc.fontSize(10).font('Helvetica');
+        doc.text('Subtotal:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${invoiceData.subtotal ? invoiceData.subtotal.toFixed(2) : '0.00'}`, totalsAmountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+        doc.moveDown(0.3);
         
-        const startY = doc.y;
-        let rowY = startY;
-        
-        // Subtotal
-        doc.text('Subtotal:', 420, rowY);
-        doc.text(formatMoney(invoiceData.subtotal || 0), 500, rowY, { width: 50, align: 'right' });
-        rowY += 12;
-        
-        // Tax (only if exists)
-        if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', 420, rowY);
-          doc.text(formatMoney(invoiceData.tax), 500, rowY, { width: 50, align: 'right' });
-          rowY += 12;
+        if (invoiceData.tax) {
+          doc.text('Tax:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${invoiceData.tax.toFixed(2)}`, totalsAmountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
-        // Discount (only if exists)  
-        if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', 420, rowY);
-          doc.text(formatMoney(invoiceData.discount), 500, rowY, { width: 50, align: 'right' });
-          rowY += 12;
+        if (invoiceData.discount) {
+          doc.text('Discount:', totalsX, doc.y, { align: 'left' });
+          doc.text(`$${invoiceData.discount.toFixed(2)}`, totalsAmountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+          doc.moveDown(0.3);
         }
         
-        // Total line
-        rowY += 3;
-        doc.fontSize(12).font('Helvetica-Bold');
-        doc.text('TOTAL DUE:', 420, rowY);
-        doc.text(formatMoney(invoiceData.total || 0), 500, rowY, { width: 50, align: 'right' });
-        
-        // Set position for next section
-        doc.y = rowY + 30;
+        doc.font('Helvetica-Bold');
+        doc.text('TOTAL DUE:', totalsX, doc.y, { align: 'left' });
+        doc.text(`$${invoiceData.total ? invoiceData.total.toFixed(2) : '0.00'}`, totalsAmountX, doc.y - doc.currentLineHeight(), { width: amountWidth, align: 'right' });
+        doc.font('Helvetica');
+        doc.moveDown();
         
         // Add bank payment details section
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
