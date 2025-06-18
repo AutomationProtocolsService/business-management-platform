@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useSettings } from "@/hooks/use-settings";
+import { useTheme } from "@/contexts/theme-context";
 import { useTerminology, Terminology } from "@/hooks/use-terminology";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation } from "@tanstack/react-query";
@@ -42,6 +43,7 @@ type SystemFormValues = z.infer<typeof systemFormSchema>;
 
 export default function SettingsPage() {
   const { settings, updateSettingsMutation, updateSystemSettingsMutation, isLoading: settingsLoading } = useSettings();
+  const { darkMode, setDarkMode } = useTheme();
   const { toast } = useToast();
   const terminology = useTerminology();
   const [activeTab, setActiveTab] = useState("company");
@@ -369,26 +371,18 @@ export default function SettingsPage() {
                   className="space-y-6"
                 >
                   <div className="space-y-4">
-                    <FormField
-                      control={systemForm.control}
-                      name="darkMode"
-                      render={({ field }) => (
-                        <FormItem className="flex items-center justify-between rounded-lg border p-4">
-                          <div className="space-y-0.5">
-                            <FormLabel className="text-base">Dark Mode</FormLabel>
-                            <FormDescription>
-                              Enable dark mode for the application
-                            </FormDescription>
-                          </div>
-                          <FormControl>
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </FormControl>
-                        </FormItem>
-                      )}
-                    />
+                    <div className="flex items-center justify-between rounded-lg border p-4">
+                      <div className="space-y-0.5">
+                        <label className="text-base font-medium">Dark Mode</label>
+                        <p className="text-sm text-muted-foreground">
+                          Enable dark mode for the application
+                        </p>
+                      </div>
+                      <Switch
+                        checked={darkMode}
+                        onCheckedChange={setDarkMode}
+                      />
+                    </div>
 
                     <FormField
                       control={systemForm.control}

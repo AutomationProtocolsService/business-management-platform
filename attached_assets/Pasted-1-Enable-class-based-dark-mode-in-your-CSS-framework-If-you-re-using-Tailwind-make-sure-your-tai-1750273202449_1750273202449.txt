@@ -1,0 +1,132 @@
+1. Enable “class”-based dark mode in your CSS framework
+If you’re using Tailwind, make sure your tailwind.config.js has:
+
+js
+Copy
+Edit
+module.exports = {
+  // …
+  darkMode: 'class',   // ← enable class-based dark mode
+  // …
+}
+If you’re on plain CSS, you’ll need a set of [data-theme="dark"] (or .dark) selectors that override your colors.
+
+2. Lift “darkMode” into a top-level state or context
+In your React (or whichever front-end) app, you need a single source of truth for whether dark mode is on. For example, in React:
+
+jsx
+Copy
+Edit
+// src/ThemeContext.jsx
+import React, { createContext, useContext, useEffect, useState } from 'react';
+
+const ThemeContext = createContext();
+
+export function ThemeProvider({ children }) {
+  // you could also hydrate this from an API call instead of localStorage
+  const [darkMode, setDarkMode] = useState(() => {
+    return localStorage.getItem('darkMode') === 'true';
+  });
+
+  // whenever darkMode changes, flip the <html> class:
+  useEffect(() => {
+    const root = window.document.documentElement;
+    if (darkMode) {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('darkMode', darkMode);
+  }, [darkMode]);
+
+  return (
+    <ThemeContext.Provider value={{ darkMode, setDarkMode }}>
+      {children}
+    </ThemeContext.Provider>
+  );
+}
+
+// custom hook for easy access:
+export function useTheme() {
+  return useContext(ThemeContext);
+}
+Then wrap your app in <ThemeProvider> (e.g. in index.jsx):
+
+jsx
+Copy
+Edit
+import React from 'react';
+import ReactDOM from 'react-dom';
+import App from './App';
+import { ThemeProvider } from './ThemeContext';
+
+ReactDOM.render(
+  <ThemeProvider>
+    <App />
+  </ThemeProvider>,
+  document.getElementById('root')
+);
+3. Hook your Settings toggle up to that context
+In your Settings screen, instead of keeping a local boolean, read+write the context’s darkMode:
+
+jsx
+Copy
+Edit
+import { useTheme } from '../ThemeContext';
+import { Switch } from '@/components/ui/switch';
+
+export default function SystemSettings() {
+  const { darkMode, setDarkMode } = useTheme();
+
+  return (
+    <div>
+      {/* … other settings … */}
+      <div className="setting-row">
+        <div>
+          <h3>Dark Mode</h3>
+          <p>Enable dark mode for the application</p>
+        </div>
+        <Switch
+          checked={darkMode}
+          onCheckedChange={(val) => setDarkMode(val)}
+        />
+      </div>
+      {/* … */}
+    </div>
+  );
+}
+Here, <Switch> fires onCheckedChange with the new boolean; you immediately update darkMode in your context, which triggers the useEffect to toggle the CSS class.
+
+4. Add your dark-variant styles
+Anywhere you’ve defined colors, make sure you’ve provided dark variants, for example using Tailwind’s dark: prefix:
+
+html
+Copy
+Edit
+<div className="bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100">
+  <h1 className="text-2xl">Hello, world!</h1>
+</div>
+Or in plain CSS:
+
+css
+Copy
+Edit
+/* default */
+body {
+  background: #fff;
+  color: #222;
+}
+/* when <html> has .dark */
+html.dark body {
+  background: #222;
+  color: #eee;
+}
+5. Verify
+Compile/restart your front-end.
+
+Open your Settings page.
+
+Flip the “Dark Mode” switch → you should see the entire UI colors invert.
+
+Reload the page—your preference should persist (via localStorage) and the correct theme should re-apply on load.
+

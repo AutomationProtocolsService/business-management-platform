@@ -36,6 +36,7 @@ import LoginTest from "@/pages/login-test";
 import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
+import { ThemeProvider } from "@/contexts/theme-context";
 import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
 import Header from "./components/layout/header";
@@ -128,12 +129,14 @@ function App() {
       <AuthProvider>
         <TenantProvider>
           <SettingsProvider>
-            <NotificationsProvider>
-              <AppLayout>
-                <Router />
-              </AppLayout>
-              <Toaster />
-            </NotificationsProvider>
+            <ThemeProvider>
+              <NotificationsProvider>
+                <AppLayout>
+                  <Router />
+                </AppLayout>
+                <Toaster />
+              </NotificationsProvider>
+            </ThemeProvider>
           </SettingsProvider>
         </TenantProvider>
       </AuthProvider>
