@@ -3254,9 +3254,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]
       };
 
-      console.log("Generating unified quote PDF...");
-      const { generateQuotePDF } = await import('./services/unified-pdf-service');
-      const pdfBuffer = await generateQuotePDF(testQuoteData);
+      console.log("Generating unified quote PDF with enhanced PDFKit...");
+      const pdfBuffer = await PDFService.generateQuotePDF(testQuoteData);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="Unified_Quote.pdf"');
@@ -3294,9 +3293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]
       };
 
-      console.log("Generating unified invoice PDF...");
-      const { generateInvoicePDF } = await import('./services/unified-pdf-service');
-      const pdfBuffer = await generateInvoicePDF(testInvoiceData);
+      console.log("Generating unified invoice PDF with enhanced PDFKit...");
+      const pdfBuffer = await PDFService.generateInvoicePDF(testInvoiceData);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="Unified_Invoice.pdf"');
