@@ -571,62 +571,39 @@ class PDFServiceImpl {
         
         doc.moveDown(1.5);
         
-        // Fixed-width totals section with locked column alignment
-        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        // Simple totals section without any positioning variables
+        doc.fontSize(10).font('Helvetica');
         
-        // Define fixed column positions matching table layout
-        const totalsStartY = doc.y;
-        const labelColumn = 420;    // Fixed label position
-        const amountColumn = 500;   // Fixed amount column position  
-        const columnWidth = 50;     // Fixed width for amount column
-        const rowHeight = 12;       // Consistent row spacing
+        const startY = doc.y;
+        let rowY = startY;
         
-        let currentRow = 0;
+        // Subtotal
+        doc.text('Subtotal:', 420, rowY);
+        doc.text(formatMoney(invoiceData.subtotal || 0), 500, rowY, { width: 50, align: 'right' });
+        rowY += 12;
         
-        // Subtotal row
-        const subtotalY = totalsStartY + (currentRow * rowHeight);
-        doc.text('Subtotal:', labelColumn, subtotalY);
-        doc.text(formatMoney(invoiceData.subtotal || 0), amountColumn, subtotalY, { 
-          width: columnWidth, 
-          align: 'right' 
-        });
-        currentRow++;
-        
-        // Tax row (only if > 0)
+        // Tax (only if exists)
         if (invoiceData.tax && invoiceData.tax > 0) {
-          const taxY = totalsStartY + (currentRow * rowHeight);
-          doc.text('Tax:', labelColumn, taxY);
-          doc.text(formatMoney(invoiceData.tax), amountColumn, taxY, { 
-            width: columnWidth, 
-            align: 'right' 
-          });
-          currentRow++;
+          doc.text('Tax:', 420, rowY);
+          doc.text(formatMoney(invoiceData.tax), 500, rowY, { width: 50, align: 'right' });
+          rowY += 12;
         }
         
-        // Discount row (only if > 0) - conditional rendering
+        // Discount (only if exists)  
         if (invoiceData.discount && invoiceData.discount > 0) {
-          const discountY = totalsStartY + (currentRow * rowHeight);
-          doc.text('Discount:', labelColumn, discountY);
-          doc.text(formatMoney(invoiceData.discount), amountColumn, discountY, { 
-            width: columnWidth, 
-            align: 'right' 
-          });
-          currentRow++;
+          doc.text('Discount:', 420, rowY);
+          doc.text(formatMoney(invoiceData.discount), 500, rowY, { width: 50, align: 'right' });
+          rowY += 12;
         }
         
-        // Total Due row with emphasis
-        currentRow += 0.5; // Add small gap before total
-        const totalY = totalsStartY + (currentRow * rowHeight);
+        // Total line
+        rowY += 3;
+        doc.fontSize(12).font('Helvetica-Bold');
+        doc.text('TOTAL DUE:', 420, rowY);
+        doc.text(formatMoney(invoiceData.total || 0), 500, rowY, { width: 50, align: 'right' });
         
-        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
-        doc.text('TOTAL DUE:', labelColumn, totalY);
-        doc.text(formatMoney(invoiceData.total || 0), amountColumn, totalY, { 
-          width: columnWidth, 
-          align: 'right' 
-        });
-        
-        // Explicitly position cursor after totals section
-        doc.y = totalY + 30;
+        // Set position for next section
+        doc.y = rowY + 30;
         
         // Add bank payment details section
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
