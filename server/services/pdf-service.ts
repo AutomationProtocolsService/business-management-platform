@@ -38,6 +38,12 @@ const ROW_GAP = 6; // White-space below each row
  * Service for generating PDF documents
  */
 class PDFServiceImpl {
+  private storage: any;
+
+  constructor(storage: any) {
+    this.storage = storage;
+  }
+
   /**
    * Download image from URL and return buffer
    */
@@ -365,17 +371,32 @@ class PDFServiceImpl {
         doc.font('Helvetica');
         doc.moveDown();
         
-        // Add notes and terms with word wrapping
-        if (quoteData.notes) {
-          doc.moveDown();
-          doc.text('Notes:', { underline: true });
-          doc.text(quoteData.notes, { width: maxWidth });
+        // Add company terms & conditions from settings
+        const companySettings = await this.storage.getCompanySettings();
+        if (companySettings?.termsAndConditions) {
+          doc.moveDown(2);
+          
+          // Professional terms section styling
+          doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
+             .text('Terms & Conditions', 50, doc.y);
+          doc.moveDown(0.5);
+          
+          // Terms content with proper formatting
+          doc.fontSize(9).font('Helvetica').fillColor('#374151')
+             .text(companySettings.termsAndConditions, 50, doc.y, { 
+               width: maxWidth, 
+               lineGap: 2 
+             });
         }
         
-        if (quoteData.terms) {
-          doc.moveDown();
-          doc.text('Terms and Conditions:', { underline: true });
-          doc.text(quoteData.terms, { width: maxWidth });
+        // Add notes if provided
+        if (quoteData.notes) {
+          doc.moveDown(1.5);
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#374151')
+             .text('Additional Notes:', 50, doc.y);
+          doc.moveDown(0.3);
+          doc.fontSize(9).font('Helvetica')
+             .text(quoteData.notes, 50, doc.y, { width: maxWidth });
         }
         
         // Add a footer
