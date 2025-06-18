@@ -571,51 +571,40 @@ class PDFServiceImpl {
         
         doc.moveDown(1.5);
         
-        // Totals section with perfect right-alignment using same method as quote
+        // Totals section with clean right-alignment
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
         
-        // Perfect right-aligned totals with consistent column positioning
-        const startY = doc.y;
-        const labelX = 420;  // Label position
-        const valueX = 500;  // Value position
-        const valueWidth = 50; // Value column width
-        const lineHeight = 12;
+        const totalsY = doc.y;
+        const labelCol = 420;
+        const valueCol = 500;
         
-        let rowY = startY;
+        // Subtotal
+        doc.text('Subtotal:', labelCol, totalsY);
+        doc.text(formatMoney(invoiceData.subtotal || 0), valueCol, totalsY, { width: 50, align: 'right' });
         
-        // Subtotal - explicitly control positioning
-        doc.text('Subtotal:', labelX, rowY);
-        doc.text(formatMoney(invoiceData.subtotal || 0), valueX, rowY, { width: valueWidth, align: 'right' });
-        rowY += lineHeight;
-        
-        // Tax (only if exists and > 0)
+        // Tax (if exists)
+        let nextY = totalsY + 12;
         if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', labelX, rowY);
-          doc.text(formatMoney(invoiceData.tax), valueX, rowY, { width: valueWidth, align: 'right' });
-          rowY += lineHeight;
+          doc.text('Tax:', labelCol, nextY);
+          doc.text(formatMoney(invoiceData.tax), valueCol, nextY, { width: 50, align: 'right' });
+          nextY += 12;
         }
         
-        // Discount (only if exists and > 0)
+        // Discount (if exists)
         if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', labelX, rowY);
-          doc.text(formatMoney(invoiceData.discount), valueX, rowY, { width: valueWidth, align: 'right' });
-          rowY += lineHeight;
+          doc.text('Discount:', labelCol, nextY);
+          doc.text(formatMoney(invoiceData.discount), valueCol, nextY, { width: 50, align: 'right' });
+          nextY += 12;
         }
         
-        // Total with emphasis - ensure single line
-        rowY += 3;
-        doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
+        // Total line
+        nextY += 3;
+        doc.fontSize(12).font('Helvetica-Bold');
+        doc.text('TOTAL DUE:', labelCol, nextY);
+        doc.text(formatMoney(invoiceData.total || 0), valueCol, nextY, { width: 50, align: 'right' });
         
-        // Write both label and value on exact same Y coordinate
-        const totalY = rowY;
-        doc.text('TOTAL DUE:', labelX, totalY);
-        doc.text(formatMoney(invoiceData.total || 0), valueX, totalY, { width: valueWidth, align: 'right' });
-        
-        // Explicitly set doc.y to continue after this section
-        doc.y = totalY + 20;
-        
-        // Set doc.y to continue below totals
-        doc.y = currentY + 30;
+        // Continue after totals
+        doc.y = nextY + 30;
         
         // Add bank payment details section
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
