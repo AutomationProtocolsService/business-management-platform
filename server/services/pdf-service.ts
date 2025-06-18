@@ -623,10 +623,22 @@ class PDFServiceImpl {
         doc.moveDown(0.3);
         
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
-        doc.text('Account Name: Lancashire Shopfronts Limited', 50, doc.y);
-        doc.text('Sort Code: 04-00-04', 50, doc.y);
-        doc.text('Account Number: 41026518', 50, doc.y);
-        doc.text('Bank: HSBC Business Banking', 50, doc.y);
+        
+        // Get company settings for bank details
+        const companySettings = await this.storage.getCompanySettings();
+        
+        if (companySettings?.bankAccountName) {
+          doc.text(`Account Name: ${companySettings.bankAccountName}`, 50, doc.y);
+        }
+        if (companySettings?.bankSortCode) {
+          doc.text(`Sort Code: ${companySettings.bankSortCode}`, 50, doc.y);  
+        }
+        if (companySettings?.bankAccountNumber) {
+          doc.text(`Account Number: ${companySettings.bankAccountNumber}`, 50, doc.y);
+        }
+        if (companySettings?.bankName) {
+          doc.text(`Bank: ${companySettings.bankName}`, 50, doc.y);
+        }
         doc.text('Reference: Please include invoice number', 50, doc.y);
         
         doc.moveDown(1.5);
