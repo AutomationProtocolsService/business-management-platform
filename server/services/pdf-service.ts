@@ -372,21 +372,27 @@ class PDFServiceImpl {
         doc.moveDown();
         
         // Add company terms & conditions from settings
-        const companySettings = await this.storage.getCompanySettings();
-        if (companySettings?.termsAndConditions) {
-          doc.moveDown(2);
-          
-          // Professional terms section styling
-          doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
-             .text('Terms & Conditions', 50, doc.y);
-          doc.moveDown(0.5);
-          
-          // Terms content with proper formatting
-          doc.fontSize(9).font('Helvetica').fillColor('#374151')
-             .text(companySettings.termsAndConditions, 50, doc.y, { 
-               width: maxWidth, 
-               lineGap: 2 
-             });
+        try {
+          const { storage } = await import('../storage');
+          const companySettings = await storage.getCompanySettings();
+          if (companySettings?.termsAndConditions) {
+            doc.moveDown(2);
+            
+            // Professional terms section styling
+            doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
+               .text('Terms & Conditions', 50, doc.y);
+            doc.moveDown(0.5);
+            
+            // Terms content with proper formatting
+            doc.fontSize(9).font('Helvetica').fillColor('#374151')
+               .text(companySettings.termsAndConditions, 50, doc.y, { 
+                 width: maxWidth, 
+                 lineGap: 2 
+               });
+          }
+        } catch (error) {
+          console.error('Error loading company settings for PDF:', error);
+          // Continue without terms if there's an error
         }
         
         // Add notes if provided
@@ -598,17 +604,38 @@ class PDFServiceImpl {
         doc.text('PAYMENT INSTRUCTIONS', { underline: true });
         doc.text('Please reference invoice number when making payment.', { width: maxWidth });
         
-        // Add notes and terms with word wrapping
-        if (invoiceData.notes) {
-          doc.moveDown();
-          doc.text('Notes:', { underline: true });
-          doc.text(invoiceData.notes, { width: maxWidth });
+        // Add company terms & conditions from settings
+        try {
+          const { storage } = await import('../storage');
+          const companySettings = await storage.getCompanySettings();
+          if (companySettings?.termsAndConditions) {
+            doc.moveDown(2);
+            
+            // Professional terms section styling
+            doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
+               .text('Terms & Conditions', 50, doc.y);
+            doc.moveDown(0.5);
+            
+            // Terms content with proper formatting
+            doc.fontSize(9).font('Helvetica').fillColor('#374151')
+               .text(companySettings.termsAndConditions, 50, doc.y, { 
+                 width: maxWidth, 
+                 lineGap: 2 
+               });
+          }
+        } catch (error) {
+          console.error('Error loading company settings for invoice PDF:', error);
+          // Continue without terms if there's an error
         }
         
-        if (invoiceData.terms) {
-          doc.moveDown();
-          doc.text('Terms and Conditions:', { underline: true });
-          doc.text(invoiceData.terms, { width: maxWidth });
+        // Add notes if provided
+        if (invoiceData.notes) {
+          doc.moveDown(1.5);
+          doc.fontSize(10).font('Helvetica-Bold').fillColor('#374151')
+             .text('Additional Notes:', 50, doc.y);
+          doc.moveDown(0.3);
+          doc.fontSize(9).font('Helvetica')
+             .text(invoiceData.notes, 50, doc.y, { width: maxWidth });
         }
         
         // Add a footer
