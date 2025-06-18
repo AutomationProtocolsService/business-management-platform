@@ -1,0 +1,177 @@
+1. Data Model & Storage
+DB Schema
+Add a new column to your company_settings (or system_settings) table:
+
+sql
+Copy
+Edit
+ALTER TABLE company_settings
+  ADD COLUMN logo_url VARCHAR;
+Object Storage
+
+Production: store images in S3 (or DigitalOcean Spaces, etc.)
+
+Dev: you can start with local disk storage (e.g. uploads/)
+
+Generate a unique filename (UUID or timestamped) to avoid collisions.
+
+Image Processing
+
+On upload, resize / crop to a standard dimension (e.g. max width 400px, height 100px)
+
+Strip metadata and compress for web/PDF (use Sharp in Node.js or ActiveStorage Variants in Rails).
+
+2. Back-End API
+Node/Express + Multer + Sharp example
+js
+Copy
+Edit
+// routes/settings.js
+import express from 'express';
+import multer from 'multer';
+import sharp from 'sharp';
+import { uploadFileToS3 } from '../lib/s3.js';
+import { CompanySettings } from '../models.js';
+
+const upload = multer({ storage: multer.memoryStorage() });
+
+const router = express.Router();
+
+router.post(
+  '/api/settings/logo',
+  upload.single('logo'),
+  async (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file.' });
+
+    // Validate type/size
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(415).json({ error: 'Unsupported file type.' });
+    }
+
+    // Resize to max 400x100
+    const buffer = await sharp(req.file.buffer)
+      .resize({ width: 400, height: 100, fit: 'contain' })
+      .png()
+      .toBuffer();
+
+    // Generate key & upload
+    const key = `logos/${Date.now()}-${req.file.originalname}`;
+    const s3Url = await uploadFileToS3(buffer, key, 'image/png');
+
+    // Persist URL in DB
+    const settings = await CompanySettings.getSingleton();
+    settings.logo_url = s3Url;
+    await settings.save();
+
+    res.json({ logoUrl: s3Url });
+  }
+);
+
+export default router;
+You’ll need an uploadFileToS3 helper that wraps the AWS SDK’s putObject, returning the public URL.
+
+3. Front-End UI
+React + fetch + preview
+jsx
+Copy
+Edit
+import React, { useState } from 'react';
+import { useSettings } from '../context/SettingsContext';
+
+export default function LogoUploader() {
+  const { systemSettings, updateSystemSettings } = useSettings();
+  const [preview, setPreview] = useState(systemSettings.logo_url);
+  const [uploading, setUploading] = useState(false);
+
+  async function onFileChange(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    // Show local preview
+    setPreview(URL.createObjectURL(file));
+
+    // Prepare form-data
+    const form = new FormData();
+    form.append('logo', file);
+
+    setUploading(true);
+    const res = await fetch('/api/settings/logo', {
+      method: 'POST',
+      body: form
+    });
+    const json = await res.json();
+    setUploading(false);
+
+    if (res.ok) {
+      // Update context so other parts of the app re-render
+      await updateSystemSettings({ logo_url: json.logoUrl });
+    } else {
+      console.error(json.error);
+      // TODO: show toast error
+    }
+  }
+
+  return (
+    <div className="setting-row">
+      <div>
+        <h3>Company Logo</h3>
+        <p>Upload a logo to appear on quotes and invoices.</p>
+      </div>
+      <div className="logo-uploader">
+        {preview ? (
+          <img src={preview} alt="Logo preview" className="h-20 object-contain" />
+        ) : (
+          <div className="h-20 w-40 bg-gray-100 flex items-center justify-center">
+            No logo yet
+          </div>
+        )}
+        <input
+          type="file"
+          accept="image/*"
+          onChange={onFileChange}
+          disabled={uploading}
+        />
+      </div>
+    </div>
+  );
+}
+Preview: Instant feedback via URL.createObjectURL.
+
+FormData: Sends multipart/form-data so the backend can process the binary.
+
+4. PDF/Invoice Rendering
+Wherever you generate your PDF (e.g. PDFKit, Puppeteer, wkhtmltopdf):
+
+js
+Copy
+Edit
+const { logo_url, company_name } = await CompanySettings.getSingleton();
+
+doc.image(logo_url, 50, 40, { width: 150 }); // PDFKit example
+doc.fontSize(20).text(company_name, 220, 60);
+Or, if you’re using an HTML-to-PDF approach, inject:
+
+html
+Copy
+Edit
+<header>
+  <img src="{{logo_url}}" alt="Logo" style="max-width:150px;" />
+  <h1>{{company_name}}</h1>
+</header>
+5. Validation & UX Polish
+Max file size: e.g. 2 MB limit, client-side check before upload.
+
+Allowed formats: restrict to PNG/JPEG.
+
+Feedback: show a spinner during upload and a success toast when done.
+
+Crop tool (optional): integrate a lightweight client-side cropping library (e.g. react-easy-crop) so users can adjust their logo framing.
+
+Why this works
+Separation of concerns: file handling is a dedicated endpoint.
+
+Scalable storage: S3 (or similar) for reliably serving media.
+
+Consistent branding: the same logo_url is stored and used everywhere.
+
+Plug-and-play: you can drop this into your existing Settings context and PDF generator with minimal changes.
