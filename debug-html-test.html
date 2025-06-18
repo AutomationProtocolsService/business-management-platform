@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    /* ─── Global styles ───────────────────────────────────────────── */
+    body {
+      font-family: Arial, sans-serif;
+      margin: 40px;
+      color: #333;
+    }
+    h1, h2, h3 {
+      margin: 0;
+      font-weight: 600;
+    }
+    p { margin: 0.25em 0; }
+
+    /* ─── Header ─────────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 30px;
+    }
+    .logo {
+      max-width: 200px;
+      margin-right: 20px;
+    }
+    .company-info {
+      line-height: 1.3;
+      flex-grow: 1;
+    }
+    .doc-title {
+      font-size: 28px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      text-align: right;
+      min-width: 120px;
+      color: #2563eb;
+      font-weight: 600;
+    }
+
+    /* ─── Meta & Customer Info ───────────────────────────────────── */
+    .meta, .customer {
+      margin-bottom: 20px;
+    }
+    .meta p, .customer p {
+      line-height: 1.4;
+    }
+    .customer h2 {
+      color: #2563eb;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    /* ─── Items Table ─────────────────────────────────────────────── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      table-layout: fixed;
+      margin-bottom: 30px;
+      font-family: Arial, sans-serif;
+    }
+    thead th {
+      background: #f5f5f5;
+      padding: 8px;
+      border: 1px solid #ddd;
+      font-weight: 600;
+      color: #2563eb;
+    }
+    tbody td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      vertical-align: top;
+    }
+    tfoot {
+      display: table-footer-group;
+    }
+    tfoot td {
+      padding: 8px;
+      border: 1px solid #ddd;
+      font-weight: 600;
+    }
+    tfoot tr:last-child td {
+      background: #f0f0f0;
+      font-weight: 700;
+      border-top: 2px solid #333;
+      color: #2563eb;
+    }
+
+    /* ─── Terms & Conditions ──────────────────────────────────────── */
+    .terms {
+      font-size: 10px;
+      color: #666;
+      line-height: 1.4;
+      border-top: 1px solid #ddd;
+      padding-top: 20px;
+      margin-top: 20px;
+    }
+    .terms h3 {
+      font-size: 12px;
+      margin-bottom: 8px;
+      color: #2563eb;
+    }
+
+    /* ─── Project Information ─────────────────────────────────────── */
+    .project {
+      margin-bottom: 20px;
+    }
+    .project h2 {
+      color: #2563eb;
+      font-size: 16px;
+      margin-bottom: 8px;
+    }
+
+    /* ─── Payment Instructions ────────────────────────────────────── */
+    .payment {
+      margin-bottom: 20px;
+      font-size: 11px;
+    }
+    .payment h3 {
+      color: #2563eb;
+      font-size: 12px;
+      margin-bottom: 5px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- HEADER -->
+  <header>
+    <div class="company-info">
+      <strong>Lancashire Shutters</strong><br>
+      123 Business Street<br>
+      Manchester, Lancashire M1 1AA<br>
+      United Kingdom<br>
+      +44 123 456 7890 | info@lancashireshutters.com
+    </div>
+    <div class="doc-title">INVOICE</div>
+  </header>
+
+  <!-- DOCUMENT META -->
+  <div class="meta">
+    <p><strong>INVOICE Number:</strong> INV-TEST-001</p>
+    <p><strong>Issue Date:</strong> 18/06/2025</p>
+    <p><strong>Due:</strong> 18/07/2025</p>
+  </div>
+
+  <!-- BILL TO -->
+  <div class="customer">
+    <h2>BILL TO</h2>
+    <p><strong>Name:</strong> Test Customer</p>
+    <p><strong>Email:</strong> customer@example.com</p>
+    <p><strong>Phone:</strong> +44 987 654 3210</p>
+    <p><strong>Address:</strong> 456 Customer Road, Leeds, Yorkshire LS1 2BB</p>
+  </div>
+
+  <!-- ITEMS TABLE -->
+  <table>
+    <!-- 1) Define fixed column widths -->
+    <colgroup>
+      <col style="width:60%;" />
+      <col style="width:10%;" />
+      <col style="width:15%;" />
+      <col style="width:15%;" />
+    </colgroup>
+
+    <!-- 2) Header with inline widths -->
+    <thead>
+      <tr>
+        <th style="text-align:left;" width="60%">Description</th>
+        <th style="text-align:right;" width="10%">Qty</th>
+        <th style="text-align:right;" width="15%">Price</th>
+        <th style="text-align:right;" width="15%">Amount</th>
+      </tr>
+    </thead>
+
+    <!-- 3) Footer before body, forced to render as table-footer-group -->
+    <tfoot style="display: table-footer-group;">
+      <tr>
+        <td colspan="3" style="text-align:right; font-weight:600;">
+          Subtotal:
+        </td>
+        <td style="text-align:right;">
+          $1980.00
+        </td>
+      </tr>
+      <tr>
+        <td colspan="3" style="text-align:right; font-weight:600;">
+          Tax:
+        </td>
+        <td style="text-align:right;">
+          $20.00
+        </td>
+      </tr>
+      <!-- NO DISCOUNT ROW - it's conditionally hidden -->
+      <tr>
+        <td colspan="3" style="text-align:right; font-weight:700; border-top:2px solid #333;">
+          TOTAL DUE:
+        </td>
+        <td style="text-align:right; font-weight:700; border-top:2px solid #333;">
+          $2000.00
+        </td>
+      </tr>
+    </tfoot>
+
+    <!-- 4) Body after footer -->
+    <tbody>
+      <tr>
+        <td style="vertical-align:top;">To supply and install single-phase roller shutter with tubular motor 150NM. Motor to have manual override in case of power failure. Roller shutters to have solid curtain laths. 2.5 inch guide rails and L-bottom for extra security. Shutter to be operated by remote FOB system. Shutter to be manufactured in RAL TBC.</td>
+        <td style="text-align:right;">1</td>
+        <td style="text-align:right;">$1980.00</td>
+        <td style="text-align:right;">$1980.00</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- PAYMENT INSTRUCTIONS -->
+  <div class="payment">
+    <h3>PAYMENT INSTRUCTIONS</h3>
+    <p>Please reference invoice number when making payment.</p>
+    <p><strong>Bank Details:</strong></p>
+    <p>Account Name: Lancashire Shutters Ltd</p>
+    <p>Sort Code: 12-34-56</p>
+    <p>Account Number: 12345678</p>
+    <p>Bank: Example Bank</p>
+  </div>
+
+</body>
+</html>
