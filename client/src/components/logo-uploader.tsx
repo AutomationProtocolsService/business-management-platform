@@ -3,7 +3,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, X, Image as ImageIcon, Loader2 } from "lucide-react";
+import { Upload, X, Image as ImageIcon, Loader2, Trash2 } from "lucide-react";
 import { queryClient } from "@/lib/queryClient";
 
 interface LogoUploaderProps {
@@ -57,6 +57,38 @@ export function LogoUploader({ currentLogoUrl, onUploadSuccess }: LogoUploaderPr
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload logo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/settings/logo', {
+        method: 'DELETE',
+        credentials: 'include',
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Delete failed');
+      }
+
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Logo deleted successfully",
+        description: "Your company logo has been removed.",
+      });
+      
+      // Invalidate company settings cache to refresh
+      queryClient.invalidateQueries({ queryKey: ["/api/settings/company"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Delete failed",
+        description: error.message || "Failed to delete logo",
         variant: "destructive",
       });
     },

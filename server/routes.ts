@@ -344,6 +344,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   );
 
+  // Logo deletion endpoint
+  app.delete("/api/settings/logo", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const existingSettings = await storage.getCompanySettings();
+      
+      if (!existingSettings || !existingSettings.companyLogo) {
+        return res.status(404).json({ error: 'No logo found to delete' });
+      }
+
+      // Delete logo file from storage
+      await deleteFromS3(existingSettings.companyLogo);
+
+      // Update company settings to remove logo URL
+      const updatedSettings = await storage.updateCompanySettings(
+        existingSettings.id, 
+        { companyLogo: null }
+      );
+
+      res.json({ message: 'Logo deleted successfully', settings: updatedSettings });
+    } catch (error) {
+      console.error('Logo deletion error:', error);
+      res.status(500).json({ 
+        error: 'Failed to delete logo' 
+      });
+    }
+  });
+
   // System settings endpoints
   app.get("/api/settings/system", async (req: Request, res: Response) => {
     try {
