@@ -571,40 +571,62 @@ class PDFServiceImpl {
         
         doc.moveDown(1.5);
         
-        // Totals section with precise alignment matching quote format exactly
+        // Totals section with perfect right-alignment using same method as quote
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
         
-        // Use exact positioning to match quote layout - right-aligned totals
-        const totalsStartY = doc.y;
+        // Right-aligned totals using same positioning as quote PDF
+        let currentY = doc.y;
         
         // Subtotal
-        doc.text('Subtotal:', 430, doc.y, { width: 70, align: 'right' });
-        doc.text(formatMoney(invoiceData.subtotal || 0), 500, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-        doc.y = totalsStartY + 15;
+        doc.text('Subtotal:', 380, currentY, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.subtotal || 0), 500, currentY, { width: 50, align: 'right' });
+        currentY += 15;
         
         // Tax (only if exists and > 0)
         if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', 430, doc.y, { width: 70, align: 'right' });
-          doc.text(formatMoney(invoiceData.tax), 500, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-          doc.y += 15;
+          doc.text('Tax:', 380, currentY, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.tax), 500, currentY, { width: 50, align: 'right' });
+          currentY += 15;
         }
         
         // Discount (only if exists and > 0)
         if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', 430, doc.y, { width: 70, align: 'right' });
-          doc.text(formatMoney(invoiceData.discount), 500, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
-          doc.y += 15;
+          doc.text('Discount:', 380, currentY, { width: 100, align: 'right' });
+          doc.text(formatMoney(invoiceData.discount), 500, currentY, { width: 50, align: 'right' });
+          currentY += 15;
         }
         
-        // Add space before total
-        doc.y += 5;
-        
-        // Total with emphasis and consistent alignment
+        // Total with emphasis
+        currentY += 5;
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
-        doc.text('TOTAL DUE:', 430, doc.y, { width: 70, align: 'right' });
-        doc.text(formatMoney(invoiceData.total || 0), 500, doc.y - doc.currentLineHeight(), { width: 50, align: 'right' });
+        doc.text('TOTAL DUE:', 380, currentY, { width: 100, align: 'right' });
+        doc.text(formatMoney(invoiceData.total || 0), 500, currentY, { width: 50, align: 'right' });
         
-        doc.moveDown(2);
+        // Set doc.y to continue below totals
+        doc.y = currentY + 30;
+        
+        // Add bank payment details section
+        doc.fontSize(12).font('Helvetica-Bold').fillColor('#2563eb')
+           .text('PAYMENT INSTRUCTIONS', 50, doc.y);
+        doc.moveDown(0.5);
+        
+        doc.fontSize(10).font('Helvetica').fillColor('#374151');
+        doc.text('Please reference invoice number when making payment.', 50, doc.y, { width: maxWidth });
+        doc.moveDown(0.5);
+        
+        // Bank details section
+        doc.fontSize(11).font('Helvetica-Bold').fillColor('#000000')
+           .text('Bank Transfer Details:', 50, doc.y);
+        doc.moveDown(0.3);
+        
+        doc.fontSize(10).font('Helvetica').fillColor('#000000');
+        doc.text('Account Name: Lancashire Shopfronts Limited', 50, doc.y);
+        doc.text('Sort Code: 04-00-04', 50, doc.y);
+        doc.text('Account Number: 41026518', 50, doc.y);
+        doc.text('Bank: HSBC Business Banking', 50, doc.y);
+        doc.text('Reference: Please include invoice number', 50, doc.y);
+        
+        doc.moveDown(1.5);
         
         // Add company terms & conditions from settings
         try {
