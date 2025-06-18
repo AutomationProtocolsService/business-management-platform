@@ -17,6 +17,7 @@ import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { LogoUploader } from "@/components/logo-uploader";
 
 // Company settings form schema
 const companyFormSchema = z.object({
@@ -222,6 +223,17 @@ export default function SettingsPage() {
                   onSubmit={companyForm.handleSubmit(onCompanySubmit)}
                   className="space-y-6"
                 >
+                  {/* Logo Upload Section */}
+                  <div className="mb-6">
+                    <LogoUploader 
+                      currentLogoUrl={settings?.companyLogo}
+                      onUploadSuccess={(logoUrl) => {
+                        // Refresh company settings after logo upload
+                        queryClient.invalidateQueries({ queryKey: ["/api/settings/company"] });
+                      }}
+                    />
+                  </div>
+
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                     <FormField
                       control={companyForm.control}
