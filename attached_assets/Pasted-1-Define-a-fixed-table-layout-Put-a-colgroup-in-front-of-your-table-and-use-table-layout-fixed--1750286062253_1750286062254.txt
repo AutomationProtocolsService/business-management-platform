@@ -1,0 +1,105 @@
+1. Define a fixed table layout
+Put a <colgroup> in front of your table, and use table-layout: fixed. This guarantees each cell sits in the same column every time.
+
+html
+Copy
+Edit
+<table style="width:100%; table-layout: fixed; border-collapse: collapse;">
+  <colgroup>
+    <col style="width: 60%;" />   <!-- Description -->
+    <col style="width: 10%;" />   <!-- Qty -->
+    <col style="width: 15%;" />   <!-- Unit Price -->
+    <col style="width: 15%;" />   <!-- Amount -->
+  </colgroup>
+
+  <!-- …THEAD HERE… -->
+
+  <!-- ─── FOOTER BEFORE BODY ───────────────────────────────────────── -->
+  <tfoot>
+    <tr>
+      <td colspan="3" style="text-align: right; font-weight: 600; padding:8px;">
+        Subtotal:
+      </td>
+      <td style="text-align: right; padding:8px;">
+        {{ subtotal }}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" style="text-align: right; font-weight: 600; padding:8px;">
+        Tax:
+      </td>
+      <td style="text-align: right; padding:8px;">
+        {{ tax }}
+      </td>
+    </tr>
+
+    <!-- ─── CONDITIONAL DISCOUNT ROW ───────────────────────────────── -->
+    {{#discount}}
+    <tr>
+      <td colspan="3" style="text-align: right; font-weight: 600; padding:8px;">
+        Discount:
+      </td>
+      <td style="text-align: right; padding:8px;">
+        {{ discount }}
+      </td>
+    </tr>
+    {{/discount}}
+
+    <!-- ─── TOTAL LINE ──────────────────────────────────────────────── -->
+    <tr>
+      <td colspan="3"
+          style="text-align: right;
+                 font-weight: 700;
+                 border-top: 2px solid #333;
+                 padding:8px 8px 0;">
+        Total {{ type === 'QUOTE' ? '' : 'Due' }}:
+      </td>
+      <td style="text-align: right;
+                 font-weight: 700;
+                 border-top: 2px solid #333;
+                 padding:8px 8px 0;">
+        {{ total }}
+      </td>
+    </tr>
+  </tfoot>
+
+  <!-- ─── NOW YOUR BODY ────────────────────────────────────────────── -->
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td style="padding:8px;">{{ item.description }}</td>
+      <td style="text-align:center; padding:8px;">{{ item.qty }}</td>
+      <td style="text-align:right; padding:8px;">{{ item.unit_price }}</td>
+      <td style="text-align:right; padding:8px;">{{ item.amount }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+Why this works
+<colgroup> + table-layout: fixed locks each column’s width so your Amounts column never shifts under an empty cell.
+
+<tfoot> before <tbody> respects the HTML spec for repeating footers—PDF engines like wkhtmltopdf and Puppeteer won’t reorder it in unexpected ways.
+
+Mustache-style {{#discount}}…{{/discount}} only renders that <tr> when discount is truthy. In your server code make sure to set discount = null or simply drop the key when it’s zero:
+
+js
+Copy
+Edit
+const vars = { subtotal, tax, total, type, items };
+if (data.discount > 0) vars.discount = data.discount;
+const html = mustache.render(template, vars);
+2. Next steps to validate
+Print out the final HTML that goes into Puppeteer (log it to console).
+
+Copy that HTML into a local test.html and open in your browser—verify your table looks perfect.
+
+Run your PDF generator and confirm the downloaded invoice shows:
+
+ruby
+Copy
+Edit
+Subtotal:   $1980.00
+Tax:        $  20.00
+────────────────
+TOTAL DUE: $2376.00
+No extra “0” underneath, all numbers flush‐right in the Amount column.
