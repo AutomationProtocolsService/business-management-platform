@@ -126,6 +126,10 @@ export default function SettingsPage() {
         website: data.website,
         currencyCode: data.currencyCode,
         termsAndConditions: data.termsAndConditions,
+        bankAccountName: data.bankAccountName,
+        bankSortCode: data.bankSortCode,
+        bankAccountNumber: data.bankAccountNumber,
+        bankName: data.bankName,
       };
       
       // Direct update to the correct endpoint
