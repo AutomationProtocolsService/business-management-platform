@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{document_type}}</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-size: 11px;
+      line-height: 1.4;
+      color: #333;
+      background: #fff;
+      padding: 40px;
+    }
+    
+    .header {
+      display: flex;
+      align-items: flex-start;
+      margin-bottom: 40px;
+      padding-bottom: 20px;
+      border-bottom: 3px solid #2563eb;
+    }
+    
+    .logo-section {
+      flex: 0 0 200px;
+      margin-right: 30px;
+    }
+    
+    .logo {
+      max-width: 180px;
+      max-height: 80px;
+      object-fit: contain;
+    }
+    
+    .company-info {
+      flex: 1;
+      line-height: 1.5;
+    }
+    
+    .company-name {
+      font-size: 22px;
+      font-weight: bold;
+      color: #1a1a1a;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .company-details {
+      font-size: 11px;
+      color: #555;
+      line-height: 1.6;
+    }
+    
+    .document-title {
+      flex: 0 0 150px;
+      text-align: right;
+    }
+    
+    .document-title h1 {
+      font-size: 32px;
+      font-weight: bold;
+      color: #2563eb;
+      margin: 0;
+      letter-spacing: 1px;
+    }
+    
+    .document-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 40px;
+      margin-bottom: 30px;
+    }
+    
+    .meta-section h3 {
+      font-size: 12px;
+      font-weight: bold;
+      color: #2563eb;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .meta-content {
+      font-size: 11px;
+      line-height: 1.5;
+    }
+    
+    .items-section {
+      margin: 40px 0;
+    }
+    
+    .items-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    
+    .items-table th {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      padding: 12px 10px;
+      font-weight: bold;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #374151;
+    }
+    
+    .items-table td {
+      border: 1px solid #e2e8f0;
+      padding: 12px 10px;
+      font-size: 11px;
+      vertical-align: top;
+    }
+    
+    .items-table tr:nth-child(even) {
+      background: #fafbfc;
+    }
+    
+    .description-col {
+      width: 50%;
+    }
+    
+    .qty-col {
+      width: 12%;
+      text-align: center;
+    }
+    
+    .price-col {
+      width: 19%;
+      text-align: right;
+    }
+    
+    .amount-col {
+      width: 19%;
+      text-align: right;
+      font-weight: 600;
+    }
+    
+    .totals-section {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+    }
+    
+    .totals-table {
+      width: 300px;
+      border-collapse: collapse;
+    }
+    
+    .totals-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    
+    .totals-table .label {
+      text-align: right;
+      font-weight: 600;
+      color: #374151;
+    }
+    
+    .totals-table .amount {
+      text-align: right;
+      font-weight: 600;
+      width: 120px;
+    }
+    
+    .totals-table .total-row {
+      background: #f8fafc;
+      border-top: 2px solid #2563eb;
+      border-bottom: 2px solid #2563eb;
+    }
+    
+    .totals-table .total-row td {
+      font-size: 14px;
+      font-weight: bold;
+      color: #2563eb;
+      padding: 12px;
+    }
+    
+    .terms-section {
+      margin-top: 50px;
+      padding-top: 20px;
+      border-top: 1px solid #e2e8f0;
+    }
+    
+    .terms-title {
+      font-size: 12px;
+      font-weight: bold;
+      color: #374151;
+      margin-bottom: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .terms-content {
+      font-size: 9px;
+      line-height: 1.5;
+      color: #6b7280;
+      white-space: pre-wrap;
+    }
+    
+    .footer {
+      margin-top: 40px;
+      text-align: center;
+      font-size: 9px;
+      color: #9ca3af;
+    }
+    
+    @media print {
+      body {
+        padding: 20px;
+      }
+      
+      .header {
+        break-inside: avoid;
+      }
+      
+      .items-table {
+        break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    {{#logo_url}}
+    <div class="logo-section">
+      <img src="{{logo_url}}" alt="Company Logo" class="logo" />
+    </div>
+    {{/logo_url}}
+    
+    <div class="company-info">
+      <div class="company-name">{{company_name}}</div>
+      <div class="company-details">
+        {{#address}}{{address}}<br>{{/address}}
+        {{#city}}{{city}}{{#state}}, {{state}}{{/state}} {{#zip_code}}{{zip_code}}{{/zip_code}}<br>{{/city}}
+        {{#country}}{{country}}<br>{{/country}}
+        {{#phone}}{{phone}}{{/phone}}{{#email}} | {{email}}{{/email}}
+      </div>
+    </div>
+    
+    <div class="document-title">
+      <h1>{{document_type}}</h1>
+    </div>
+  </div>
+
+  <div class="document-meta">
+    <div class="meta-section">
+      <h3>{{document_type}} Details</h3>
+      <div class="meta-content">
+        <strong>{{document_type}} Number:</strong> {{number}}<br>
+        <strong>Date:</strong> {{date}}<br>
+        {{#expiry_date}}<strong>Expiry Date:</strong> {{expiry_date}}<br>{{/expiry_date}}
+        {{#reference}}<strong>Reference:</strong> {{reference}}<br>{{/reference}}
+      </div>
+    </div>
+    
+    <div class="meta-section">
+      <h3>Bill To</h3>
+      <div class="meta-content">
+        <strong>{{customer.name}}</strong><br>
+        {{#customer.address}}{{customer.address}}<br>{{/customer.address}}
+        {{#customer.city}}{{customer.city}}{{#customer.state}}, {{customer.state}}{{/customer.state}} {{#customer.zip_code}}{{customer.zip_code}}{{/customer.zip_code}}<br>{{/customer.city}}
+        {{#customer.email}}{{customer.email}}<br>{{/customer.email}}
+        {{#customer.phone}}{{customer.phone}}{{/customer.phone}}
+      </div>
+    </div>
+  </div>
+
+  <div class="items-section">
+    <h3 class="terms-title">Items</h3>
+    <table class="items-table">
+      <thead>
+        <tr>
+          <th class="description-col">Description</th>
+          <th class="qty-col">Qty</th>
+          <th class="price-col">Unit Price</th>
+          <th class="amount-col">Amount</th>
+        </tr>
+      </thead>
+      <tbody>
+        {{#items}}
+        <tr>
+          <td class="description-col">{{description}}</td>
+          <td class="qty-col">{{quantity}}</td>
+          <td class="price-col">{{currency_symbol}}{{unit_price}}</td>
+          <td class="amount-col">{{currency_symbol}}{{total}}</td>
+        </tr>
+        {{/items}}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="totals-section">
+    <table class="totals-table">
+      <tr>
+        <td class="label">Subtotal:</td>
+        <td class="amount">{{currency_symbol}}{{subtotal}}</td>
+      </tr>
+      {{#tax}}
+      <tr>
+        <td class="label">Tax:</td>
+        <td class="amount">{{currency_symbol}}{{tax}}</td>
+      </tr>
+      {{/tax}}
+      {{#discount}}
+      <tr>
+        <td class="label">Discount:</td>
+        <td class="amount">-{{currency_symbol}}{{discount}}</td>
+      </tr>
+      {{/discount}}
+      <tr class="total-row">
+        <td class="label">Total:</td>
+        <td class="amount">{{currency_symbol}}{{total}}</td>
+      </tr>
+    </table>
+  </div>
+
+  {{#terms}}
+  <div class="terms-section">
+    <div class="terms-title">Terms &amp; Conditions</div>
+    <div class="terms-content">{{terms}}</div>
+  </div>
+  {{/terms}}
+
+  <div class="footer">
+    Thank you for your business!
+  </div>
+</body>
+</html>

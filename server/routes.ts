@@ -27,6 +27,7 @@ import { storage } from "./storage";
 import { getWebSocketManager } from "./websocket";
 import EmailService from "./services/email-service";
 import PDFService from "./services/pdf-service";
+import { HtmlPdfService } from "./services/html-pdf-service";
 import FileService from "./services/file-service";
 import SecurityService from "./services/security-service";
 // Removed Puppeteer PDF service - now using PDFKit service
