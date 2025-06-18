@@ -162,7 +162,24 @@ export function LogoUploader({ currentLogoUrl, onUploadSuccess }: LogoUploaderPr
         {/* Current logo display */}
         {currentLogoUrl && !previewUrl && (
           <div className="space-y-2">
-            <p className="text-sm font-medium">Current Logo:</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium">Current Logo:</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => deleteMutation.mutate()}
+                disabled={deleteMutation.isPending}
+                className="text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-950"
+              >
+                {deleteMutation.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" />
+                ) : (
+                  <Trash2 className="h-4 w-4 mr-1" />
+                )}
+                {deleteMutation.isPending ? "Deleting..." : "Delete"}
+              </Button>
+            </div>
             <div className="flex items-center justify-center p-4 border-2 border-dashed border-gray-200 rounded-lg bg-gray-50">
               <img 
                 src={currentLogoUrl} 
