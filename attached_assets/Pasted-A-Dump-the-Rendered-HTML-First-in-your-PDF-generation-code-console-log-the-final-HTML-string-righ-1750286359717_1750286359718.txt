@@ -1,0 +1,160 @@
+A. Dump the Rendered HTML
+First, in your PDF‐generation code, console.log the final HTML string right before you call page.setContent(html). Copy that output into a local file, e.g. debug.html.
+
+js
+Copy
+Edit
+// just before puppeteer:
+console.log('FINAL_HTML:', html);
+await page.setContent(html, { waitUntil: 'networkidle0' });
+Run your download endpoint once and grab the logged HTML (everything after FINAL_HTML:).
+
+B. Create a Minimal Browser Test
+Save that HTML snippet to a new file debug.html on your machine.
+
+Open it in Chrome/Firefox—not in Puppeteer—just to see how the table looks in a real browser.
+
+Use DevTools → Elements to inspect the table:
+
+Do the columns line up?
+
+Is your stray “0” row present in the DOM?
+
+Are your <tfoot> and <tbody> in the order you expect?
+
+Once it looks perfect in the browser, you know Puppeteer will match it.
+
+C. Update Your Template
+In your templates/document.html, replace the table section with this minimal, bullet-proof snippet:
+
+html
+Copy
+Edit
+<table 
+  style="
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-family: Arial, sans-serif;
+  "
+>
+  <!-- 1) Define fixed column widths -->
+  <colgroup>
+    <col style="width:60%;" />
+    <col style="width:10%;" />
+    <col style="width:15%;" />
+    <col style="width:15%;" />
+  </colgroup>
+
+  <!-- 2) Header with inline widths -->
+  <thead>
+    <tr>
+      <th style="padding:8px; text-align:left; font-weight:600;" width="60%">
+        Description
+      </th>
+      <th style="padding:8px; text-align:right; font-weight:600;" width="10%">
+        Qty
+      </th>
+      <th style="padding:8px; text-align:right; font-weight:600;" width="15%">
+        Price
+      </th>
+      <th style="padding:8px; text-align:right; font-weight:600;" width="15%">
+        Amount
+      </th>
+    </tr>
+  </thead>
+
+  <!-- 3) Body -->
+  <tbody>
+    {% for item in items %}
+    <tr>
+      <td style="padding:8px; vertical-align:top;">
+        {{ item.description }}
+      </td>
+      <td style="padding:8px; text-align:right;">{{ item.qty }}</td>
+      <td style="padding:8px; text-align:right;">{{ item.unit_price }}</td>
+      <td style="padding:8px; text-align:right;">{{ item.amount }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+
+  <!-- 4) Footer after body, forced to render as table-footer-group -->
+  <tfoot style="display: table-footer-group;">
+    <tr>
+      <td colspan="3" 
+          style="padding:8px; text-align:right; font-weight:600;">
+        Subtotal:
+      </td>
+      <td style="padding:8px; text-align:right;">
+        {{ subtotal }}
+      </td>
+    </tr>
+    <tr>
+      <td colspan="3" 
+          style="padding:8px; text-align:right; font-weight:600;">
+        Tax:
+      </td>
+      <td style="padding:8px; text-align:right;">
+        {{ tax }}
+      </td>
+    </tr>
+    <!-- Conditionally render Discount only if > 0 -->
+    {{#hasDiscount}}
+    <tr>
+      <td colspan="3" 
+          style="padding:8px; text-align:right; font-weight:600;">
+        Discount:
+      </td>
+      <td style="padding:8px; text-align:right;">
+        {{ discount }}
+      </td>
+    </tr>
+    {{/hasDiscount}}
+    <tr>
+      <td colspan="3"
+          style="
+            padding:8px; 
+            text-align:right; 
+            font-weight:700; 
+            border-top:2px solid #333;
+          ">
+        Total {{ type == 'QUOTE' ? '' : 'Due' }}:
+      </td>
+      <td
+        style="
+          padding:8px; 
+          text-align:right; 
+          font-weight:700; 
+          border-top:2px solid #333;
+        ">
+        {{ total }}
+      </td>
+    </tr>
+  </tfoot>
+</table>
+Important points
+<colgroup> + table-layout: fixed locks your column positions.
+
+Inline width="…" on <th> enforces column width even if the PDF engine ignores <colgroup>.
+
+<tfoot> after <tbody> (and display: table-footer-group) stops wkhtmltopdf/Puppeteer from reordering it.
+
+{{#hasDiscount}}…{{/hasDiscount}} (or your engine’s if discount>0) means no empty discount row.
+
+D. Adjust Your Render Variables
+In your PDF-generation code, make sure you only set hasDiscount: true when data.discount > 0. E.g.:
+
+js
+Copy
+Edit
+const view = {
+  items: data.items,
+  subtotal: data.subtotal,
+  tax: data.tax,
+  total: data.total,
+  type: data.isQuote ? 'QUOTE' : 'INVOICE',
+  hasDiscount: data.discount > 0,
+  discount: data.discount,
+  // …other vars…
+};
+const html = mustache.render(template, view);

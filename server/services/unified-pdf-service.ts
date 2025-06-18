@@ -33,6 +33,9 @@ class UnifiedPdfService {
       // Render the template with Mustache
       const html = Mustache.render(template, templateData);
       
+      // DEBUG: Log the final HTML for inspection
+      console.log('FINAL_HTML:', html);
+      
       console.log('Starting Puppeteer PDF conversion...');
       // Convert to PDF with timeout and error handling
       const browser = await this.getBrowser();
@@ -118,6 +121,7 @@ class UnifiedPdfService {
         })) || [],
         subtotal: `$${(quoteData.subtotal || 0).toFixed(2)}`,
         tax: quoteData.tax ? `$${quoteData.tax.toFixed(2)}` : undefined,
+        hasDiscount: quoteData.discount && quoteData.discount > 0,
         discount: quoteData.discount ? `-$${quoteData.discount.toFixed(2)}` : undefined,
         total: `$${(quoteData.total || 0).toFixed(2)}`,
         terms: companySettings?.termsAndConditions || undefined
@@ -181,6 +185,7 @@ class UnifiedPdfService {
         })) || [],
         subtotal: `$${(invoiceData.subtotal || 0).toFixed(2)}`,
         tax: invoiceData.tax ? `$${invoiceData.tax.toFixed(2)}` : undefined,
+        hasDiscount: invoiceData.discount && invoiceData.discount > 0,
         discount: invoiceData.discount ? `-$${invoiceData.discount.toFixed(2)}` : undefined,
         total: `$${(invoiceData.total || 0).toFixed(2)}`,
         terms: companySettings?.termsAndConditions || undefined
