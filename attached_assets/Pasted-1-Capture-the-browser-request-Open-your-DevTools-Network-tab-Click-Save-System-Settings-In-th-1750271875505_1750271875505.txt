@@ -1,0 +1,80 @@
+1) Capture the browser request
+Open your DevTools ➔ Network tab.
+
+Click Save System Settings.
+
+In the Network pane, find the row for the settings request (look for /settings or similar).
+
+Copy down:
+
+Method & URL (e.g. POST http://localhost:3000/api/settings)
+
+Status code (e.g. 500, 422, etc.)
+
+Request payload (the JSON you sent)
+
+Response body (the error JSON)
+
+Once you’ve got that, please paste it here. It will look something like:
+
+pgsql
+Copy
+Edit
+POST /api/settings HTTP/1.1
+Host: localhost:3000
+Content-Type: application/json
+
+{ "dark_mode":true, "email_notifications":true, "auto_save":true, "default_page_size":10 }
+
+— RESPONSE —
+HTTP/1.1 500 Internal Server Error
+Content-Type: application/json
+
+{ "error": "Failed to create system settings: Validation failed: default_page_size can’t be blank" }
+2) Reproduce via curl
+On your machine, run a curl that mirrors exactly what your front-end is doing. For example (adjust URL and fields to match your app):
+
+bash
+Copy
+Edit
+curl -i -X POST http://localhost:3000/api/settings \
+  -H "Content-Type: application/json" \
+  -d '{"dark_mode":false,"email_notifications":true,"auto_save":true,"default_page_size":10}'
+Copy the full terminal output (headers + body) and paste it here.
+
+3) Inspect your server logs
+Right after you hit Save, tail or open your application log. e.g. for Rails:
+
+bash
+Copy
+Edit
+tail -n 50 log/development.log
+Look for the stack trace or error message that corresponds to that HTTP request and paste the relevant lines. You’re looking for things like:
+
+swift
+Copy
+Edit
+ParameterMissing (param is missing or the value is empty: default_page_size):
+  app/controllers/system_settings_controller.rb:12:in `create'
+4) Check the database
+If you’re using a singleton-settings table, see what’s already in it:
+
+sql
+Copy
+Edit
+SELECT * FROM system_settings;
+And if there’s a unique constraint issue, you might see something like:
+
+vbnet
+Copy
+Edit
+ERROR:  duplicate key value violates unique constraint "index_system_settings_on_id"
+DETAIL:  Key (id)=(1) already exists.
+Once you’ve gathered all of the above (Network request, curl output, server log snippet, DB query result), paste them back here and we’ll pinpoint:
+Whether you’re hitting a validation error
+
+Whether you’re running into a unique-constraint (singleton) conflict
+
+Whether your front-end is sending the wrong HTTP verb or payload shape
+
+From there we can craft the exact code change (POST → PATCH, strong-params fix, find_or_initialize, etc.) to get your “Save” button working.
