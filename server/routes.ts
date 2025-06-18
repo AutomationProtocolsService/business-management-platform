@@ -3162,7 +3162,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ]
       };
 
-      const pdfBuffer = await htmlPdfService.generateInvoicePDF(testInvoiceData, companySettings);
+      const pdfBuffer = await PDFService.generateInvoicePDF(testInvoiceData);
       
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', 'attachment; filename="Professional_Invoice.pdf"');
