@@ -1,0 +1,90 @@
+Below is a drop-in fix for your table <tfoot> so that every subtotal, tax, discount and total row lines up perfectly — no stray “0” below “Total Due” ever again.
+
+Simply replace your current <tfoot> in templates/document.html with this:
+
+html
+Copy
+Edit
+<tfoot>
+  <!-- Subtotal row -->
+  <tr>
+    <td colspan="3" style="text-align: right; font-weight: 600;">
+      Subtotal:
+    </td>
+    <td style="text-align: right;">
+      {{ subtotal }}
+    </td>
+  </tr>
+
+  <!-- Tax row -->
+  <tr>
+    <td colspan="3" style="text-align: right; font-weight: 600;">
+      Tax:
+    </td>
+    <td style="text-align: right;">
+      {{ tax }}
+    </td>
+  </tr>
+
+  <!-- Only render Discount if non-zero (avoids misaligned blank rows) -->
+  {% if discount and discount != 0 %}
+  <tr>
+    <td colspan="3" style="text-align: right; font-weight: 600;">
+      Discount:
+    </td>
+    <td style="text-align: right;">
+      {{ discount }}
+    </td>
+  </tr>
+  {% endif %}
+
+  <!-- Total row with a clean top border -->
+  <tr>
+    <td
+      colspan="3"
+      style="
+        text-align: right;
+        font-weight: 700;
+        border-top: 2px solid #333;
+        padding-top: 8px;
+      "
+    >
+      Total {{ type === 'QUOTE' ? '' : 'Due' }}:
+    </td>
+    <td
+      style="
+        text-align: right;
+        font-weight: 700;
+        border-top: 2px solid #333;
+        padding-top: 8px;
+      "
+    >
+      {{ total }}
+    </td>
+  </tr>
+</tfoot>
+What this does:
+colspan="3" on the label cell forces your number into the fourth column every time.
+
+text-align: right guarantees your monetary values hug the right edge.
+
+Conditional Discount row ({% if discount… %}) means that when your discount is zero, that entire row is skipped — no lonely “0” hanging under “Total.”
+
+Stronger border on the Total row visually separates it from the others.
+
+Final Checklist
+Paste this <tfoot> into your HTML template.
+
+Regenerate both a Quote and an Invoice PDF.
+
+You should now see:
+
+ruby
+Copy
+Edit
+Subtotal:    $1980.00
+Tax:         $  20.00
+[Discount:]  $   0.00    ← only if non-zero
+─────────────────────────
+Total Due:   $2376.00
+That alignment tweak will keep your invoices and quotes looking sleek, professional—and above all, consistent.

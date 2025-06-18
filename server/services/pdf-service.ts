@@ -575,37 +575,44 @@ class PDFServiceImpl {
         doc.fontSize(10).font('Helvetica').fillColor('#000000');
         
         // Perfect right-aligned totals with consistent column positioning
-        let currentY = doc.y;
-        
-        // Fixed positioning for perfect alignment
+        const startY = doc.y;
         const labelX = 420;  // Label position
         const valueX = 500;  // Value position
         const valueWidth = 50; // Value column width
+        const lineHeight = 12;
         
-        // Subtotal
-        doc.text('Subtotal:', labelX, currentY);
-        doc.text(formatMoney(invoiceData.subtotal || 0), valueX, currentY, { width: valueWidth, align: 'right' });
-        currentY += 12;
+        let rowY = startY;
+        
+        // Subtotal - explicitly control positioning
+        doc.text('Subtotal:', labelX, rowY);
+        doc.text(formatMoney(invoiceData.subtotal || 0), valueX, rowY, { width: valueWidth, align: 'right' });
+        rowY += lineHeight;
         
         // Tax (only if exists and > 0)
         if (invoiceData.tax && invoiceData.tax > 0) {
-          doc.text('Tax:', labelX, currentY);
-          doc.text(formatMoney(invoiceData.tax), valueX, currentY, { width: valueWidth, align: 'right' });
-          currentY += 12;
+          doc.text('Tax:', labelX, rowY);
+          doc.text(formatMoney(invoiceData.tax), valueX, rowY, { width: valueWidth, align: 'right' });
+          rowY += lineHeight;
         }
         
         // Discount (only if exists and > 0)
         if (invoiceData.discount && invoiceData.discount > 0) {
-          doc.text('Discount:', labelX, currentY);
-          doc.text(formatMoney(invoiceData.discount), valueX, currentY, { width: valueWidth, align: 'right' });
-          currentY += 12;
+          doc.text('Discount:', labelX, rowY);
+          doc.text(formatMoney(invoiceData.discount), valueX, rowY, { width: valueWidth, align: 'right' });
+          rowY += lineHeight;
         }
         
-        // Total with emphasis - same positioning
-        currentY += 3;
+        // Total with emphasis - ensure single line
+        rowY += 3;
         doc.fontSize(12).font('Helvetica-Bold').fillColor('#000000');
-        doc.text('TOTAL DUE:', labelX, currentY);
-        doc.text(formatMoney(invoiceData.total || 0), valueX, currentY, { width: valueWidth, align: 'right' });
+        
+        // Write both label and value on exact same Y coordinate
+        const totalY = rowY;
+        doc.text('TOTAL DUE:', labelX, totalY);
+        doc.text(formatMoney(invoiceData.total || 0), valueX, totalY, { width: valueWidth, align: 'right' });
+        
+        // Explicitly set doc.y to continue after this section
+        doc.y = totalY + 20;
         
         // Set doc.y to continue below totals
         doc.y = currentY + 30;
