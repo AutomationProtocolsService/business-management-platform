@@ -81,6 +81,7 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
       createUserAccount: false,
       username: "",
       userRole: "employee",
+      sendInvitation: false,
     },
   });
 
@@ -104,12 +105,29 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
         await apiRequest("POST", "/api/users", userData);
       }
       
+      // If invitation is requested, send invitation email
+      if (values.sendInvitation && values.email) {
+        try {
+          await apiRequest("POST", "/api/invitations", {
+            email: values.email,
+            role: values.userRole || "employee",
+            employeeId: employee.id
+          });
+        } catch (invitationError) {
+          // Don't fail the entire operation if invitation fails
+          console.warn("Failed to send invitation:", invitationError);
+        }
+      }
+      
       return employee;
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
+      const invitationSent = variables.sendInvitation && variables.email;
       toast({
         title: "Employee created",
-        description: "Employee has been created successfully.",
+        description: invitationSent 
+          ? "Employee has been created successfully and invitation email sent."
+          : "Employee has been created successfully.",
       });
       
       // Correctly update the employees list with the new employee
@@ -435,6 +453,32 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
             </FormItem>
           )}
         />
+
+        {/* Send Invitation Option - Only show for new employees with email */}
+        {!employeeId && form.watch("email") && (
+          <FormField
+            control={form.control}
+            name="sendInvitation"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                <FormControl>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    Send invitation email
+                  </FormLabel>
+                  <FormDescription>
+                    Send an invitation email to the employee after creating their record. They can use this to set up their account.
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+        )}
 
         <Button 
           type="submit" 
