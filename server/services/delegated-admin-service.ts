@@ -1,6 +1,9 @@
 import { and, eq, inArray, sql } from "drizzle-orm";
 import { db } from "../db";
-import { users, SelectUser } from "../../shared/schema";
+import { users } from "../../shared/schema";
+
+// Define SelectUser type locally since it's not exported from schema
+type SelectUser = typeof users.$inferSelect;
 import { 
   teams, 
   teamMembers, 
@@ -56,7 +59,7 @@ export class DelegatedAdminService {
     const targetLevel = roleHierarchy[targetRole as keyof typeof roleHierarchy];
     const adminLevel = roleHierarchy[adminRole as keyof typeof roleHierarchy];
     
-    if (!targetLevel || targetLevel > adminLevel) {
+    if (!targetLevel || !adminLevel || targetLevel > adminLevel) {
       throw new Error('Cannot assign role higher than your own');
     }
   }
