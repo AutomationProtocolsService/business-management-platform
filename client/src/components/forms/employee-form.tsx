@@ -110,10 +110,14 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
         description: "Employee has been created successfully.",
       });
       
-      // Force a complete cache refresh to prevent stale data issues
-      queryClient.removeQueries({ queryKey: ["/api/employees"] });
-      queryClient.removeQueries({ queryKey: ["/api/users"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      // Correctly update the employees list with the new employee
+      queryClient.setQueryData(["/api/employees"], (oldEmployees: any[]) => {
+        if (!oldEmployees) return [data];
+        // Create a new array with existing employees plus the new one
+        return [...oldEmployees, data];
+      });
+      
+      // Also invalidate to ensure data consistency
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       
       if (onSuccess) onSuccess(data);
