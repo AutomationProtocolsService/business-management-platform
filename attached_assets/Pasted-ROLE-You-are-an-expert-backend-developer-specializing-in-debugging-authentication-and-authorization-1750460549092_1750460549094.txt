@@ -1,0 +1,24 @@
+ROLE: You are an expert backend developer specializing in debugging authentication and authorization middleware in Node.js/Express applications.
+
+CONTEXT: We have a protected API route, POST /api/employees/:employeeId/invite, which should only be accessible to users with the 'admin' role. Currently, when a logged-in admin on the frontend sends a request to this endpoint, the request is incorrectly rejected with a 403 Forbidden or similar error, with the message "Admin permissions required". We have confirmed the frontend is correctly sending the JWT in the Authorization: Bearer ... header.
+
+TASK: Your task is to debug and fix the backend authorization middleware that is failing to correctly identify the logged-in user as an admin.
+
+DETAILED INSTRUCTIONS:
+
+Locate the Route and its Middleware: Find the route definition for POST /api/employees/:employeeId/invite in the backend's router files. Identify the specific middleware function that runs before the main controller logic (it might be named requireAdmin, isAdmin, withAuth, etc.).
+
+Analyze the Middleware Logic: Go to the definition of that middleware function. The bug is likely in this file. Carefully inspect its logic, which should be:
+
+Extracting the token from the Authorization header.
+Verifying the token's signature and expiration.
+Decoding the token to access its payload (which contains user details).
+Checking the role field within the decoded payload.
+Identify the Exact Point of Failure: The error is most likely one of the following:
+
+The user object or payload from the decoded token is not being correctly attached to the Express request object (e.g., req.user).
+The subsequent check is looking for the role in the wrong place (e.g., checking req.body.role instead of req.user.role).
+There is a typo in the role comparison (e.g., checking for 'Admin' instead of 'admin').
+Implement the Fix: Correct the middleware logic to ensure the user's role is properly read from the verified JWT payload. Ensure the logic exactly matches other working admin-protected endpoints in the application. The final check should be a simple and clear if (req.user.role !== 'admin') { return res.status(403).send('Admin permissions required'); }.
+
+After fixing the logic, please ensure the authenticated user object (req.user) is passed correctly to the main controller function by calling next().

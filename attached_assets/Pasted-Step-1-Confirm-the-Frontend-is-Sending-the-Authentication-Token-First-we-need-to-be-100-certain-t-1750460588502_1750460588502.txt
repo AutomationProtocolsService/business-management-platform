@@ -1,0 +1,22 @@
+Step 1: Confirm the Frontend is Sending the Authentication Token
+First, we need to be 100% certain that your browser is sending your "proof of login" (your authentication token) when you click the "Send Invite" button.
+
+Could you please perform this quick check using your browser's developer tools?
+
+Open Developer Tools: Press F12 (or right-click on the page and select "Inspect").
+Go to the "Network" Tab: Click on the "Network" tab in the developer tools panel.
+Trigger the Error: Click the "Send Invite" button for any employee.
+Find the Failed Request: In the Network tab, a new line will appear, likely highlighted in red, with a name like invite. Click on this line.
+Check the "Headers" Tab: A new panel will appear. Click on the "Headers" tab within it. Scroll down to the "Request Headers" section.
+Look for Authorization: Look for a header named Authorization. It should have a value that starts with Bearer followed by a long string of characters.
+Please let me know if you see this Authorization header. Knowing this confirms the problem is entirely on the backend and allows us to give the AI a surgically precise prompt to fix it.
+
+Step 2: Guide the AI Agent to Fix the Backend Middleware
+Once you confirm the Authorization header is being sent, use the following prompt to guide the Replit AI agent. This prompt is specifically designed to find and fix the faulty security check on the server.
+
+Prompt for Replit AI Agent
+ROLE: You are an expert backend developer specializing in debugging authentication and authorization middleware in Node.js/Express applications.
+
+CONTEXT: We have a protected API route, POST /api/employees/:employeeId/invite, which should only be accessible to users with the 'admin' role. Currently, when a logged-in admin on the frontend sends a request to this endpoint, the request is incorrectly rejected with a 403 Forbidden or similar error, with the message "Admin permissions required". We have confirmed the frontend is correctly sending the JWT in the Authorization: Bearer ... header.
+
+TASK: Your task is to debug and fix the backend authorization middleware that is failing to correctly identify the logged-in user as an admin.
