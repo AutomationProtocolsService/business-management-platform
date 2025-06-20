@@ -1,0 +1,39 @@
+Step 1: Debugging the Request
+First, let's verify what the frontend is sending to the backend.
+
+Prompt for User (You) to Perform:
+
+Before giving the next prompt to the AI, please follow the debugging steps we used before to find the real error message:
+
+Open Developer Tools (F12 or Right-click -> Inspect).
+Go to the "Network" tab.
+Click the "Send Invite" button again to trigger the error.
+Find the failed request in the list. It will likely be in red and named invite.
+Click on it. Go to the "Headers" tab.
+Look for a header named Authorization or Cookie. You should see a long string of characters labeled Bearer Token or a similar authentication token.
+Please confirm if you see an Authorization: Bearer ... header being sent with the request. This will tell us if the frontend is doing its job.
+
+Step 2: Fixing the Backend Middleware
+Once you confirm the token is being sent, we can give the AI a very specific prompt to fix the backend.
+
+Prompt for Replit AI Agent:
+
+ROLE: You are an expert backend developer specializing in debugging authentication and authorization middleware in Node.js/Express applications.
+
+CONTEXT: We have a POST /api/employees/:employeeId/invite endpoint that is protected by an "isAdmin" middleware. When a legitimate Admin user from the frontend tries to access this endpoint, they are incorrectly being rejected with an "Admin permissions required" error. This indicates the middleware is failing to correctly identify the authenticated user's role.
+
+TASK: Your task is to debug and fix the authorization check for the invitation endpoint.
+
+DETAILED INSTRUCTIONS:
+
+Locate the Middleware: Find the route definition for POST /api/employees/:employeeId/invite in the backend code. Identify the specific middleware function being used to check for admin permissions (it might be called isAdmin, requireAdmin, withAuth, etc.).
+
+Inspect the Logic: Go to the definition of that middleware function. The logic should perform these steps:
+
+It must correctly extract the JWT or session token from the Authorization header or cookie.
+It must verify the token.
+It must decode the token to get the userId and role.
+It must then check if the role property from the decoded token is equal to 'admin'.
+Identify the Bug: The bug is likely in how the user's role is being read from the decoded token or how the user object is being attached to the request object (req). The check might be failing because the property name is wrong (e.g., checking req.user.role when it should be req.auth.role) or the token is not being decoded correctly.
+
+Implement the Fix: Correct the logic to ensure the user's role is properly read from the verified token and the next() function is only called if the role is 'admin'. If not, it should correctly send a 403 Forbidden status. Ensure the user object attached to the request is consistent with other working parts of the application.
