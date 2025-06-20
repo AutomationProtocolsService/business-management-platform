@@ -38,6 +38,7 @@ import {
 } from "./utils/document-numbering";
 import { registerQuoteRoutes } from "./routes/quotes";
 import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
+import { registerInvitationRoutes } from "./routes/invitation-routes";
 
 /**
  * Helper to get a tenant filter object from a request
@@ -3255,6 +3256,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+
+  // Register additional route modules
+  registerQuoteRoutes(app);
+  registerDelegatedAdminRoutes(app);
+  registerInvitationRoutes(app);
 
   // We'll create a server in index.ts
   console.log('API routes registered successfully');
