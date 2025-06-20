@@ -140,7 +140,22 @@ export function registerInvitationRoutes(app: Express) {
       
       // Check if the user has admin permissions
       const user = req.user as any;
-      if (user.role !== 'admin') {
+      
+      // Check user role first
+      let isAdmin = user.role === 'admin';
+      
+      // If not admin by role, check if they have admin position in employee record
+      if (!isAdmin) {
+        try {
+          const employees = await storage.getAllEmployees({ tenantId: user.tenantId });
+          const userEmployee = employees.find(emp => emp.email === user.email);
+          isAdmin = userEmployee?.position?.toLowerCase() === 'admin';
+        } catch (error) {
+          logger.error({ userId: user.id, error }, 'Error checking employee admin status');
+        }
+      }
+      
+      if (!isAdmin) {
         logger.warn({ userId: user.id }, 'Non-admin attempting to create invitation');
         return res.status(403).json({ 
           success: false, 
