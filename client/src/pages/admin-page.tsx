@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { Link } from "wouter";
 import { 
   Users, 
   UserPlus, 
@@ -24,7 +25,9 @@ import {
   Plus,
   Crown,
   Users2,
-  Award
+  Award,
+  Mail,
+  Ban
 } from "lucide-react";
 
 interface User {
