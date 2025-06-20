@@ -37,6 +37,7 @@ import {
   countQuotesForTenant
 } from "./utils/document-numbering";
 import { registerQuoteRoutes } from "./routes/quotes";
+import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
 
 /**
  * Helper to get a tenant filter object from a request
@@ -82,6 +83,9 @@ import configureModularRoutes from './routes/index';
 export async function registerRoutes(app: Express): Promise<Server> {
   // Register modular route handlers
   registerQuoteRoutes(app);
+  
+  // Register delegated admin routes
+  registerDelegatedAdminRoutes(app);
   
   // Register our new survey and installation routes
   configureModularRoutes(app);

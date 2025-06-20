@@ -8,7 +8,10 @@ import {
   insertTeamMemberSchema,
   insertPermissionTemplateSchema 
 } from "../../shared/delegated-admin-schema";
-import { SelectUser } from "../../shared/schema";
+import { users } from "../../shared/schema";
+
+// Define SelectUser type locally
+type SelectUser = typeof users.$inferSelect;
 
 // Validation schemas for API requests
 const updateUserRoleSchema = z.object({
