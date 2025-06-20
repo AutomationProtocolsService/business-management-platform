@@ -57,6 +57,7 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/use-auth";
@@ -252,6 +253,43 @@ export default function EmployeesPage() {
             />
             <Search className="h-5 w-5 absolute left-3 top-2.5 text-gray-400" />
           </div>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  className="flex items-center"
+                  onClick={() => {
+                    // Open permissions management for the first available employee with a user account
+                    const firstEmployeeWithUser = filteredEmployees.find((emp: any) => {
+                      const user = getUserByEmployeeId(emp.userId);
+                      return user;
+                    });
+                    
+                    if (firstEmployeeWithUser) {
+                      const user = getUserByEmployeeId(firstEmployeeWithUser.userId);
+                      setSelectedEmployee({ ...firstEmployeeWithUser, user });
+                      setIsPermissionsDialogOpen(true);
+                    } else {
+                      toast({
+                        title: "No user accounts found",
+                        description: "Create user accounts for employees to manage permissions.",
+                        variant: "destructive",
+                      });
+                    }
+                  }}
+                >
+                  <Shield className="h-4 w-4 mr-2" />
+                  Manage Permissions
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Manage user roles and fine-grained permissions for employees</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+
           <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
             <DialogTrigger asChild>
               <Button className="flex items-center">
