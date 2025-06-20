@@ -75,10 +75,7 @@ export default function EmployeesPage() {
   // Permissions management state
   const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
   const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
-  const [isGrantPermissionFormOpen, setIsGrantPermissionFormOpen] = useState(false);
-  const [selectedResourceType, setSelectedResourceType] = useState<string>("");
-  const [selectedResourceId, setSelectedResourceId] = useState<string>("");
-  const [selectedActions, setSelectedActions] = useState<string[]>([]);
+  const [selectedRole, setSelectedRole] = useState<string>("");
 
   // Fetch employees and related user data
   const { data: employees = [], isLoading } = useQuery({
@@ -87,17 +84,6 @@ export default function EmployeesPage() {
 
   const { data: users = [] } = useQuery({
     queryKey: ["/api/users"],
-  });
-
-  // Fetch projects for resource selection
-  const { data: projects = [] } = useQuery({
-    queryKey: ["/api/projects"],
-  });
-
-  // Fetch user permissions for selected employee
-  const { data: userPermissions = [] } = useQuery({
-    queryKey: ["/api/admin/permissions", selectedEmployee?.userId],
-    enabled: !!selectedEmployee?.userId,
   });
 
   // Delete employee mutation
@@ -125,14 +111,15 @@ export default function EmployeesPage() {
   // Update user role mutation
   const updateUserRole = useMutation({
     mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
-      await apiRequest("PUT", `/api/admin/users/${userId}/role`, { role });
+      await apiRequest("PATCH", `/api/users/${userId}`, { role });
     },
     onSuccess: () => {
       toast({
-        title: "Role updated",
+        title: "User role updated",
         description: "User role has been updated successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      setSelectedRole("");
     },
     onError: (error: Error) => {
       toast({
@@ -143,51 +130,7 @@ export default function EmployeesPage() {
     },
   });
 
-  // Grant permission mutation
-  const grantPermission = useMutation({
-    mutationFn: async (permissionData: { userId: number; resourceType: string; resourceId: string; actions: string[] }) => {
-      await apiRequest("POST", "/api/admin/permissions", permissionData);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Permission granted",
-        description: "Permission has been granted successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/permissions", selectedEmployee?.userId] });
-      setIsGrantPermissionFormOpen(false);
-      setSelectedResourceType("");
-      setSelectedResourceId("");
-      setSelectedActions([]);
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
-  // Revoke permission mutation
-  const revokePermission = useMutation({
-    mutationFn: async (permissionId: number) => {
-      await apiRequest("DELETE", `/api/admin/permissions/${permissionId}`);
-    },
-    onSuccess: () => {
-      toast({
-        title: "Permission revoked",
-        description: "Permission has been revoked successfully.",
-      });
-      queryClient.invalidateQueries({ queryKey: ["/api/admin/permissions", selectedEmployee?.userId] });
-    },
-    onError: (error: Error) => {
-      toast({
-        title: "Error",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
 
   // Handle employee creation success
   const handleEmployeeCreated = () => {
@@ -472,22 +415,59 @@ export default function EmployeesPage() {
             </DialogDescription>
           </DialogHeader>
           
-          {/* Empty content area for future implementation */}
-          <div className="py-8">
-            <p className="text-center text-gray-500">
-              This modal will contain permission management controls.
-            </p>
-          </div>
+          {/* Role Management Content */}
+          {selectedEmployee?.user && (
+            <div className="space-y-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="userRole" className="text-sm font-medium">
+                    User Role
+                  </Label>
+                  <Select
+                    value={selectedRole || selectedEmployee.user.role || 'employee'}
+                    onValueChange={(newRole) => setSelectedRole(newRole)}
+                  >
+                    <SelectTrigger className="mt-2">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="employee">Employee</SelectItem>
+                      <SelectItem value="manager">Manager</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
 
-          <DialogFooter>
+                <div className="text-sm text-gray-600">
+                  Current role: <span className="font-medium">{selectedEmployee.user.role || 'employee'}</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="flex justify-between">
             <Button 
               variant="outline" 
               onClick={() => {
                 setIsPermissionsDialogOpen(false);
                 setSelectedEmployee(null);
+                setSelectedRole("");
               }}
             >
               Close
+            </Button>
+            <Button
+              onClick={() => {
+                if (selectedEmployee?.user && selectedRole && selectedRole !== selectedEmployee.user.role) {
+                  updateUserRole.mutate({
+                    userId: selectedEmployee.user.id,
+                    role: selectedRole
+                  });
+                }
+              }}
+              disabled={!selectedRole || selectedRole === selectedEmployee?.user?.role || updateUserRole.isPending}
+            >
+              {updateUserRole.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
         </DialogContent>
