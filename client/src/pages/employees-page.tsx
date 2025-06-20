@@ -10,7 +10,10 @@ import {
   UserCircle,
   Mail,
   Phone,
-  Clock
+  Clock,
+  Shield,
+  X,
+  Check
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,20 +46,39 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useAuth } from "@/hooks/use-auth";
 import { formatDate } from "@/lib/date-utils";
 import EmployeeForm from "@/components/forms/employee-form";
 
 export default function EmployeesPage() {
   const { toast } = useToast();
+  const { user: currentUser } = useAuth();
   const [_, setLocation] = useLocation();
   const [searchQuery, setSearchQuery] = useState("");
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<number | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  
+  // Permissions management state
+  const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
+  const [selectedEmployee, setSelectedEmployee] = useState<any>(null);
+  const [isGrantPermissionFormOpen, setIsGrantPermissionFormOpen] = useState(false);
+  const [selectedResourceType, setSelectedResourceType] = useState<string>("");
+  const [selectedResourceId, setSelectedResourceId] = useState<string>("");
+  const [selectedActions, setSelectedActions] = useState<string[]>([]);
 
   // Fetch employees and related user data
   const { data: employees = [], isLoading } = useQuery({
@@ -65,6 +87,17 @@ export default function EmployeesPage() {
 
   const { data: users = [] } = useQuery({
     queryKey: ["/api/users"],
+  });
+
+  // Fetch projects for resource selection
+  const { data: projects = [] } = useQuery({
+    queryKey: ["/api/projects"],
+  });
+
+  // Fetch user permissions for selected employee
+  const { data: userPermissions = [] } = useQuery({
+    queryKey: ["/api/admin/permissions", selectedEmployee?.userId],
+    enabled: !!selectedEmployee?.userId,
   });
 
   // Delete employee mutation
@@ -79,6 +112,73 @@ export default function EmployeesPage() {
       });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       setIsDeleteDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update user role mutation
+  const updateUserRole = useMutation({
+    mutationFn: async ({ userId, role }: { userId: number; role: string }) => {
+      await apiRequest("PUT", `/api/admin/users/${userId}/role`, { role });
+    },
+    onSuccess: () => {
+      toast({
+        title: "Role updated",
+        description: "User role has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Grant permission mutation
+  const grantPermission = useMutation({
+    mutationFn: async (permissionData: { userId: number; resourceType: string; resourceId: string; actions: string[] }) => {
+      await apiRequest("POST", "/api/admin/permissions", permissionData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Permission granted",
+        description: "Permission has been granted successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/permissions", selectedEmployee?.userId] });
+      setIsGrantPermissionFormOpen(false);
+      setSelectedResourceType("");
+      setSelectedResourceId("");
+      setSelectedActions([]);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Revoke permission mutation
+  const revokePermission = useMutation({
+    mutationFn: async (permissionId: number) => {
+      await apiRequest("DELETE", `/api/admin/permissions/${permissionId}`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Permission revoked",
+        description: "Permission has been revoked successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/permissions", selectedEmployee?.userId] });
     },
     onError: (error: Error) => {
       toast({
@@ -293,6 +393,22 @@ export default function EmployeesPage() {
                                     <Plus className="h-4 w-4 mr-2" /> Add Timesheet
                                   </div>
                                 </DropdownMenuItem>
+                                {/* Admin-only Permissions Management */}
+                                {currentUser?.role === 'admin' && user && (
+                                  <>
+                                    <DropdownMenuSeparator />
+                                    <DropdownMenuItem 
+                                      onClick={() => {
+                                        setSelectedEmployee({ ...employee, user });
+                                        setIsPermissionsDialogOpen(true);
+                                      }}
+                                    >
+                                      <div className="w-full flex items-center">
+                                        <Shield className="h-4 w-4 mr-2" /> Manage Permissions
+                                      </div>
+                                    </DropdownMenuItem>
+                                  </>
+                                )}
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   onClick={() => {
@@ -339,6 +455,252 @@ export default function EmployeesPage() {
               disabled={deleteEmployee.isPending}
             >
               {deleteEmployee.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage Permissions Dialog */}
+      <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Manage Permissions for {selectedEmployee?.user?.fullName || selectedEmployee?.fullName}
+            </DialogTitle>
+            <DialogDescription>
+              Configure user role and fine-grained permissions for this employee.
+            </DialogDescription>
+          </DialogHeader>
+          
+          {selectedEmployee?.user && (
+            <div className="space-y-6">
+              {/* Role Management Section */}
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold">Role Management</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="userRole">Primary Role</Label>
+                    <Select
+                      value={selectedEmployee.user.role || 'employee'}
+                      onValueChange={(newRole) => 
+                        updateUserRole.mutate({ 
+                          userId: selectedEmployee.user.id, 
+                          role: newRole 
+                        })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="employee">Employee</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex items-end">
+                    <div className="text-sm text-gray-600">
+                      <Badge variant={selectedEmployee.user.active ? "default" : "destructive"}>
+                        {selectedEmployee.user.active ? "Active" : "Disabled"}
+                      </Badge>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Fine-Grained Permissions Section */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold">Fine-Grained Permissions</h3>
+                  <Button 
+                    onClick={() => setIsGrantPermissionFormOpen(true)}
+                    className="flex items-center"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Grant New Permission
+                  </Button>
+                </div>
+
+                {/* Current Permissions List */}
+                <div className="border rounded-lg p-4">
+                  <h4 className="font-medium mb-3">Current Permissions</h4>
+                  {userPermissions.length === 0 ? (
+                    <p className="text-gray-500 text-sm">No specific permissions granted.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {userPermissions.map((permission: any) => (
+                        <div key={permission.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                          <div className="flex-1">
+                            <div className="font-medium text-sm">
+                              {permission.resourceType} access to {permission.resourceId}
+                            </div>
+                            <div className="text-xs text-gray-600">
+                              Actions: {permission.actions.join(', ')}
+                            </div>
+                          </div>
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => revokePermission.mutate(permission.id)}
+                            disabled={revokePermission.isPending}
+                          >
+                            <X className="h-3 w-3 mr-1" />
+                            Revoke
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Grant New Permission Form */}
+                {isGrantPermissionFormOpen && (
+                  <div className="border rounded-lg p-4 bg-blue-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <h4 className="font-medium">Grant New Permission</h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setIsGrantPermissionFormOpen(false);
+                          setSelectedResourceType("");
+                          setSelectedResourceId("");
+                          setSelectedActions([]);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    
+                    <div className="space-y-4">
+                      {/* Resource Type Selection */}
+                      <div>
+                        <Label htmlFor="resourceType">Resource Type</Label>
+                        <Select
+                          value={selectedResourceType}
+                          onValueChange={setSelectedResourceType}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select resource type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="project">Project</SelectItem>
+                            <SelectItem value="quote">Quote</SelectItem>
+                            <SelectItem value="invoice">Invoice</SelectItem>
+                            <SelectItem value="report">Report</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      {/* Resource Selection */}
+                      {selectedResourceType === 'project' && (
+                        <div>
+                          <Label htmlFor="resourceId">Project</Label>
+                          <Select
+                            value={selectedResourceId}
+                            onValueChange={setSelectedResourceId}
+                          >
+                            <SelectTrigger className="mt-1">
+                              <SelectValue placeholder="Select project" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {projects.map((project: any) => (
+                                <SelectItem key={project.id} value={project.id.toString()}>
+                                  {project.name}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      )}
+
+                      {/* Actions Selection */}
+                      {selectedResourceType && (
+                        <div>
+                          <Label>Actions</Label>
+                          <div className="mt-2 space-y-2">
+                            {['view', 'edit', 'approve', 'comment', 'delete'].map((action) => (
+                              <div key={action} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={action}
+                                  checked={selectedActions.includes(action)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      setSelectedActions([...selectedActions, action]);
+                                    } else {
+                                      setSelectedActions(selectedActions.filter(a => a !== action));
+                                    }
+                                  }}
+                                />
+                                <Label htmlFor={action} className="text-sm capitalize">
+                                  {action}
+                                </Label>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Save Permission Button */}
+                      <div className="flex justify-end space-x-2">
+                        <Button
+                          variant="outline"
+                          onClick={() => {
+                            setIsGrantPermissionFormOpen(false);
+                            setSelectedResourceType("");
+                            setSelectedResourceId("");
+                            setSelectedActions([]);
+                          }}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          onClick={() => {
+                            if (selectedEmployee.user && selectedResourceType && selectedResourceId && selectedActions.length > 0) {
+                              grantPermission.mutate({
+                                userId: selectedEmployee.user.id,
+                                resourceType: selectedResourceType,
+                                resourceId: selectedResourceId,
+                                actions: selectedActions
+                              });
+                            }
+                          }}
+                          disabled={!selectedResourceType || !selectedResourceId || selectedActions.length === 0 || grantPermission.isPending}
+                        >
+                          {grantPermission.isPending ? (
+                            <>
+                              <div className="animate-spin rounded-full h-3 w-3 border-t-2 border-b-2 border-white mr-2"></div>
+                              Granting...
+                            </>
+                          ) : (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Save Permission
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => {
+                setIsPermissionsDialogOpen(false);
+                setSelectedEmployee(null);
+                setIsGrantPermissionFormOpen(false);
+                setSelectedResourceType("");
+                setSelectedResourceId("");
+                setSelectedActions([]);
+              }}
+            >
+              Close
             </Button>
           </DialogFooter>
         </DialogContent>
