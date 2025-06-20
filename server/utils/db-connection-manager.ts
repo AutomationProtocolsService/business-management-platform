@@ -52,14 +52,17 @@ class DatabaseConnectionManager {
     operation: () => Promise<T>,
     fallback: T
   ): Promise<T> {
-    if (!this.isConnected) {
-      return fallback;
-    }
-
     try {
-      return await operation();
+      // Always try the operation with a timeout
+      const timeoutPromise = new Promise<T>((_, reject) => 
+        setTimeout(() => reject(new Error('Operation timeout')), 1500)
+      );
+      
+      const result = await Promise.race([operation(), timeoutPromise]);
+      this.isConnected = true;
+      return result;
     } catch (error) {
-      logger.error("Database operation failed, using fallback:", error instanceof Error ? error.message : String(error));
+      logger.warn("Database operation failed, using fallback:", error instanceof Error ? error.message : String(error));
       this.isConnected = false;
       return fallback;
     }
