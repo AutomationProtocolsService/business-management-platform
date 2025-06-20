@@ -14,7 +14,8 @@ import {
   Shield,
   X,
   Check,
-  UserPlus
+  UserPlus,
+  Send
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -225,6 +226,26 @@ export default function EmployeesPage() {
     onError: (error: Error) => {
       toast({
         title: "Error updating employee",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send invitation mutation
+  const sendInvitationMutation = useMutation({
+    mutationFn: async (employeeId: number) => {
+      return await apiRequest("POST", `/api/employees/${employeeId}/invite`);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Invitation sent successfully!",
+        description: "The employee will receive an email with invitation instructions.",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error sending invitation",
         description: error.message,
         variant: "destructive",
       });
@@ -504,6 +525,20 @@ export default function EmployeesPage() {
                                   >
                                     <div className="w-full flex items-center">
                                       <UserPlus className="h-4 w-4 mr-2" /> Create User Account
+                                    </div>
+                                  </DropdownMenuItem>
+                                )}
+                                {/* Show Send Invite only if employee doesn't have an active user account */}
+                                {!user && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      sendInvitationMutation.mutate(employee.id);
+                                    }}
+                                    disabled={sendInvitationMutation.isPending}
+                                  >
+                                    <div className="w-full flex items-center">
+                                      <Send className="h-4 w-4 mr-2" /> 
+                                      {sendInvitationMutation.isPending ? "Sending..." : "Send Invite"}
                                     </div>
                                   </DropdownMenuItem>
                                 )}
