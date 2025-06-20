@@ -33,6 +33,7 @@ export interface Customer {
 
 export interface TenantFilter {
   tenantId: number;
+  source?: string;
 }
 
 // Generic object type for tenant-specific settings and configuration

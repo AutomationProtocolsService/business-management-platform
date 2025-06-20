@@ -106,10 +106,12 @@ export function tenantFilterMiddleware(req: Request, res: Response, next: NextFu
     (req as any).tenantId = effectiveTenantFilter.tenantId;
     
     // Log tenant information for debugging
-    if (effectiveTenantFilter.source === 'default') {
+    if ('source' in effectiveTenantFilter && effectiveTenantFilter.source === 'default') {
       logger.debug("Using default tenant ID 1");
-    } else {
+    } else if ('source' in effectiveTenantFilter) {
       logger.debug(`Using tenant ID ${effectiveTenantFilter.tenantId} from ${effectiveTenantFilter.source}`);
+    } else {
+      logger.debug(`Using tenant ID ${effectiveTenantFilter.tenantId}`);
     }
     
     next();
