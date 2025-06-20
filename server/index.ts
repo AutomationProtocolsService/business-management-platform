@@ -66,8 +66,14 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Skip database initialization to avoid connection timeouts
-  console.log("Starting server without database initialization for testing");
+  try {
+    // Initialize database with improved connection management
+    await initializeDatabaseAndMigrations();
+    console.log("Database initialization completed");
+  } catch (error) {
+    console.error("Database initialization failed:", error);
+    console.log("Continuing server startup with limited functionality");
+  }
   
   // Initialize authentication system first so routes can access user info
   setupAuth(app);

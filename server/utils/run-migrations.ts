@@ -6,29 +6,32 @@ import { sql } from "drizzle-orm";
  * Initialize the database and run migrations
  * This utility ensures the database is properly set up before the server starts
  */
+import { dbManager } from "./db-connection-manager";
+
 export async function initializeDatabaseAndMigrations() {
-  logger.info("Initializing database and running migrations...");
+  logger.info("Initializing database connection...");
   
-  try {
-    // Set a very short timeout for database operations
-    const timeout = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('Database initialization timeout')), 2000)
-    );
-    
-    const dbOperation = async () => {
-      // Simple ping test
-      await db.execute(sql`SELECT 1 AS test`);
-      logger.info("Database connection successful");
+  const isConnected = await dbManager.initialize();
+  
+  if (isConnected) {
+    try {
+      // Run essential schema setup
+      await db.execute(sql`
+        CREATE TABLE IF NOT EXISTS _internal_migrations (
+          id SERIAL PRIMARY KEY,
+          name TEXT UNIQUE,
+          applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+      
+      logger.info("Database initialization complete");
       return true;
-    };
-    
-    await Promise.race([dbOperation(), timeout]);
-    
-    logger.info("Database migrations complete");
-    return true;
-  } catch (error) {
-    logger.warn("Database initialization failed - proceeding without database");
-    logger.warn("Application will run in demo mode with limited functionality");
+    } catch (error) {
+      logger.error("Migration setup failed:", error instanceof Error ? error.message : String(error));
+      return false;
+    }
+  } else {
+    logger.warn("Database unavailable - starting in limited mode");
     return false;
   }
 }
