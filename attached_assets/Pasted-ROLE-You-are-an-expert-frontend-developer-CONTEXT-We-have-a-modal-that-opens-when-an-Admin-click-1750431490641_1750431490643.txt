@@ -1,0 +1,33 @@
+ROLE: You are an expert frontend developer.
+
+CONTEXT: We have a modal that opens when an Admin clicks "Manage Permissions." The modal currently has a dynamic title and close buttons, but its content area is blank. We need to add the UI for managing the user's primary role.
+
+TASK: Inside the blank modal, add the necessary form controls to view and change a user's role. This will involve adding a dropdown menu and a save button that calls the correct backend API.
+
+DETAILED REQUIREMENTS:
+
+Add a Role Selector:
+
+Inside the modal's content area, add a label that says "User Role".
+Next to the label, add a dropdown menu (a <select> element or a Select component from your UI library).
+This dropdown should be populated with the available roles: "Admin", "Manager", and "Employee".
+The dropdown should automatically display the user's current role when the modal opens.
+Add a Save Button:
+
+Below the dropdown, add a "Save Changes" button. This button should initially be disabled.
+Implement State Management:
+
+When the user selects a new role from the dropdown, the "Save Changes" button should become enabled.
+If the user selects their original role again, the button should become disabled again.
+Connect to the API:
+
+When the Admin clicks the "Save Changes" button, the application must make a PATCH or PUT request to the backend API endpoint responsible for updating a user's role.
+You will need to send the userId and the newRole in the request body.
+After a successful API call, you should show a success notification (e.g., "User role updated successfully") and the modal can either close automatically or remain open with the "Save Changes" button disabled again.
+VERIFICATION STEP: After the AI completes this, you should be able to:
+
+Open the "Manage Permissions" modal for any user.
+See their current role displayed in a dropdown menu.
+Select a new role from the dropdown, which enables the "Save Changes" button.
+Click "Save Changes" to successfully update the user's role.
+Let me know when this is complete, and we will proceed to the final, most complex step.
