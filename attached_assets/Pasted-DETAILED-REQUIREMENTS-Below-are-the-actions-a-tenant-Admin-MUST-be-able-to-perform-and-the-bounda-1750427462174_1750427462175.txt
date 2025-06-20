@@ -1,0 +1,31 @@
+DETAILED REQUIREMENTS:
+
+Below are the actions a tenant Admin MUST be able to perform, and the boundaries they MUST NOT be able to cross.
+
+Implement functionality for an Admin to do the following:
+
+1. User Lifecycle Management:
+* Create API endpoints for an Admin to invite, disable, and remove users only within their own tenant.
+
+2. Role Assignment:
+* Create an API endpoint that allows an Admin to change a user's role between Employee and Manager within their tenant.
+
+3. Fine-Grained Permission Management (This is the core of the new feature):
+* Resource-Specific Access: Design a mechanism and corresponding API endpoint for an Admin to grant a user access to a specific resource (e.g., a specific "project_id" or "report_id"). This permission should override the user's base role for that specific resource only.
+* Action-Specific Permissions: The mechanism should allow the Admin to specify what actions (view, edit, approve, comment) a user can perform on a resource.
+* Example Use Case: An Admin should be able to call an endpoint like POST /api/admin/permissions with a body { "userId": "user-123", "resource": "project-abc", "actions": ["view", "comment"] }.
+
+4. Delegated Administration:
+* Introduce the concept of a "Team" or "Group" within a tenant.
+* Create an API endpoint allowing a tenant Admin to assign a Manager as an administrator of a specific Team. This "Team Admin" should then be able to add or remove users only from that Team.
+
+SECURITY BOUNDARIES AND CONSTRAINTS:
+
+You MUST enforce the following security rules at the application and API level. These are critical for our multi-tenant architecture.
+
+A tenant Admin CANNOT:
+
+Cross Tenant Boundaries: Under no circumstances can an Admin from tenant_A view, modify, or interact with users or data from tenant_B. All database queries and business logic must be strictly filtered by the current user's tenant_id.
+Escalate Privileges: An Admin cannot assign the Super Admin role or grant themselves or others permissions they do not possess.
+Modify Core Authorization Rules: An Admin can only use the permission system you are building. They cannot create new fundamental roles (like a "Director" role) or define new types of actions (like a "delete_project" action if it doesn't exist). These rules are defined by the system, not the user.
+Access System-Level Configuration: All logic must prevent access to system-wide settings, application infrastructure, or direct database connections.
