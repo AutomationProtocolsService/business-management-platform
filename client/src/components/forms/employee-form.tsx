@@ -36,7 +36,7 @@ const employeeFormSchema = z.object({
   position: z.string().optional(),
   department: z.string().optional(),
   hireDate: z.string().optional(),
-  terminationDate: z.string().optional(),
+  terminationDate: z.string().optional().nullable(),
   hourlyRate: z.number().optional().nullable(),
   salary: z.number().optional().nullable(),
   notes: z.string().optional(),
@@ -72,6 +72,7 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
       position: "",
       department: "",
       hireDate: getInputDateString(new Date()),
+      terminationDate: "",
       hourlyRate: undefined,
       salary: undefined,
       notes: "",
@@ -330,7 +331,14 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
                 <FormItem>
                   <FormLabel>Termination Date (if applicable)</FormLabel>
                   <FormControl>
-                    <Input type="date" {...field} />
+                    <Input 
+                      type="date" 
+                      value={field.value ?? ''} 
+                      onChange={(e) => field.onChange(e.target.value || null)}
+                      onBlur={field.onBlur}
+                      name={field.name}
+                      ref={field.ref}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
