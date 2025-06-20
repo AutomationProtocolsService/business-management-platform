@@ -70,7 +70,7 @@ export default function AcceptInvitationPage() {
       }
 
       const data = await response.json();
-      setInvitation(data);
+      setInvitation(data.invitation);
     } catch (error) {
       setVerificationError(error instanceof Error ? error.message : 'Failed to verify invitation token');
     } finally {
