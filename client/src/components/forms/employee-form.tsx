@@ -35,7 +35,7 @@ const employeeFormSchema = z.object({
   phone: z.string().optional(),
   position: z.string().optional(),
   department: z.string().optional(),
-  hireDate: z.string().optional(),
+  hireDate: z.string().optional().nullable(),
   terminationDate: z.string().optional().nullable(),
   hourlyRate: z.number().optional().nullable(),
   salary: z.number().optional().nullable(),
@@ -151,12 +151,21 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
     console.log("Form submitted with values:", values);
     console.log("Form errors:", form.formState.errors);
     
+    // Clean up date fields - convert empty strings to null
+    const cleanedValues = {
+      ...values,
+      hireDate: values.hireDate && values.hireDate.trim() !== '' ? values.hireDate : null,
+      terminationDate: values.terminationDate && values.terminationDate.trim() !== '' ? values.terminationDate : null,
+    };
+    
+    console.log("Cleaned values:", cleanedValues);
+    
     if (employeeId) {
       console.log("Updating employee with ID:", employeeId);
-      updateEmployee.mutate(values);
+      updateEmployee.mutate(cleanedValues);
     } else {
       console.log("Creating new employee");
-      createEmployee.mutate(values);
+      createEmployee.mutate(cleanedValues);
     }
   }
 
@@ -315,7 +324,14 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
               <FormItem>
                 <FormLabel>Hire Date</FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} />
+                  <Input 
+                    type="date" 
+                    value={field.value ?? ''} 
+                    onChange={(e) => field.onChange(e.target.value || null)}
+                    onBlur={field.onBlur}
+                    name={field.name}
+                    ref={field.ref}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
