@@ -9,14 +9,17 @@ if (!process.env.DATABASE_URL) {
 
 // Create the PostgreSQL client with connection pooling and retry logic
 export const client = postgres(process.env.DATABASE_URL, {
-  max: 10, // Maximum number of connections
-  idle_timeout: 20,
-  connect_timeout: 10,
+  max: 3, // Reduce maximum connections to prevent overload
+  idle_timeout: 30, // Increase idle timeout
+  connect_timeout: 5, // Reduce connect timeout
   prepare: false,
   onnotice: () => {}, // Suppress notices
   transform: {
     undefined: null,
   },
+  connection: {
+    application_name: 'business_management_app'
+  }
 });
 
 // Create the Drizzle ORM instance
