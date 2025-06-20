@@ -396,22 +396,17 @@ export default function EmployeesPage() {
                                     <Plus className="h-4 w-4 mr-2" /> Add Timesheet
                                   </div>
                                 </DropdownMenuItem>
-                                {/* Permissions Management - Temporarily visible to all users for testing */}
-                                {user && (
-                                  <>
-                                    <DropdownMenuSeparator />
-                                    <DropdownMenuItem 
-                                      onClick={() => {
-                                        setSelectedEmployee({ ...employee, user });
-                                        setIsPermissionsDialogOpen(true);
-                                      }}
-                                    >
-                                      <div className="w-full flex items-center">
-                                        <Shield className="h-4 w-4 mr-2" /> Manage Permissions
-                                      </div>
-                                    </DropdownMenuItem>
-                                  </>
-                                )}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setSelectedEmployee({ ...employee, user });
+                                    setIsPermissionsDialogOpen(true);
+                                  }}
+                                >
+                                  <div className="w-full flex items-center">
+                                    <Shield className="h-4 w-4 mr-2" /> Manage Permissions
+                                  </div>
+                                </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem 
                                   onClick={() => {
