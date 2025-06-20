@@ -234,11 +234,11 @@ export function registerInvitationRoutes(app: Express) {
       const invitation = await storage.createUserInvitation({
         tenantId,
         email,
-        token,
+        invitationToken: token,
         role,
         expiresAt,
         status: 'pending',
-        createdBy: user.id
+        invitedBy: user.id
       });
       
       if (!invitation) {
