@@ -45,7 +45,8 @@ import { registerInvitationRoutes } from "./routes/invitation-routes";
  * Returns { tenantId: number } or undefined
  */
 function getTenantFilterFromRequest(req: Request): { tenantId: number } | undefined {
-  return req.tenant?.id ? { tenantId: req.tenant.id } : undefined;
+  const tenantId = (req as any).tenantId;
+  return tenantId ? { tenantId } : undefined;
 }
 
 /**
@@ -53,7 +54,7 @@ function getTenantFilterFromRequest(req: Request): { tenantId: number } | undefi
  * Returns the tenant ID or undefined
  */
 function getTenantIdFromRequest(req: Request): number | undefined {
-  return req.tenant?.id;
+  return (req as any).tenantId;
 }
 
 /**
@@ -183,7 +184,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Current tenant info endpoint
   app.get("/api/tenant", async (req: Request, res: Response) => {
     try {
-      const tenantId = getTenantIdFromRequest(req);
+      const tenantId = (req as any).tenantId;
       
       if (!tenantId) {
         return res.status(400).json({ message: "No tenant context available" });
@@ -205,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Tenant settings endpoints
   app.get("/api/tenant/settings", requireAuth, async (req: Request, res: Response) => {
     try {
-      const tenantId = getTenantIdFromRequest(req);
+      const tenantId = (req as any).tenantId;
       
       if (!tenantId) {
         return res.status(400).json({ message: "No tenant context available" });
