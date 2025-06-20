@@ -393,14 +393,14 @@ export default function EmployeesPage() {
                                     <Plus className="h-4 w-4 mr-2" /> Add Timesheet
                                   </div>
                                 </DropdownMenuItem>
-                                {/* Admin-only Permissions Management */}
-                                {currentUser?.role === 'admin' && user && (
+                                {/* Permissions Management - Temporarily visible to all users for testing */}
+                                {user && (
                                   <>
                                     <DropdownMenuSeparator />
                                     <DropdownMenuItem 
                                       onClick={() => {
-                                        setSelectedEmployee({ ...employee, user });
-                                        setIsPermissionsDialogOpen(true);
+                                        // For now, just show an alert - will be functional later
+                                        alert('Manage Permissions clicked');
                                       }}
                                     >
                                       <div className="w-full flex items-center">
