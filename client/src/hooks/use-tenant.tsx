@@ -54,8 +54,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         }
         
         const data = await response.json();
-        if (data.success && data.tenant) {
-          setTenant(data.tenant as Tenant);
+        // The API returns tenant data directly, not wrapped in a success object
+        if (data && data.id) {
+          setTenant(data as Tenant);
         } else {
           console.warn("Tenant data not found or invalid format", data);
           setTenant(null);
