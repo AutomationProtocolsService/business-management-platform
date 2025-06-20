@@ -234,8 +234,12 @@ export default function EmployeesPage() {
 
   // Send invitation mutation
   const sendInvitationMutation = useMutation({
-    mutationFn: async (employeeId: number) => {
-      return await apiRequest("POST", `/api/employees/${employeeId}/invite`);
+    mutationFn: async (employee: any) => {
+      return await apiRequest("POST", "/api/invitations", {
+        email: employee.email,
+        role: "employee",
+        employeeId: employee.id
+      });
     },
     onSuccess: () => {
       toast({
@@ -529,10 +533,10 @@ export default function EmployeesPage() {
                                   </DropdownMenuItem>
                                 )}
                                 {/* Show Send Invite only if employee doesn't have an active user account */}
-                                {!user && (
+                                {!user && employee.email && (
                                   <DropdownMenuItem 
                                     onClick={() => {
-                                      sendInvitationMutation.mutate(employee.id);
+                                      sendInvitationMutation.mutate(employee);
                                     }}
                                     disabled={sendInvitationMutation.isPending}
                                   >
