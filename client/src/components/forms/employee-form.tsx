@@ -321,19 +321,22 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
             )}
           />
 
-          <FormField
-            control={form.control}
-            name="terminationDate"
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>Termination Date (if applicable)</FormLabel>
-                <FormControl>
-                  <Input type="date" {...field} />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          {/* Only show termination date when editing existing employee */}
+          {employeeId && (
+            <FormField
+              control={form.control}
+              name="terminationDate"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Termination Date (if applicable)</FormLabel>
+                  <FormControl>
+                    <Input type="date" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
