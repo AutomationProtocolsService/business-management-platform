@@ -261,23 +261,35 @@ export default function EmployeesPage() {
                   variant="outline" 
                   className="flex items-center"
                   onClick={() => {
-                    // Open permissions management for the first available employee with a user account
-                    const firstEmployeeWithUser = filteredEmployees.find((emp: any) => {
-                      const user = getUserByEmployeeId(emp.userId);
-                      return user;
-                    });
-                    
-                    if (firstEmployeeWithUser) {
-                      const user = getUserByEmployeeId(firstEmployeeWithUser.userId);
-                      setSelectedEmployee({ ...firstEmployeeWithUser, user });
-                      setIsPermissionsDialogOpen(true);
-                    } else {
+                    if (filteredEmployees.length === 0) {
                       toast({
-                        title: "No user accounts found",
-                        description: "Create user accounts for employees to manage permissions.",
+                        title: "No employees found",
+                        description: "Add employees first to manage their permissions.",
                         variant: "destructive",
                       });
+                      return;
                     }
+
+                    // Find employees with actual user accounts
+                    const employeesWithUsers = filteredEmployees.filter((emp: any) => {
+                      return emp.userId && getUserByEmployeeId(emp.userId);
+                    });
+
+                    if (employeesWithUsers.length === 0) {
+                      toast({
+                        title: "No user accounts found",
+                        description: "Create user accounts for employees to manage permissions. Use the Actions menu to create accounts.",
+                        variant: "destructive",
+                      });
+                      return;
+                    }
+
+                    // Use the first employee with a user account
+                    const firstEmployeeWithUser = employeesWithUsers[0];
+                    const user = getUserByEmployeeId(firstEmployeeWithUser.userId);
+                    
+                    setSelectedEmployee({ ...firstEmployeeWithUser, user });
+                    setIsPermissionsDialogOpen(true);
                   }}
                 >
                   <Shield className="h-4 w-4 mr-2" />
