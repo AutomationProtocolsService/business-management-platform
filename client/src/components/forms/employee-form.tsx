@@ -109,8 +109,13 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
         title: "Employee created",
         description: "Employee has been created successfully.",
       });
+      
+      // Force a complete cache refresh to prevent stale data issues
+      queryClient.removeQueries({ queryKey: ["/api/employees"] });
+      queryClient.removeQueries({ queryKey: ["/api/users"] });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
       queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
