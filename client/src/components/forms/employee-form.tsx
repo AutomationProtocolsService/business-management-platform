@@ -44,6 +44,8 @@ const employeeFormSchema = z.object({
   createUserAccount: z.boolean().default(false),
   username: z.string().optional(),
   userRole: z.enum(["admin", "manager", "employee"]).optional(),
+  // Invitation fields
+  sendInvitation: z.boolean().default(false),
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
