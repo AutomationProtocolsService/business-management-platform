@@ -13,7 +13,8 @@ import {
   Clock,
   Shield,
   X,
-  Check
+  Check,
+  UserPlus
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,6 +80,10 @@ export default function EmployeesPage() {
   const [selectedRole, setSelectedRole] = useState<string>("");
   const [isGrantPermissionFormOpen, setIsGrantPermissionFormOpen] = useState(false);
   const [selectedResourceType, setSelectedResourceType] = useState<string>("");
+  
+  // Employee edit state
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [selectedResourceId, setSelectedResourceId] = useState<string>("");
   const [selectedActions, setSelectedActions] = useState<string[]>([]);
 
@@ -175,6 +180,51 @@ export default function EmployeesPage() {
     onError: (error: Error) => {
       toast({
         title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Create user account mutation
+  const createUserAccountMutation = useMutation({
+    mutationFn: async (userData: { employeeId: number; username: string; email: string; fullName: string; role: string }) => {
+      return await apiRequest("POST", "/api/users", userData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "User account created",
+        description: "User account has been created successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error creating user account",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update employee mutation
+  const updateEmployeeMutation = useMutation({
+    mutationFn: async (employeeData: any) => {
+      return await apiRequest("PATCH", `/api/employees/${employeeData.id}`, employeeData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Employee updated",
+        description: "Employee has been updated successfully.",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      setIsEditDialogOpen(false);
+      setEditingEmployee(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error updating employee",
         description: error.message,
         variant: "destructive",
       });
@@ -416,20 +466,47 @@ export default function EmployeesPage() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/employees/${employee.id}`}>
-                                    <div className="w-full flex items-center">
-                                      <UserCircle className="h-4 w-4 mr-2" /> View Profile
-                                    </div>
-                                  </Link>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    // Open a view profile modal or show details
+                                    toast({
+                                      title: "Employee Profile",
+                                      description: `Viewing profile for ${employee.fullName || `Employee #${employee.id}`}`,
+                                    });
+                                  }}
+                                >
+                                  <div className="w-full flex items-center">
+                                    <UserCircle className="h-4 w-4 mr-2" /> View Profile
+                                  </div>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link href={`/employees/${employee.id}/edit`}>
-                                    <div className="w-full flex items-center">
-                                      <Edit className="h-4 w-4 mr-2" /> Edit
-                                    </div>
-                                  </Link>
+                                <DropdownMenuItem 
+                                  onClick={() => {
+                                    setEditingEmployee(employee);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                >
+                                  <div className="w-full flex items-center">
+                                    <Edit className="h-4 w-4 mr-2" /> Edit
+                                  </div>
                                 </DropdownMenuItem>
+                                {!user && (
+                                  <DropdownMenuItem 
+                                    onClick={() => {
+                                      // Create user account for this employee
+                                      createUserAccountMutation.mutate({
+                                        employeeId: employee.id,
+                                        username: employee.email || `user${employee.id}`,
+                                        email: employee.email || `${employee.fullName?.toLowerCase().replace(/\s+/g, '.')}@company.com`,
+                                        fullName: employee.fullName,
+                                        role: 'employee'
+                                      });
+                                    }}
+                                  >
+                                    <div className="w-full flex items-center">
+                                      <UserPlus className="h-4 w-4 mr-2" /> Create User Account
+                                    </div>
+                                  </DropdownMenuItem>
+                                )}
                                 <DropdownMenuItem asChild>
                                   <Link href={`/timesheets?employeeId=${employee.id}`}>
                                     <div className="w-full flex items-center">
@@ -722,6 +799,27 @@ export default function EmployeesPage() {
               {updateUserRole.isPending ? "Saving..." : "Save Changes"}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Employee Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Employee</DialogTitle>
+            <DialogDescription>
+              Update employee information.
+            </DialogDescription>
+          </DialogHeader>
+          {editingEmployee && (
+            <EmployeeForm 
+              initialData={editingEmployee}
+              onSuccess={() => {
+                setIsEditDialogOpen(false);
+                setEditingEmployee(null);
+              }}
+            />
+          )}
         </DialogContent>
       </Dialog>
     </div>
