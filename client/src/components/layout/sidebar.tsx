@@ -20,8 +20,10 @@ import {
   ShoppingCart,
   BoxesIcon,
   ChevronRight,
-  BarChart3
+  BarChart3,
+  Shield
 } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
@@ -61,6 +63,7 @@ export default function Sidebar() {
   const [operationsOpen, setOperationsOpen] = useState(true);
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
+  const { user } = useAuth();
 
   return (
     <aside className="w-64 bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-sm h-full overflow-y-auto hidden lg:block transition-all duration-300">
@@ -137,6 +140,16 @@ export default function Sidebar() {
 
             {/* Divider */}
             <div className="border-t border-gray-200 dark:border-gray-700"></div>
+
+            {/* Admin Section - Only for admin users */}
+            {user?.role === 'admin' && (
+              <div className="space-y-1">
+                <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                  Administration
+                </div>
+                <SidebarLink href="/admin" icon={<Shield className="h-5 w-5" />}>User Management</SidebarLink>
+              </div>
+            )}
 
             {/* Bottom Section - Settings & Help */}
             <div className="space-y-1">
