@@ -7,16 +7,17 @@ if (!process.env.DATABASE_URL) {
   throw new Error('DATABASE_URL environment variable is not defined');
 }
 
-// Create the PostgreSQL client with connection pooling and retry logic
+// Create a simple PostgreSQL client with minimal configuration
 export const client = postgres(process.env.DATABASE_URL, {
-  max: 3, // Reduce maximum connections to prevent overload
-  idle_timeout: 30, // Increase idle timeout
-  connect_timeout: 5, // Reduce connect timeout
+  max: 1, // Single connection to avoid overload
+  idle_timeout: 0, // No idle timeout
+  connect_timeout: 3, // Quick timeout
   prepare: false,
   onnotice: () => {}, // Suppress notices
   transform: {
     undefined: null,
   },
+  debug: false,
   connection: {
     application_name: 'business_management_app'
   }

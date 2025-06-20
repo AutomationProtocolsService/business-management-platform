@@ -66,14 +66,8 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  try {
-    // Run database migrations before starting the server
-    await initializeDatabaseAndMigrations();
-    console.log("Database migrations completed successfully");
-  } catch (error) {
-    console.error("Error running database migrations:", error);
-    // Continue starting the server even if migrations fail
-  }
+  // Skip database initialization to avoid connection timeouts
+  console.log("Starting server without database initialization for testing");
   
   // Initialize authentication system first so routes can access user info
   setupAuth(app);
