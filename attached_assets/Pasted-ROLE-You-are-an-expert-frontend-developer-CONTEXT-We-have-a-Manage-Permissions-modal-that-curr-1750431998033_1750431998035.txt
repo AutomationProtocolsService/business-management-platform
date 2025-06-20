@@ -1,0 +1,26 @@
+ROLE: You are an expert frontend developer.
+
+CONTEXT: We have a "Manage Permissions" modal that currently allows an Admin to change a user's primary role. We now need to add the UI for managing granular, resource-specific permissions within this same modal. The backend APIs for this (GET /api/permissions?userId=... and POST /api/admin/permissions) are already complete.
+
+TASK: Enhance the "Manage Permissions" modal to include a section for viewing, adding, and revoking fine-grained user permissions.
+
+DETAILED REQUIREMENTS:
+
+Create a New Section:
+
+Below the "User Role" selector you just built, add a new section with a clear title, such as "Fine-Grained Permissions" or "Resource-Specific Access".
+Display Existing Permissions:
+
+When the modal opens, it must make a GET request to the backend API to fetch all specific permissions already granted to that user.
+Display these permissions in a clean, readable list. For example:
+"Can **View** and **Edit** access on **Project: Phoenix**"
+"Can **Approve** access on **Timesheets for Marketing Dept**"
+Each permission in the list must have a "Revoke" button or icon next to it. Clicking this should call the appropriate DELETE API endpoint to remove that specific permission and then refresh the list.
+Implement the "Grant New Permission" UI:
+
+Add a primary button within this section labeled "Grant New Permission".
+Clicking this button should reveal a form with the following fields:
+Resource Type: A dropdown to select the type of resource (e.g., "Project", "Report", "Department").
+Specific Resource: A second dropdown that populates with the specific items based on the selected resource type (e.g., if "Project" is chosen, this lists all projects). This will require an API call to fetch the list of resources.
+Actions: A group of checkboxes for the permissions that can be granted (e.g., View, Edit, Approve, Comment, Delete).
+A "Grant" or "Save Permission" button within this form should call the POST /api/admin/permissions endpoint with the userId, resourceId, and the array of selected actions. After a successful call, the form should hide, and the new permission should appear in the list above.
