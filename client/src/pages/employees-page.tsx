@@ -813,7 +813,8 @@ export default function EmployeesPage() {
           </DialogHeader>
           {editingEmployee && (
             <EmployeeForm 
-              initialData={editingEmployee}
+              defaultValues={editingEmployee}
+              employeeId={editingEmployee.id}
               onSuccess={() => {
                 setIsEditDialogOpen(false);
                 setEditingEmployee(null);

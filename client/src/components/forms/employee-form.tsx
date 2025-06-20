@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Select,
   SelectContent,
@@ -39,6 +40,10 @@ const employeeFormSchema = z.object({
   hourlyRate: z.number().optional().nullable(),
   salary: z.number().optional().nullable(),
   notes: z.string().optional(),
+  // User account creation fields
+  createUserAccount: z.boolean().default(false),
+  username: z.string().optional(),
+  userRole: z.enum(["admin", "manager", "employee"]).optional(),
 });
 
 export type EmployeeFormValues = z.infer<typeof employeeFormSchema>;
@@ -70,14 +75,33 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
       hourlyRate: undefined,
       salary: undefined,
       notes: "",
+      createUserAccount: false,
+      username: "",
+      userRole: "employee",
     },
   });
 
   // Create employee mutation
   const createEmployee = useMutation({
     mutationFn: async (values: EmployeeFormValues) => {
-      const res = await apiRequest("POST", "/api/employees", values);
-      return res.json();
+      // Create employee first
+      const employeeRes = await apiRequest("POST", "/api/employees", values);
+      const employee = await employeeRes.json();
+      
+      // If user account creation is requested, create user account
+      if (values.createUserAccount && values.username && values.userRole) {
+        const userData = {
+          employeeId: employee.id,
+          username: values.username,
+          email: values.email || "",
+          fullName: values.fullName || "",
+          role: values.userRole,
+        };
+        
+        await apiRequest("POST", "/api/users", userData);
+      }
+      
+      return employee;
     },
     onSuccess: (data) => {
       toast({
@@ -85,6 +109,7 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
         description: "Employee has been created successfully.",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/employees"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/users"] });
       if (onSuccess) onSuccess(data);
     },
     onError: (error: Error) => {
@@ -184,39 +209,72 @@ export default function EmployeeForm({ defaultValues, employeeId, onSuccess }: E
           )}
         />
 
-        <FormField
-          control={form.control}
-          name="userId"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>User Account (Optional)</FormLabel>
-              <Select
-                onValueChange={(value) => field.onChange(Number(value))}
-                value={field.value?.toString()}
-              >
+        {/* User Account Creation Section */}
+        <div className="border rounded-lg p-4 bg-slate-50">
+          <FormField
+            control={form.control}
+            name="createUserAccount"
+            render={({ field }) => (
+              <FormItem className="flex flex-row items-start space-x-3 space-y-0">
                 <FormControl>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Link to user account (optional)" />
-                  </SelectTrigger>
+                  <Checkbox
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
                 </FormControl>
-                <SelectContent>
-                  <SelectItem value="0">None</SelectItem>
-                  {users
-                    .filter(user => user.active)
-                    .map((user) => (
-                      <SelectItem key={user.id} value={user.id.toString()}>
-                        {user.fullName} ({user.username})
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-              <FormDescription>
-                Only needed if employee needs system access
-              </FormDescription>
-              <FormMessage />
-            </FormItem>
+                <div className="space-y-1 leading-none">
+                  <FormLabel>
+                    User Account (Optional)
+                  </FormLabel>
+                  <FormDescription>
+                    Only needed if employee needs system access
+                  </FormDescription>
+                </div>
+              </FormItem>
+            )}
+          />
+
+          {form.watch("createUserAccount") && (
+            <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter username" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="userRole"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Role</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select role" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="employee">Employee</SelectItem>
+                        <SelectItem value="manager">Manager</SelectItem>
+                        <SelectItem value="admin">Admin</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           )}
-        />
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <FormField
