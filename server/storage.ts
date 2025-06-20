@@ -2593,16 +2593,51 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteEmployee(id: number, tenantId?: number): Promise<boolean> {
-    let query = db.delete(schema.employees)
-      .where(eq(schema.employees.id, id));
-    
-    // Add tenant filter if provided
-    if (tenantId !== undefined) {
-      query = query.where(eq(schema.employees.tenantId, tenantId));
+    try {
+      // First, delete all related records to avoid foreign key constraint violations
+      
+      // Delete related timesheets
+      if (tenantId !== undefined) {
+        await db.delete(schema.timesheets)
+          .where(and(
+            eq(schema.timesheets.employeeId, id),
+            eq(schema.timesheets.tenantId, tenantId)
+          ));
+      } else {
+        await db.delete(schema.timesheets)
+          .where(eq(schema.timesheets.employeeId, id));
+      }
+      
+      // Delete related user account if exists
+      const employee = await this.getEmployee(id);
+      if (employee?.userId) {
+        if (tenantId !== undefined) {
+          await db.delete(schema.users)
+            .where(and(
+              eq(schema.users.id, employee.userId),
+              eq(schema.users.tenantId, tenantId)
+            ));
+        } else {
+          await db.delete(schema.users)
+            .where(eq(schema.users.id, employee.userId));
+        }
+      }
+      
+      // Finally, delete the employee record
+      let query = db.delete(schema.employees)
+        .where(eq(schema.employees.id, id));
+      
+      // Add tenant filter if provided
+      if (tenantId !== undefined) {
+        query = query.where(eq(schema.employees.tenantId, tenantId));
+      }
+      
+      const result = await query.returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting employee:', error);
+      throw error;
     }
-    
-    const result = await query.returning();
-    return result.length > 0;
   }
 
   async getAllEmployees(filter?: TenantFilter): Promise<Employee[]> {
