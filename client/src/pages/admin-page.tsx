@@ -69,6 +69,7 @@ export default function AdminPage() {
   const [teamDialogOpen, setTeamDialogOpen] = useState(false);
   const [permissionDialogOpen, setPermissionDialogOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [activeTab, setActiveTab] = useState("users");
 
   // Fetch users
   const { data: users = [], isLoading: usersLoading } = useQuery({
@@ -160,6 +161,24 @@ export default function AdminPage() {
     },
     onError: (error: any) => {
       toast({ title: "Failed to enable user", description: error.message, variant: "destructive" });
+    }
+  });
+
+  // Remove user mutation
+  const removeUserMutation = useMutation({
+    mutationFn: async (userId: number) => {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE'
+      });
+      if (!response.ok) throw new Error('Failed to remove user');
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({ title: "User removed successfully" });
+      queryClient.invalidateQueries({ queryKey: ['/api/admin/users'] });
+    },
+    onError: (error: any) => {
+      toast({ title: "Failed to remove user", description: error.message, variant: "destructive" });
     }
   });
 
@@ -335,24 +354,16 @@ export default function AdminPage() {
                         </TableCell>
                         <TableCell>
                           <div className="flex items-center gap-2">
-                            <Select
-                              value={user.role}
-                              onValueChange={(newRole) => 
-                                updateRoleMutation.mutate({ userId: user.id, role: newRole })
-                              }
-                            >
-                              <SelectTrigger className="w-32">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="employee">Employee</SelectItem>
-                                <SelectItem value="manager">Manager</SelectItem>
-                              </SelectContent>
-                            </Select>
+                            <Link href={`/admin/users/${user.id}`}>
+                              <Button size="sm" variant="outline">
+                                <Eye className="w-4 h-4 mr-1" />
+                                View
+                              </Button>
+                            </Link>
                             
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant={user.active ? "destructive" : "default"}
                               onClick={() => {
                                 if (user.active) {
                                   disableUserMutation.mutate(user.id);
@@ -360,23 +371,33 @@ export default function AdminPage() {
                                   enableUserMutation.mutate(user.id);
                                 }
                               }}
+                              disabled={disableUserMutation.isPending || enableUserMutation.isPending}
                             >
                               {user.active ? (
-                                <PowerOff className="w-4 h-4" />
+                                <>
+                                  <Ban className="w-4 h-4 mr-1" />
+                                  Disable
+                                </>
                               ) : (
-                                <Power className="w-4 h-4" />
+                                <>
+                                  <Power className="w-4 h-4 mr-1" />
+                                  Enable
+                                </>
                               )}
                             </Button>
 
                             <Button
                               size="sm"
-                              variant="outline"
+                              variant="destructive"
                               onClick={() => {
-                                setSelectedUser(user);
-                                setPermissionDialogOpen(true);
+                                if (confirm(`Are you sure you want to remove ${user.fullName}? This action cannot be undone.`)) {
+                                  removeUserMutation.mutate(user.id);
+                                }
                               }}
+                              disabled={removeUserMutation.isPending}
                             >
-                              <Shield className="w-4 h-4" />
+                              <Trash2 className="w-4 h-4 mr-1" />
+                              Remove
                             </Button>
                           </div>
                         </TableCell>

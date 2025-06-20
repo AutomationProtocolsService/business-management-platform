@@ -148,6 +148,7 @@ export default function Sidebar() {
                   Administration
                 </div>
                 <SidebarLink href="/admin" icon={<Shield className="h-5 w-5" />}>User Management</SidebarLink>
+                <SidebarLink href="/admin/teams" icon={<Users className="h-5 w-5" />}>Team Administration</SidebarLink>
               </div>
             )}
 

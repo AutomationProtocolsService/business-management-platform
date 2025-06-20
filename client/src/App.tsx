@@ -34,6 +34,8 @@ import HelpPage from "@/pages/help-page";
 import EmailTestPage from "@/pages/email-test-page";
 import LoginTest from "@/pages/login-test";
 import AdminPage from "@/pages/admin-page";
+import UserDetailsPage from "@/pages/user-details-page";
+import TeamsAdminPage from "@/pages/teams-admin-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -117,6 +119,8 @@ function Router() {
       <ProtectedRoute path="/inventory/:id/edit" component={InventoryPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
       <ProtectedRoute path="/admin" component={AdminPage} />
+      <ProtectedRoute path="/admin/users/:id" component={UserDetailsPage} />
+      <ProtectedRoute path="/admin/teams" component={TeamsAdminPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/help" component={HelpPage} />
