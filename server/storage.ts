@@ -4042,7 +4042,7 @@ export class DatabaseStorage implements IStorage {
 
   async getUserInvitationByToken(token: string): Promise<UserInvitation | undefined> {
     return await db.query.userInvitations.findFirst({
-      where: eq(schema.userInvitations.token, token)
+      where: eq(schema.userInvitations.invitationToken, token)
     });
   }
 
