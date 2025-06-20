@@ -33,6 +33,7 @@ import ProfilePage from "@/pages/profile-page";
 import HelpPage from "@/pages/help-page";
 import EmailTestPage from "@/pages/email-test-page";
 import LoginTest from "@/pages/login-test";
+import AdminPage from "@/pages/admin-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -115,6 +116,7 @@ function Router() {
       <ProtectedRoute path="/inventory/:id" component={InventoryPage} />
       <ProtectedRoute path="/inventory/:id/edit" component={InventoryPage} />
       <ProtectedRoute path="/reports" component={ReportsPage} />
+      <ProtectedRoute path="/admin" component={AdminPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/help" component={HelpPage} />
