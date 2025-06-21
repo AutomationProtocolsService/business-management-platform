@@ -51,17 +51,14 @@ const loginSchema = z.object({
   }),
 });
 
-// Add tenantId to register schema
+// Updated register schema for organization creation
 const registerSchema = z.object({
   username: z.string().min(3, "Username must be at least 3 characters"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   email: z.string().email("Please enter a valid email address"),
   fullName: z.string().min(2, "Full name must be at least 2 characters"),
-  role: z.string().default("employee"),
-  tenantId: z.number({
-    required_error: "Please select a tenant",
-    invalid_type_error: "Tenant must be a number",
-  }),
+  organizationName: z.string().min(2, "Organization name must be at least 2 characters"),
+  role: z.string().default("admin"),
 });
 
 type LoginValues = z.infer<typeof loginSchema>;
@@ -109,7 +106,8 @@ export default function AuthPage() {
       password: "",
       email: "",
       fullName: "",
-      role: "employee",
+      organizationName: "",
+      role: "admin",
     },
   });
 
@@ -332,39 +330,16 @@ export default function AuthPage() {
                     )}
                   />
                   
-                  {/* Tenant Selection for Registration */}
+                  {/* Organization Name Input for Registration */}
                   <FormField
                     control={registerForm.control}
-                    name="tenantId"
+                    name="organizationName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Organization</FormLabel>
-                        <Select
-                          onValueChange={(value) => field.onChange(parseInt(value))}
-                          defaultValue={field.value?.toString()}
-                          disabled={tenantsLoading}
-                        >
-                          <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select your organization" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            {tenantsLoading ? (
-                              <div className="p-2 text-center">Loading organizations...</div>
-                            ) : tenantsError ? (
-                              <div className="p-2 text-center text-destructive">Failed to load organizations</div>
-                            ) : tenantsData && tenantsData.length > 0 ? (
-                              tenantsData.map((tenant) => (
-                                <SelectItem key={tenant.id} value={tenant.id.toString()}>
-                                  {tenant.companyName || tenant.name}
-                                </SelectItem>
-                              ))
-                            ) : (
-                              <div className="p-2 text-center">No organizations available</div>
-                            )}
-                          </SelectContent>
-                        </Select>
+                        <FormLabel>Organization Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your organization name" {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
