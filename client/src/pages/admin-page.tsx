@@ -330,7 +330,7 @@ export default function AdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {users.map((user: User) => (
+                    {Array.isArray(users) && users.map((user: User) => (
                       <TableRow key={user.id}>
                         <TableCell>
                           <div>
@@ -451,7 +451,7 @@ export default function AdminPage() {
                           <SelectValue placeholder="Select manager (optional)" />
                         </SelectTrigger>
                         <SelectContent>
-                          {users.filter((u: User) => u.role === 'manager').map((manager: User) => (
+                          {Array.isArray(users) && users.filter((u: User) => u.role === 'manager').map((manager: User) => (
                             <SelectItem key={manager.id} value={manager.id.toString()}>
                               {manager.fullName}
                             </SelectItem>

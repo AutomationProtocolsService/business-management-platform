@@ -202,13 +202,13 @@ export default function TeamsAdminPage() {
     }
   };
 
-  const availableUsers = allUsers.filter((user: User) => 
-    !teamMembers.some((member: TeamMember) => member.userId === user.id)
-  );
+  const availableUsers = Array.isArray(allUsers) ? allUsers.filter((user: User) => 
+    !Array.isArray(teamMembers) ? true : !teamMembers.some((member: TeamMember) => member.userId === user.id)
+  ) : [];
 
-  const managerMembers = teamMembers.filter((member: TeamMember) => 
-    member.user.role === 'manager'
-  );
+  const managerMembers = Array.isArray(teamMembers) ? teamMembers.filter((member: TeamMember) => 
+    member.user && member.user.role === 'manager'
+  ) : [];
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -271,7 +271,7 @@ export default function TeamsAdminPage() {
           <CardContent>
             {teamsLoading ? (
               <div className="text-center py-8">Loading teams...</div>
-            ) : teams.length === 0 ? (
+            ) : !Array.isArray(teams) || teams.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No teams created yet.
               </div>
@@ -397,7 +397,7 @@ export default function TeamsAdminPage() {
               <div className="text-center py-8 text-gray-500">
                 Select a team to view its members
               </div>
-            ) : teamMembers.length === 0 ? (
+            ) : !Array.isArray(teamMembers) || teamMembers.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 No members in this team yet.
               </div>
@@ -413,7 +413,7 @@ export default function TeamsAdminPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {teamMembers.map((member: TeamMember) => (
+                    {Array.isArray(teamMembers) && teamMembers.map((member: TeamMember) => (
                       <TableRow key={member.id}>
                         <TableCell>
                           <div>
