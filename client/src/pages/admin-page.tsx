@@ -471,7 +471,7 @@ export default function AdminPage() {
                 <div className="text-center py-8">Loading teams...</div>
               ) : (
                 <div className="grid gap-4">
-                  {teams.map((team: Team) => (
+                  {Array.isArray(teams) && teams.map((team: Team) => (
                     <Card key={team.id}>
                       <CardContent className="pt-6">
                         <div className="flex justify-between items-start">
