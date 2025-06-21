@@ -939,13 +939,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      // Pre-deletion checks - ensure quote can be safely deleted
+      const canDelete = await storage.canDeleteQuote(quoteId, tenantId);
+      if (!canDelete.canDelete) {
+        return res.status(400).json({ 
+          message: canDelete.reason || "This quote cannot be deleted" 
+        });
+      }
+      
       // Delete associated items first
       const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
       for (const item of quoteItems) {
         await storage.deleteQuoteItem(item.id);
       }
       
-      const deleted = await storage.deleteQuote(quoteId, tenantId);
+      const deleted = await storage.deleteQuote(quoteId);
       
       if (deleted) {
         res.status(204).send();

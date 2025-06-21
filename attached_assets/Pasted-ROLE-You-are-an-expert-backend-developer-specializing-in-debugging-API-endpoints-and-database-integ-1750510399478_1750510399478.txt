@@ -1,0 +1,23 @@
+ROLE: You are an expert backend developer specializing in debugging API endpoints and database integrity issues in a Node.js/Express application.
+
+CONTEXT: On our "Quotes" page, the "Delete Quote" feature is failing. The frontend correctly sends a DELETE request to the API (e.g., DELETE /api/quotes/:quoteId), but the server is returning an error. The likely cause is a database foreign key constraint or a business rule preventing the deletion of a quote linked to other data.
+
+TASK: Your task is to debug and fix the backend logic for the quote deletion endpoint to handle these cases gracefully.
+
+DETAILED INSTRUCTIONS:
+
+Locate the Endpoint: Find the controller function and route handler responsible for processing the DELETE /api/quotes/:quoteId request.
+
+Investigate Deletion Logic: The primary suspect is a database constraint. A "Quote" cannot be deleted if it is referenced by other tables (e.g., Projects, Invoices, LineItems). The current code likely tries to delete the quote directly, causing the database to throw an error.
+
+Implement a Pre-Deletion Check: Before attempting to delete the quote, you must first check if it has any critical associations.
+
+Query the Projects or Invoices table to see if any records are linked to the quoteId you are trying to delete.
+Also check the quote's status. It is bad practice to allow deletion of a quote that has been Converted or Invoiced.
+Implement a Safe Deletion Policy:
+
+If the quote has critical links (like to a project or invoice) or its status is "Converted", do not proceed with deletion. Instead, you must return a 400 Bad Request error with a clear, user-friendly message. For example:
+JSON
+
+{ "message": "This quote cannot be deleted because it has been converted or is linked to a project." }
+If the quote has no critical links (its status might be "draft" or "survey_booked"), you can proceed with deletion. If the quote has child items that should be deleted along with it (like line_items specific to that quote), you must delete those child items first before deleting the parent quote record. This is often best handled with a "cascade delete" policy in the database schema itself, which you should check for.
