@@ -3268,6 +3268,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Register additional route modules
+  // Optimized Dashboard endpoint to prevent N+1 queries
+  app.get("/api/dashboard", requireAuth, async (req: Request, res: Response) => {
+    try {
+      const tenantFilter = getTenantFilterFromRequest(req);
+      
+      console.log('>>> Fetching dashboard data for tenant:', tenantFilter?.tenantId);
+      const startTime = Date.now();
+      
+      const dashboardData = await dashboardService.getDashboardData(tenantFilter);
+      
+      const endTime = Date.now();
+      console.log(`>>> Dashboard data fetched in ${endTime - startTime}ms`);
+      
+      res.json(dashboardData);
+    } catch (error) {
+      console.error('Error fetching dashboard data:', error);
+      res.status(500).json({ message: "Failed to fetch dashboard data" });
+    }
+  });
+
   registerQuoteRoutes(app);
   registerDelegatedAdminRoutes(app);
   registerInvitationRoutes(app);

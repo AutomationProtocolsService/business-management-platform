@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, memo, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { 
@@ -43,6 +43,46 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 
+// Memoized components for better performance
+const ProjectRow = memo(({ project, customer, getStatusColor }: any) => (
+  <TableRow key={project.id}>
+    <TableCell className="font-medium">{project.name}</TableCell>
+    <TableCell>{customer?.name || "Unknown Client"}</TableCell>
+    <TableCell>
+      <Badge className={getStatusColor(project.status)}>
+        {project.status}
+      </Badge>
+    </TableCell>
+    <TableCell>{project.deadline ? formatDate(project.deadline, "PPP") : "No deadline"}</TableCell>
+  </TableRow>
+));
+
+const InvoiceRow = memo(({ invoice, customer, getStatusColor }: any) => (
+  <TableRow key={invoice.id}>
+    <TableCell className="font-medium">#{invoice.invoiceNumber}</TableCell>
+    <TableCell>{customer?.name || "Unknown Client"}</TableCell>
+    <TableCell>
+      <Badge className={getStatusColor(invoice.status)}>
+        {invoice.status}
+      </Badge>
+    </TableCell>
+    <TableCell>${invoice.total?.toFixed(2) || "0.00"}</TableCell>
+  </TableRow>
+));
+
+const QuoteRow = memo(({ quote, customer, getStatusColor }: any) => (
+  <TableRow key={quote.id}>
+    <TableCell className="font-medium">#{quote.quoteNumber || quote.id}</TableCell>
+    <TableCell>{customer?.name || "Unknown Client"}</TableCell>
+    <TableCell>
+      <Badge className={getStatusColor(quote.status)}>
+        {quote.status}
+      </Badge>
+    </TableCell>
+    <TableCell>${quote.total?.toFixed(2) || "0.00"}</TableCell>
+  </TableRow>
+));
+
 export default function DashboardPage() {
   // Get custom terminology
   const terminology = useTerminology();
@@ -56,52 +96,31 @@ export default function DashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-  // Fetch project data
-  const { data: projects = [], isLoading: projectsLoading } = useQuery<any[]>({
-    queryKey: ["/api/projects"],
-    select: (data) => data?.slice(0, 5) || [],
+  // Fetch optimized dashboard data (single API call to prevent N+1 queries)
+  const { data: dashboardData, isLoading: dashboardLoading } = useQuery<any>({
+    queryKey: ["/api/dashboard"],
   });
 
-  // Fetch invoices data
-  const { data: invoices = [], isLoading: invoicesLoading } = useQuery<any[]>({
-    queryKey: ["/api/invoices"],
-    select: (data) => data?.slice(0, 5) || [],
-  });
+  // Extract data from the optimized response
+  const projects = dashboardData?.recentActivity?.projects || [];
+  const invoices = dashboardData?.recentActivity?.invoices || [];
+  const quotes = dashboardData?.recentActivity?.quotes || [];
+  const customers = dashboardData?.recentActivity?.customers || [];
 
-  // Fetch quotes data
-  const { data: quotes = [], isLoading: quotesLoading } = useQuery<any[]>({
-    queryKey: ["/api/quotes"],
-    select: (data) => data?.slice(0, 5) || [],
-  });
-
-  // Fetch customers data
-  const { data: customers = [], isLoading: customersLoading } = useQuery<any[]>({
-    queryKey: ["/api/customers"],
-  });
-
-  // Calculate dashboard metrics
+  // Use optimized metrics from dashboard service instead of recalculating
   const metrics = {
-    activeProjects: projects.filter(p => p?.status?.toLowerCase() === "in progress").length,
-    totalProjects: projects.length,
-    pendingQuotes: quotes.filter(q => q?.status?.toLowerCase() === "pending").length,
-    totalQuotes: quotes.length,
-    unpaidInvoices: invoices.filter(i => 
-      i?.status?.toLowerCase() === "pending" || i?.status?.toLowerCase() === "overdue"
-    ).length,
-    totalUnpaidAmount: invoices
-      .filter(i => i?.status?.toLowerCase() === "pending" || i?.status?.toLowerCase() === "overdue")
-      .reduce((sum, inv) => sum + (inv?.total || 0), 0),
-    totalCustomers: customers.length,
-    newCustomersThisMonth: customers.filter(c => {
-      if (!c?.createdAt) return false;
-      const createdAt = new Date(c.createdAt);
-      const now = new Date();
-      return createdAt.getMonth() === now.getMonth() && createdAt.getFullYear() === now.getFullYear();
-    }).length
+    activeProjects: dashboardData?.stats?.projects?.byStatus?.["In Progress"] || 0,
+    totalProjects: dashboardData?.stats?.projects?.total || 0,
+    pendingQuotes: dashboardData?.stats?.quotes?.pendingCount || 0,
+    totalQuotes: dashboardData?.stats?.quotes?.total || 0,
+    unpaidInvoices: (dashboardData?.stats?.invoices?.pendingAmount || 0) + (dashboardData?.stats?.invoices?.overdue || 0),
+    totalUnpaidAmount: (dashboardData?.stats?.invoices?.pendingAmount || 0),
+    totalCustomers: dashboardData?.stats?.customers?.total || 0,
+    newCustomersThisMonth: dashboardData?.stats?.customers?.new || 0
   };
 
   // Loading state
-  const isLoading = projectsLoading || invoicesLoading || quotesLoading || customersLoading;
+  const isLoading = dashboardLoading;
 
   // Helper function to get status badge color
   const getStatusColor = (status: string = '') => {
@@ -300,19 +319,15 @@ export default function DashboardPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {projects.slice(0, 5).map((project) => {
-                        const customer = customers.find((c) => c.id === project.customerId);
+                      {projects.slice(0, 5).map((project: any) => {
+                        const customer = customers.find((c: any) => c.id === project.customerId);
                         return (
-                          <TableRow key={project.id}>
-                            <TableCell className="font-medium">{project.name}</TableCell>
-                            <TableCell>{customer?.name || "Unknown Client"}</TableCell>
-                            <TableCell>
-                              <Badge className={getStatusColor(project.status)}>
-                                {project.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{project.deadline ? formatDate(project.deadline, "PPP") : "No deadline"}</TableCell>
-                          </TableRow>
+                          <ProjectRow 
+                            key={project.id}
+                            project={project} 
+                            customer={customer} 
+                            getStatusColor={getStatusColor} 
+                          />
                         );
                       })}
                       {projects.length === 0 && (
