@@ -1,0 +1,30 @@
+ROLE: You are an expert Full-Stack Developer experienced in building multi-tenant SaaS applications.
+
+CONTEXT: We have identified a critical logical flaw in our user registration process. After a database reset, no new user can register because the form requires selecting an existing 'Organization' (tenant), but none exist. We need to refactor this workflow to allow the first user to create their organization during sign-up.
+
+TASK: Refactor the registration page and its corresponding backend endpoint to implement a simultaneous user and organization creation workflow.
+
+DETAILED REQUIREMENTS:
+
+Part 1: Frontend Changes
+
+Target File: The component file for the "Register" page.
+Action:
+Find the <select> dropdown component for "Organization". Remove it completely.
+In its place, add a standard text input field.
+This new field's label must be "Organization Name" or "Company Name".
+This field must be mandatory (required).
+Logic: Ensure the value from this new input field is included in the data submitted to the backend API.
+Part 2: Backend Changes
+
+Target File: The backend route handler that processes the registration request (e.g., POST /api/auth/register).
+Action:
+Modify the endpoint to now accept the new organizationName field from the request body.
+The core logic must be performed within a single database transaction to ensure data integrity (i.e., if one step fails, all steps are rolled back).
+Transaction Logic:
+Create the Organization: First, create a new record in the organizations (or tenants) table using the organizationName provided.
+Create the User: Next, create a new record in the users table with the user's details (full name, email, and the securely hashed password).
+Assign Role and Link User: When creating the user, you must:
+Set their role to 'admin'.
+Set their organizationId (or tenantId) foreign key to the ID of the new organization you created in step 1.
+Response: After the transaction successfully completes, the endpoint should return a success response, likely including an authentication token so the frontend can automatically log the new user in.

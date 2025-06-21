@@ -14,13 +14,22 @@ interface AuthResponse {
   user: SelectUser;
 }
 
+type RegisterData = {
+  username: string;
+  password: string;
+  email: string;
+  fullName: string;
+  organizationName: string;
+  role?: string;
+};
+
 type AuthContextType = {
   user: SelectUser | null;
   isLoading: boolean;
   error: Error | null;
   loginMutation: UseMutationResult<SelectUser, Error, LoginData>;
   logoutMutation: UseMutationResult<void, Error, void>;
-  registerMutation: UseMutationResult<SelectUser, Error, InsertUser>;
+  registerMutation: UseMutationResult<SelectUser, Error, RegisterData>;
 };
 
 type LoginData = Pick<InsertUser, "username" | "password"> & {
@@ -94,7 +103,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   });
 
   const registerMutation = useMutation({
-    mutationFn: async (credentials: InsertUser) => {
+    mutationFn: async (credentials: RegisterData) => {
       const res = await apiRequest("POST", "/api/register", credentials);
       const data = await res.json();
       return data.user;
