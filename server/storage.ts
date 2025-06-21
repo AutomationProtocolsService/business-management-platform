@@ -136,6 +136,7 @@ export interface IStorage {
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuote(id: number, quote: Partial<Quote>, tenantId?: number): Promise<Quote | undefined>;
   deleteQuote(id: number, tenantId?: number): Promise<boolean>;
+  canDeleteQuote(id: number, tenantId?: number): Promise<{canDelete: boolean, reason?: string}>;
   getAllQuotes(filter?: TenantFilter): Promise<Quote[]>;
   getQuotesByProject(projectId: number, tenantId?: number): Promise<Quote[]>;
   getQuotesByCustomer(customerId: number, tenantId?: number): Promise<Quote[]>;
@@ -609,6 +610,39 @@ export class MemStorage implements IStorage {
 
   async deleteQuote(id: number): Promise<boolean> {
     return this.quotes.delete(id);
+  }
+
+  async canDeleteQuote(id: number, tenantId?: number): Promise<{canDelete: boolean, reason?: string}> {
+    const quote = this.quotes.get(id);
+    if (!quote) {
+      return { canDelete: false, reason: "Quote not found" };
+    }
+
+    // Check if quote status prevents deletion
+    if (quote.status === 'converted') {
+      return { 
+        canDelete: false, 
+        reason: "This quote cannot be deleted because it has been converted to an invoice." 
+      };
+    }
+
+    if (quote.status === 'accepted') {
+      return { 
+        canDelete: false, 
+        reason: "This quote cannot be deleted because it has been accepted by the client." 
+      };
+    }
+
+    // Check if quote is linked to any invoices
+    const linkedInvoices = Array.from(this.invoices.values()).filter(invoice => invoice.quoteId === id);
+    if (linkedInvoices.length > 0) {
+      return { 
+        canDelete: false, 
+        reason: "This quote cannot be deleted because it is linked to one or more invoices." 
+      };
+    }
+
+    return { canDelete: true };
   }
 
   async getAllQuotes(): Promise<Quote[]> {
@@ -2355,6 +2389,67 @@ export class DatabaseStorage implements IStorage {
       .where(eq(schema.quotes.id, id))
       .returning();
     return result.length > 0;
+  }
+
+  async canDeleteQuote(id: number, tenantId?: number): Promise<{canDelete: boolean, reason?: string}> {
+    try {
+      // Get the quote first
+      const quote = await this.getQuote(id, tenantId);
+      if (!quote) {
+        return { canDelete: false, reason: "Quote not found" };
+      }
+
+      // Check if quote status prevents deletion
+      if (quote.status === 'converted') {
+        return { 
+          canDelete: false, 
+          reason: "This quote cannot be deleted because it has been converted to an invoice." 
+        };
+      }
+
+      if (quote.status === 'accepted') {
+        return { 
+          canDelete: false, 
+          reason: "This quote cannot be deleted because it has been accepted by the client." 
+        };
+      }
+
+      // Check if quote is linked to any invoices
+      const linkedInvoices = await db.query.invoices.findMany({
+        where: eq(schema.invoices.quoteId, id)
+      });
+
+      if (linkedInvoices.length > 0) {
+        return { 
+          canDelete: false, 
+          reason: "This quote cannot be deleted because it is linked to one or more invoices." 
+        };
+      }
+
+      // Check if quote has an associated survey that has been completed
+      if (quote.surveyId) {
+        const survey = await db.query.surveys.findFirst({
+          where: eq(schema.surveys.id, quote.surveyId)
+        });
+        
+        if (survey && survey.status === 'completed') {
+          return { 
+            canDelete: false, 
+            reason: "This quote cannot be deleted because it has a completed survey associated with it." 
+          };
+        }
+      }
+
+      // If we get here, the quote can be safely deleted
+      return { canDelete: true };
+
+    } catch (error) {
+      console.error('Error checking if quote can be deleted:', error);
+      return { 
+        canDelete: false, 
+        reason: "Unable to verify if quote can be deleted. Please try again." 
+      };
+    }
   }
 
   async getAllQuotes(filter?: TenantFilter): Promise<Quote[]> {
