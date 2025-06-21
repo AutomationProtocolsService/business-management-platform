@@ -1671,6 +1671,36 @@ export class MemStorage implements IStorage {
     return Array.from(this.tenants.values()).filter(tenant => tenant.status === 'active');
   }
 
+  // System Settings methods
+  async getSystemSettings(): Promise<SystemSettings | undefined> {
+    return Array.from(this.systemSettings.values())[0];
+  }
+
+  async createSystemSettings(settings: InsertSystemSettings): Promise<SystemSettings> {
+    const id = this.systemSettingsId++;
+    const newSettings: SystemSettings = { 
+      ...settings, 
+      id, 
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.systemSettings.set(id, newSettings);
+    return newSettings;
+  }
+
+  async updateSystemSettings(id: number, settings: Partial<SystemSettings>): Promise<SystemSettings | undefined> {
+    const existingSettings = this.systemSettings.get(id);
+    if (!existingSettings) return undefined;
+    
+    const updatedSettings = { 
+      ...existingSettings, 
+      ...settings, 
+      updatedAt: new Date()
+    };
+    this.systemSettings.set(id, updatedSettings);
+    return updatedSettings;
+  }
+
 
   
   // User Invitation methods
@@ -1849,6 +1879,13 @@ export class DatabaseStorage implements IStorage {
     return result;
   }
 
+  async getTenantByName(name: string): Promise<Tenant | undefined> {
+    const result = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.name, name)
+    });
+    return result;
+  }
+
   async createTenant(tenant: InsertTenant): Promise<Tenant> {
     const result = await db.insert(schema.tenants).values({
       ...tenant,
@@ -2019,6 +2056,13 @@ export class DatabaseStorage implements IStorage {
       
     const result = await db.query.users.findFirst({
       where: query
+    });
+    return result;
+  }
+
+  async getUserByUsernameGlobal(username: string): Promise<User | undefined> {
+    const result = await db.query.users.findFirst({
+      where: eq(schema.users.username, username)
     });
     return result;
   }
