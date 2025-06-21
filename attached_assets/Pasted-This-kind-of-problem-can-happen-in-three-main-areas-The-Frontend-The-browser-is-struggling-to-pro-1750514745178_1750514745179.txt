@@ -1,0 +1,40 @@
+This kind of problem can happen in three main areas:
+
+The Frontend: The browser is struggling to process or display the data it received.
+The Backend (API): The server is taking too long to gather the data and send it to the frontend.
+The Database: The database is taking too long to find the information the backend asked for.
+Most often, the bottleneck is the Backend API or the Database. We need to first diagnose where the delay is and then guide the AI agent with a very specific prompt.
+
+Step 1: The Diagnostic Plan - Find the Bottleneck
+We must first measure how long the API call for the dashboard data is taking. This will tell us whether to blame the frontend or the backend.
+
+Please follow these steps:
+
+Open Developer Tools: In your browser, go to the Dashboard page. Press F12 (or right-click -> Inspect).
+Go to the "Network" Tab: Click on the "Network" tab.
+Refresh the Page: With the Network tab open, press Ctrl+R or Cmd+R to do a full refresh of the dashboard.
+Find the Dashboard Data Request: Look in the list of requests for the one that fetches the dashboard data. It will likely be named something like dashboard, stats, or summary.
+Check the "Time" Column: Look at the "Time" or "Duration" column for this request. This is the total time the backend took to process and deliver the data.
+You now have the critical piece of information:
+
+If the Time is long (e.g., over 1-2 seconds): The problem is on the Backend or Database. This is the most likely scenario.
+If the Time is short (e.g., under 500ms): The problem is on the Frontend. The browser received the data quickly but is struggling to render it.
+Step 2: Guide the AI Agent Based on Your Findings
+Use one of the following prompts based on what you discovered in Step 1.
+
+Prompt If the Backend is SLOW (Most Likely)
+ROLE: You are an expert Backend Developer specializing in performance optimization and database query analysis.
+
+CONTEXT: The application's main dashboard is very slow to load. Our diagnosis shows that the API endpoint responsible for fetching dashboard data (e.g., GET /api/dashboard) is taking several seconds to respond. This is the primary bottleneck. The issue is likely an unoptimized database query.
+
+TASK: Your task is to find and optimize the slow database queries within the dashboard API endpoint.
+
+DETAILED INSTRUCTIONS:
+
+Locate the Endpoint: Find the controller function for the dashboard endpoint in the backend code.
+Analyze the Queries: Carefully examine the database queries being made. The slowness is very likely caused by one of two issues:
+The "N+1 Query" Problem: The code might be fetching a list of items (e.g., 10 projects), and then making a separate database query inside a loop for each of those 10 projects to get more details. This is extremely inefficient. You must refactor this to use a single, efficient query with JOINs or your ORM's "eager loading" feature.
+Missing Database Indexes: The queries might be filtering or sorting on columns that do not have a database index. This forces the database to scan the entire table, which is very slow.
+Implement the Fix:
+Add Indexes: The most important fix is to add database indexes to any columns used in WHERE clauses, JOIN conditions, or ORDER BY clauses within the slow queries. Please add these indexes to the database schema file.
+Refactor Queries: If you find an "N+1" problem, rewrite the code to fetch all required data in a minimal number of queries (ideally just one or two).
