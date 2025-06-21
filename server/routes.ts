@@ -39,6 +39,7 @@ import {
 import { registerQuoteRoutes } from "./routes/quotes";
 import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
 import { registerInvitationRoutes } from "./routes/invitation-routes";
+import dashboardService from "./services/dashboard-service";
 
 /**
  * Helper to get a tenant filter object from a request
