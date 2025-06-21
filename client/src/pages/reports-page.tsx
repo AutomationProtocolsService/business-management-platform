@@ -371,20 +371,22 @@ const processSurveyData = (surveys: any[], period: string) => {
     }));
     
     // Aggregate survey counts by month
-    surveys.forEach(survey => {
-      if (!survey.scheduledDate) return;
-      
-      const surveyDate = new Date(survey.scheduledDate);
-      if (surveyDate.getFullYear() === currentYear) {
-        const month = surveyDate.getMonth();
+    if (Array.isArray(surveys)) {
+      surveys.forEach(survey => {
+        if (!survey.scheduledDate) return;
         
-        if (survey.status === 'scheduled') {
-          monthlyData[month].scheduled++;
-        } else if (survey.status === 'completed') {
-          monthlyData[month].completed++;
+        const surveyDate = new Date(survey.scheduledDate);
+        if (surveyDate.getFullYear() === currentYear) {
+          const month = surveyDate.getMonth();
+          
+          if (survey.status === 'scheduled') {
+            monthlyData[month].scheduled++;
+          } else if (survey.status === 'completed') {
+            monthlyData[month].completed++;
+          }
         }
-      }
-    });
+      });
+    }
     
     return monthlyData;
   } else if (period === "quarter") {
@@ -400,25 +402,27 @@ const processSurveyData = (surveys: any[], period: string) => {
     }));
     
     // Process surveys for the last quarter
-    surveys.forEach(survey => {
-      if (!survey.scheduledDate) return;
-      
-      const surveyDate = new Date(survey.scheduledDate);
-      if (surveyDate >= startDate) {
-        // Calculate which week this survey belongs to
-        const timeDiff = now.getTime() - surveyDate.getTime();
-        const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
-        const weekIndex = Math.min(Math.floor(dayDiff / 7), 11);
+    if (Array.isArray(surveys)) {
+      surveys.forEach(survey => {
+        if (!survey.scheduledDate) return;
         
-        if (weekIndex >= 0 && weekIndex < 12) {
-          if (survey.status === 'scheduled') {
-            weeklyData[11 - weekIndex].scheduled++;
-          } else if (survey.status === 'completed') {
-            weeklyData[11 - weekIndex].completed++;
+        const surveyDate = new Date(survey.scheduledDate);
+        if (surveyDate >= startDate) {
+          // Calculate which week this survey belongs to
+          const timeDiff = now.getTime() - surveyDate.getTime();
+          const dayDiff = Math.floor(timeDiff / (1000 * 3600 * 24));
+          const weekIndex = Math.min(Math.floor(dayDiff / 7), 11);
+          
+          if (weekIndex >= 0 && weekIndex < 12) {
+            if (survey.status === 'scheduled') {
+              weeklyData[11 - weekIndex].scheduled++;
+            } else if (survey.status === 'completed') {
+              weeklyData[11 - weekIndex].completed++;
+            }
           }
         }
-      }
-    });
+      });
+    }
     
     return weeklyData;
   } else { // month
@@ -435,36 +439,38 @@ const processSurveyData = (surveys: any[], period: string) => {
     startDate.setDate(startDate.getDate() - 30);
     
     // Process surveys for the last month
-    surveys.forEach(survey => {
-      if (!survey.scheduledDate) return;
-      
-      const surveyDate = new Date(survey.scheduledDate);
-      if (surveyDate >= startDate) {
-        const surveyDay = surveyDate.getDate();
+    if (Array.isArray(surveys)) {
+      surveys.forEach(survey => {
+        if (!survey.scheduledDate) return;
         
-        // Assign to nearest data point
-        let nearestPoint = 1;
-        let minDiff = Math.abs(surveyDay - 1);
-        
-        dailyPoints.forEach(day => {
-          const diff = Math.abs(surveyDay - day);
-          if (diff < minDiff) {
-            minDiff = diff;
-            nearestPoint = day;
-          }
-        });
-        
-        // Find the index in our data array
-        const dataIndex = dailyPoints.indexOf(nearestPoint);
-        if (dataIndex !== -1) {
-          if (survey.status === 'scheduled') {
-            dailyData[dataIndex].scheduled++;
-          } else if (survey.status === 'completed') {
-            dailyData[dataIndex].completed++;
+        const surveyDate = new Date(survey.scheduledDate);
+        if (surveyDate >= startDate) {
+          const surveyDay = surveyDate.getDate();
+          
+          // Assign to nearest data point
+          let nearestPoint = 1;
+          let minDiff = Math.abs(surveyDay - 1);
+          
+          dailyPoints.forEach(day => {
+            const diff = Math.abs(surveyDay - day);
+            if (diff < minDiff) {
+              minDiff = diff;
+              nearestPoint = day;
+            }
+          });
+          
+          // Find the index in our data array
+          const dataIndex = dailyPoints.indexOf(nearestPoint);
+          if (dataIndex !== -1) {
+            if (survey.status === 'scheduled') {
+              dailyData[dataIndex].scheduled++;
+            } else if (survey.status === 'completed') {
+              dailyData[dataIndex].completed++;
+            }
           }
         }
-      }
-    });
+      });
+    }
     
     return dailyData;
   }
