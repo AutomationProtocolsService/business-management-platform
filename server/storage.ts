@@ -81,6 +81,7 @@ export interface IStorage {
   // Tenants
   getTenant(id: number): Promise<Tenant | undefined>;
   getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined>;
+  getTenantByName(name: string): Promise<Tenant | undefined>;
   createTenant(tenant: InsertTenant): Promise<Tenant>;
   updateTenant(id: number, tenant: Partial<Tenant>): Promise<Tenant | undefined>;
   deleteTenant(id: number): Promise<boolean>;
@@ -107,6 +108,7 @@ export interface IStorage {
   // Users
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string, tenantId?: number): Promise<User | undefined>;
+  getUserByUsernameGlobal(username: string): Promise<User | undefined>;
   getUserByEmail(email: string, tenantId?: number): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: number, user: Partial<User>): Promise<User | undefined>;
@@ -467,6 +469,10 @@ export class MemStorage implements IStorage {
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.username === username);
+  }
+
+  async getUserByUsernameGlobal(username: string): Promise<User | undefined> {
     return Array.from(this.users.values()).find(user => user.username === username);
   }
   
@@ -1630,6 +1636,10 @@ export class MemStorage implements IStorage {
 
   async getTenantBySubdomain(subdomain: string): Promise<Tenant | undefined> {
     return Array.from(this.tenants.values()).find(tenant => tenant.subdomain === subdomain);
+  }
+
+  async getTenantByName(name: string): Promise<Tenant | undefined> {
+    return Array.from(this.tenants.values()).find(tenant => tenant.name === name);
   }
 
   async createTenant(tenant: InsertTenant): Promise<Tenant> {

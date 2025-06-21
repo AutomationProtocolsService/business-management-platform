@@ -178,68 +178,65 @@ export function setupAuth(app: Express) {
   // User registration endpoint (tenant-aware)
   app.post("/api/register", async (req: Request, res: Response, next: NextFunction) => {
     try {
-      const { username, password, email, fullName, role, tenantId } = req.body;
+      const { username, password, email, fullName, organizationName, role } = req.body;
       
       // Validate required fields
-      if (!username || !password || !email || !fullName) {
-        logger.warn({ username, email }, "Registration failed: Missing required fields");
+      if (!username || !password || !email || !fullName || !organizationName) {
+        logger.warn({ username, email, organizationName }, "Registration failed: Missing required fields");
         return res.status(400).json({ 
           success: false, 
           message: "Missing required fields" 
         });
       }
       
-      // Determine tenant ID (from request body or request tenant)
-      const effectiveTenantId = tenantId || req.tenant?.id;
+      // Check if username is already taken globally (across all tenants)
+      const existingUserGlobal = await storage.getUserByUsernameGlobal(username);
       
-      if (!effectiveTenantId) {
-        logger.warn({ username, email }, "Registration failed: No tenant specified");
-        return res.status(400).json({ 
-          success: false, 
-          message: "Tenant information required" 
-        });
-      }
-      
-      // Check if tenant exists
-      const tenant = await storage.getTenant(effectiveTenantId);
-      
-      if (!tenant) {
-        logger.warn({ username, email, tenantId: effectiveTenantId }, "Registration failed: Tenant not found");
-        return res.status(400).json({ 
-          success: false, 
-          message: "Invalid tenant" 
-        });
-      }
-      
-      // Check if username is already taken within the tenant
-      const existingUser = await storage.getUserByUsername(username, effectiveTenantId);
-      
-      if (existingUser) {
-        logger.warn({ username, tenantId: effectiveTenantId }, "Registration failed: Username already exists");
+      if (existingUserGlobal) {
+        logger.warn({ username }, "Registration failed: Username already exists globally");
         return res.status(400).json({ 
           success: false, 
           message: "Username already exists" 
         });
       }
 
+      // Check if organization name is already taken
+      const existingOrg = await storage.getTenantByName(organizationName);
+      
+      if (existingOrg) {
+        logger.warn({ organizationName }, "Registration failed: Organization name already exists");
+        return res.status(400).json({ 
+          success: false, 
+          message: "Organization name already exists" 
+        });
+      }
+
       // Hash the password
       const hashedPassword = await hashPassword(password);
       
-      // Create the user with tenant ID
+      // Create organization first
+      const organization = await storage.createTenant({
+        name: organizationName,
+        subdomain: organizationName.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, ''),
+        companyName: organizationName,
+        active: true
+      });
+
+      // Create the user as admin of the new organization
       const user = await storage.createUser({
         username,
         password: hashedPassword,
         email,
         fullName,
-        role: role || "employee",
+        role: role || "admin",
         active: true,
-        tenantId: effectiveTenantId
+        tenantId: organization.id
       });
 
       // Remove password from the response
       const { password: _, ...userWithoutPassword } = user;
 
-      logger.info({ userId: user.id, username, tenantId: effectiveTenantId }, "User registered successfully");
+      logger.info({ userId: user.id, username, tenantId: organization.id, organizationName }, "User and organization registered successfully");
       
       // Automatically log in the new user
       req.login(user, (err) => {
