@@ -37,11 +37,16 @@ interface SidebarLinkProps {
 
 const SidebarLink = ({ href, icon, children }: SidebarLinkProps) => {
   const [location] = useLocation();
-  const { isSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, setSidebarCollapsed } = useSidebar();
   const isActive = location === href;
   
+  const handleClick = () => {
+    // Automatically collapse sidebar when navigation link is clicked
+    setSidebarCollapsed(true);
+  };
+  
   return (
-    <Link href={href}>
+    <Link href={href} onClick={handleClick}>
       <div className={cn(
         "flex items-center px-3 py-2.5 text-sm font-medium rounded-lg cursor-pointer transition-all duration-200 group",
         isActive 
