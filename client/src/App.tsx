@@ -41,13 +41,16 @@ import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
 import { ThemeProvider } from "@/contexts/theme-context";
+import { SidebarProvider } from "@/contexts/sidebar-context";
 import { NotificationsProvider } from "@/components/notifications";
 import { ProtectedRoute } from "./lib/protected-route";
 import Header from "./components/layout/header";
 import Sidebar from "./components/layout/sidebar";
+import { useSidebar } from "@/contexts/sidebar-context";
 
 function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
+  const { isSidebarCollapsed } = useSidebar();
   
   // Don't show layout for auth, reset password, and accept invitation pages
   if (location === '/auth' || location.startsWith('/reset-password') || location === '/accept-invitation') {
@@ -59,7 +62,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <Header />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar />
-        <main className="flex-1 overflow-y-auto bg-gray-50 p-4">
+        <main 
+          className={`flex-1 overflow-y-auto bg-gray-50 p-4 transition-all duration-300 ease-in-out ${
+            isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
+          }`}
+        >
           {children}
         </main>
       </div>
@@ -138,12 +145,14 @@ function App() {
         <TenantProvider>
           <SettingsProvider>
             <ThemeProvider>
-              <NotificationsProvider>
-                <AppLayout>
-                  <Router />
-                </AppLayout>
-                <Toaster />
-              </NotificationsProvider>
+              <SidebarProvider>
+                <NotificationsProvider>
+                  <AppLayout>
+                    <Router />
+                  </AppLayout>
+                  <Toaster />
+                </NotificationsProvider>
+              </SidebarProvider>
             </ThemeProvider>
           </SettingsProvider>
         </TenantProvider>

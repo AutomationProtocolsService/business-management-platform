@@ -24,6 +24,7 @@ import {
   Shield
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
+import { useSidebar } from "@/contexts/sidebar-context";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { useState } from "react";
