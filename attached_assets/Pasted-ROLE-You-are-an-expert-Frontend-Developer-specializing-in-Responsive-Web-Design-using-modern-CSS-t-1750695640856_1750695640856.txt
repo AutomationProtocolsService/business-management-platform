@@ -1,0 +1,29 @@
+ROLE: You are an expert Frontend Developer specializing in Responsive Web Design, using modern CSS techniques like Flexbox, CSS Grid, and Media Queries.
+
+CONTEXT: Our SaaS application currently has a layout designed for desktop screens, featuring a fixed-width sidebar on the left and a main content area on the right. We need to make this core layout responsive so it provides an excellent, intuitive user experience on mobile phones.
+
+TASK: Your task is to implement responsive behavior for the main application shell, specifically the sidebar navigation and the header. You will use CSS media queries to apply different styles for mobile screen sizes.
+
+DETAILED REQUIREMENTS:
+
+1. Use a Mobile Breakpoint:
+
+All new responsive styles should be implemented within a CSS media query that targets a typical mobile breakpoint. For example:
+CSS
+
+@media (max-width: 768px) {
+  /* All mobile-specific styles will go here */
+}
+2. Sidebar Behavior on Mobile (Screens ≤ 768px):
+
+Hidden by Default: The main sidebar on the left must be completely hidden from view by default. A common technique is to use transform: translateX(-100%);.
+Hamburger Menu Toggle: The primary way to open the navigation on mobile should be a "hamburger" menu icon (☰). This icon should be clearly visible in the application header on the left.
+Slide-In Drawer: When the user taps the hamburger icon, the sidebar should slide in smoothly from the left as an overlay or drawer. It should appear on top of the main content, not push it to the side.
+Backdrop/Overlay: When the sidebar is open, a semi-transparent dark backdrop should appear over the main content area. Tapping this backdrop must close the sidebar.
+Auto-Close on Navigation: When a user taps a link within the open sidebar (e.g., "Customers"), the sidebar should automatically close as it navigates to the new page.
+3. Main Content Area on Mobile:
+
+Since the sidebar will be hidden by default, the main content area should expand to take up 100% of the screen width.
+4. Header Behavior on Mobile:
+
+Ensure the elements in the header (e.g., notification bell, user profile dropdown) remain accessible and are not squished. The application title or logo might need to be adjusted.

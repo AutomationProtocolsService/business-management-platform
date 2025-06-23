@@ -37,12 +37,14 @@ interface SidebarLinkProps {
 
 const SidebarLink = ({ href, icon, children }: SidebarLinkProps) => {
   const [location] = useLocation();
-  const { isSidebarCollapsed, setSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, setSidebarCollapsed, setMobileMenuOpen } = useSidebar();
   const isActive = location === href;
   
   const handleClick = () => {
     // Automatically collapse sidebar when navigation link is clicked
     setSidebarCollapsed(true);
+    // Close mobile menu on navigation
+    setMobileMenuOpen(false);
   };
   
   return (
@@ -75,16 +77,32 @@ export default function Sidebar() {
   const [inventoryOpen, setInventoryOpen] = useState(false);
   const [reportsOpen, setReportsOpen] = useState(false);
   const { user } = useAuth();
-  const { isSidebarCollapsed } = useSidebar();
+  const { isSidebarCollapsed, isMobileMenuOpen, setMobileMenuOpen } = useSidebar();
 
   return (
-    <aside className={cn(
-      "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-sm h-full overflow-y-auto hidden lg:block transition-all duration-300 ease-in-out",
-      isSidebarCollapsed ? "w-20" : "w-64"
-    )}>
-      <ScrollArea className="h-full">
-        <nav className="px-3 py-6">
-          <div className="space-y-6">
+    <>
+      {/* Mobile backdrop overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setMobileMenuOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <aside className={cn(
+        "bg-white dark:bg-gray-900 border-r border-gray-200 dark:border-gray-800 shadow-sm h-full overflow-y-auto transition-all duration-300 ease-in-out",
+        // Desktop styles
+        "hidden lg:block",
+        isSidebarCollapsed ? "w-20" : "w-64",
+        // Mobile styles - slide-in drawer
+        "lg:relative lg:transform-none",
+        "fixed top-0 left-0 z-50 w-64",
+        isMobileMenuOpen ? "transform translate-x-0" : "transform -translate-x-full lg:translate-x-0"
+      )}>
+        <ScrollArea className="h-full">
+          <nav className="px-3 py-6">
+            <div className="space-y-6">
             {/* Dashboard - Top Level */}
             <div>
               <SidebarLink href="/" icon={<LayoutDashboard className="h-5 w-5" />}>Dashboard</SidebarLink>
@@ -213,5 +231,6 @@ export default function Sidebar() {
         </nav>
       </ScrollArea>
     </aside>
+    </>
   );
 }
