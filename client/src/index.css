@@ -29,3 +29,55 @@
     @apply font-sans antialiased bg-background text-foreground;
   }
 }
+
+/* Mobile-first responsive design utilities */
+@layer utilities {
+  /* Responsive text sizing */
+  .text-responsive-sm {
+    @apply text-sm sm:text-base;
+  }
+  
+  .text-responsive-base {
+    @apply text-base sm:text-lg;
+  }
+  
+  .text-responsive-lg {
+    @apply text-lg sm:text-xl;
+  }
+  
+  .text-responsive-xl {
+    @apply text-xl sm:text-2xl;
+  }
+  
+  /* Mobile padding and margins */
+  .p-mobile {
+    @apply p-3 sm:p-4 lg:p-6;
+  }
+  
+  .px-mobile {
+    @apply px-3 sm:px-4 lg:px-6;
+  }
+  
+  .py-mobile {
+    @apply py-3 sm:py-4 lg:py-6;
+  }
+  
+  /* Mobile grid layouts */
+  .grid-mobile-responsive {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4;
+  }
+  
+  .grid-mobile-cards {
+    @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4;
+  }
+  
+  /* Mobile table responsiveness */
+  .table-mobile-scroll {
+    @apply w-full overflow-x-auto;
+  }
+  
+  /* Mobile-friendly button sizing */
+  .btn-mobile {
+    @apply min-h-[44px] px-4 py-2 text-sm sm:text-base;
+  }
+}
