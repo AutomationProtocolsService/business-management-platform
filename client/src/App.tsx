@@ -63,7 +63,7 @@ function AppLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-1 overflow-hidden relative">
         <Sidebar />
         <main 
-          className={`flex-1 overflow-y-auto bg-gray-50 p-4 transition-all duration-300 ease-in-out ${
+          className={`flex-1 overflow-y-auto bg-gray-50 transition-all duration-300 ease-in-out w-full p-4 ${
             isSidebarCollapsed ? 'lg:ml-20' : 'lg:ml-64'
           }`}
         >

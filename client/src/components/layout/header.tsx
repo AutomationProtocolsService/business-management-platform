@@ -43,17 +43,30 @@ export default function Header() {
     <header className="bg-white border-b border-gray-200 shadow-sm">
       <div className="flex justify-between items-center px-4 py-2">
         <div className="flex items-center">
+          {/* Desktop sidebar toggle */}
           <Button
             id="sidebar-toggle"
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            className="mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 hidden lg:flex"
             title="Toggle Sidebar"
           >
             <Menu />
           </Button>
-          <h1 className="text-xl font-semibold text-gray-800">Business Management System</h1>
+          
+          {/* Mobile hamburger menu */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleMobileMenu}
+            className="mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 lg:hidden"
+            title="Open Menu"
+          >
+            <MenuIcon />
+          </Button>
+          
+          <h1 className="text-lg lg:text-xl font-semibold text-gray-800 truncate">Business Management System</h1>
         </div>
         <div className="flex items-center space-x-4">
           <NotificationBell />
