@@ -1,0 +1,38 @@
+ROLE: You are an expert Frontend Developer specializing in creating modern, responsive user interfaces with React, TypeScript, and CSS.
+
+CONTEXT: Our application currently has a fixed-width sidebar navigation menu that is always visible. We need to enhance the user experience by making this sidebar collapsible. This will allow the main content area to expand, giving users more space to focus on their work.
+
+TASK: Implement a collapsible sidebar feature with smooth animations.
+
+DETAILED REQUIREMENTS:
+
+1. State Management:
+
+In the primary layout component that contains both the sidebar and the main content (e.g., AppLayout.tsx or MainLayout.tsx), introduce a new state variable to manage the sidebar's visibility. For example:
+TypeScript
+
+const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+2. Toggle Button:
+
+Add a new icon button to the UI that will serve as the toggle control. A good location would be in the application header or at the top of the sidebar itself.
+Use a suitable icon, such as a "hamburger" menu icon (☰) or a chevron icon (<).
+When this button is clicked, it should call setIsSidebarCollapsed to flip the state between true and false.
+3. Conditional CSS Styling:
+
+Apply a conditional CSS class to the main layout container or the sidebar and content elements based on the isSidebarCollapsed state.
+Example: <div className={isSidebarCollapsed ? 'sidebar-collapsed' : ''}>...</div>
+In your CSS file, define the styles for this new class:
+Sidebar Styling:
+When collapsed (.sidebar-collapsed), the sidebar's width should be reduced significantly (e.g., from 250px to 80px to only show icons) or set its margin-left to a negative value to hide it off-screen.
+The text labels for the navigation links inside the sidebar should be hidden when it's collapsed.
+Main Content Styling:
+The margin-left of the main content area must be adjusted based on the sidebar's width. When the sidebar is collapsed, the margin-left of the content should be reduced accordingly so it expands to fill the space.
+4. Smooth Animation:
+
+In your CSS, add a transition property to the width and margin-left attributes of the relevant components. This will make the collapsing and expanding action a smooth slide instead of an instant snap.
+Example: transition: width 0.3s ease, margin-left 0.3s ease;
+5. (Optional but Recommended) Persist State:
+
+Use the browser's localStorage to save the user's preference.
+When the toggle button is clicked, save the new state (true or false) to localStorage.
+When the application loads, initialize the isSidebarCollapsed state from the value stored in localStorage, so the user's choice is remembered between sessions.
