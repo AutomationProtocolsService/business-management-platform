@@ -18,7 +18,7 @@ import { NotificationBell } from "@/components/notifications";
 
 export default function Header() {
   const { user, logoutMutation } = useAuth();
-  const { toggleSidebar } = useSidebar();
+  const { toggleSidebar, toggleMobileMenu } = useSidebar();
   const { toast } = useToast();
   const [_, navigate] = useLocation();
 
