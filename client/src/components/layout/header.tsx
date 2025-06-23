@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Menu, ChevronDown } from "lucide-react";
+import { Menu, ChevronDown, MenuIcon } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
+import { useSidebar } from "@/contexts/sidebar-context";
 import { useToast } from "@/hooks/use-toast";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -16,8 +17,8 @@ import { useLocation } from "wouter";
 import { NotificationBell } from "@/components/notifications";
 
 export default function Header() {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
   const { user, logoutMutation } = useAuth();
+  const { toggleSidebar } = useSidebar();
   const { toast } = useToast();
   const [_, navigate] = useLocation();
 
@@ -27,14 +28,6 @@ export default function Header() {
         navigate("/auth");
       }
     });
-  };
-
-  const toggleSidebar = () => {
-    const sidebar = document.querySelector("aside");
-    if (sidebar) {
-      sidebar.classList.toggle("hidden");
-    }
-    setSidebarOpen(!sidebarOpen);
   };
 
   const getInitials = (name: string) => {
@@ -55,7 +48,8 @@ export default function Header() {
             variant="ghost"
             size="icon"
             onClick={toggleSidebar}
-            className="mr-2 text-gray-600 lg:hidden"
+            className="mr-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+            title="Toggle Sidebar"
           >
             <Menu />
           </Button>
