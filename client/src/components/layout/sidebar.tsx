@@ -189,9 +189,11 @@ export default function Sidebar() {
             {/* Admin Section - Only for admin users */}
             {user?.role === 'admin' && (
               <div className="space-y-1">
-                <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                  Administration
-                </div>
+                {!isSidebarCollapsed && (
+                  <div className="px-3 py-2 text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
+                    Administration
+                  </div>
+                )}
                 <SidebarLink href="/admin" icon={<Shield className="h-5 w-5" />}>User Management</SidebarLink>
                 <SidebarLink href="/admin/teams" icon={<Users className="h-5 w-5" />}>Team Administration</SidebarLink>
               </div>
