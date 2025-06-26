@@ -1,0 +1,46 @@
+ROLE: You are an expert UI/UX Designer and Frontend Developer, specializing in creating engaging and user-friendly interfaces for SaaS applications.
+
+CONTEXT: Our application's main dashboard currently has large empty areas when there is no data to display (e.g., for a brand new user account). This provides a poor first-time user experience. The screenshot shows this empty space below the main stat cards.
+
+TASK: Your task is to design and implement a visually appealing "empty state" or "welcome" component for the dashboard. This component should only be displayed when there are no projects, quotes, or other activities to show.
+
+DETAILED REQUIREMENTS:
+
+1. Conditional Rendering:
+
+In the Dashboard.tsx component file, you must add logic to detect if there is data to display.
+
+You will likely need to check the length of the arrays that hold the data for "Recent Projects", "Financial Summary", etc.
+
+If there is data, the existing components should be rendered as they are now.
+
+If there is no data, the empty space must be replaced with a new "Welcome" component.
+
+2. Design the "Empty State" Component:
+
+This new component should be centered in the empty area and contain the following elements:
+
+A Large, Friendly Heading: For example, "Welcome to Your Business Management System!"
+
+An Engaging Subtitle: For example, "You're all set up. Let's get your business running."
+
+A "Call to Action" Button: This is the most important part. Add a large, primary button with the text "+ Create Your First Project". This button should link directly to the "New Project" page or open the "New Project" modal.
+
+(Optional) An Illustration or Icon: Include a relevant and friendly SVG illustration or a large icon to make the page more visually engaging.
+
+3. Implementation Logic:
+
+The final rendering logic in the Dashboard.tsx component might look something like this:
+
+TypeScript
+
+{
+  (projects.length === 0 && invoices.length === 0) 
+    ? <WelcomeEmptyStateComponent /> 
+    : (
+      <>
+        <RecentProjects projects={projects} />
+        <FinancialSummary invoices={invoices} />
+      </>
+    )
+}
