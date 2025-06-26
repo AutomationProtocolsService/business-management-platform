@@ -15,6 +15,7 @@ import {
 import { MetricCard } from "@/components/dashboard/metric-card";
 import { useTerminology, getPlural } from "@/hooks/use-terminology";
 import BusinessWorkflow from "@/components/dashboard/business-workflow";
+import { WelcomeEmptyState } from "@/components/dashboard/welcome-empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -608,9 +609,18 @@ export default function DashboardPage() {
     </>
   );
 
+  // Check if we have any data to display
+  const hasData = projects.length > 0 || invoices.length > 0 || quotes.length > 0 || customers.length > 0;
+
   return (
     <div className="h-full px-1">
-      {isLoading ? <LoadingState /> : <DashboardContent />}
+      {isLoading ? (
+        <LoadingState />
+      ) : hasData ? (
+        <DashboardContent />
+      ) : (
+        <WelcomeEmptyState />
+      )}
     </div>
   );
 }
