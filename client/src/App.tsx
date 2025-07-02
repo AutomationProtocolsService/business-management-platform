@@ -6,7 +6,7 @@ import NotFound from "@/pages/not-found";
 import AuthPage from "@/pages/auth-page";
 import ResetPasswordPage from "@/pages/reset-password-page";
 import AcceptInvitationPage from "@/pages/accept-invitation-page";
-import DashboardPage from "@/pages/dashboard-page";
+import SimpleDashboard from "@/pages/simple-dashboard";
 import ProjectsPage from "@/pages/projects-page";
 import ProjectNewPage from "@/pages/project-new-page";
 import QuotesPage from "@/pages/quotes-page";
@@ -82,7 +82,7 @@ function Router() {
       <Route path="/accept-invitation" component={AcceptInvitationPage} />
       <Route path="/login-test" component={LoginTest} />
       <ProtectedRoute path="/email-test" component={EmailTestPage} />
-      <ProtectedRoute path="/" component={DashboardPage} />
+      <ProtectedRoute path="/" component={SimpleDashboard} />
       <ProtectedRoute path="/projects" component={ProjectsPage} />
       <ProtectedRoute path="/projects/new" component={ProjectNewPage} />
       <ProtectedRoute path="/projects/:id" component={ProjectsPage} />
