@@ -1,140 +1,108 @@
 import { Link } from "wouter";
+import { Rocket, FolderClosed, Users, FileText } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { 
-  Plus, 
-  Rocket, 
-  FileText, 
-  Users, 
-  TrendingUp,
-  CheckCircle,
-  ArrowRight
-} from "lucide-react";
 
 export function WelcomeEmptyState() {
   return (
-    <div className="flex flex-col items-center justify-center min-h-[400px] p-8">
-      <div className="text-center space-y-6 max-w-2xl">
-        {/* Welcome Icon */}
-        <div className="mx-auto w-24 h-24 bg-gradient-to-br from-blue-500 to-purple-600 rounded-full flex items-center justify-center mb-6">
-          <Rocket className="w-12 h-12 text-white" />
-        </div>
-
-        {/* Welcome Message */}
-        <div className="space-y-2">
-          <h1 className="text-3xl font-bold text-gray-900">
-            Welcome to Your Business Management System!
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 p-6">
+      <div className="max-w-2xl mx-auto text-center">
+        {/* Welcome Hero Section */}
+        <div className="mb-8">
+          <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-r from-blue-500 to-purple-600 rounded-full mb-6">
+            <Rocket className="h-10 w-10 text-white" />
+          </div>
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
+            Welcome to Your Business Hub
           </h1>
-          <p className="text-lg text-gray-600">
-            You're all set up. Let's get your business running.
+          <p className="text-lg text-gray-600 mb-8">
+            Get started by creating your first project, adding customers, or generating quotes. 
+            Everything you need to manage your business efficiently.
           </p>
         </div>
 
         {/* Quick Start Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8">
-          <Card className="border-2 border-dashed border-gray-200 hover:border-blue-300 transition-colors">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Plus className="w-6 h-6 text-blue-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Create Your First Project</h3>
-              <p className="text-sm text-gray-600 mb-4">Start by creating a project to organize your work</p>
-              <Link to="/projects/new">
-                <Button className="w-full">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Project
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+          <Link to="/projects/new">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 border-2 hover:border-blue-200">
+              <CardHeader className="text-center">
+                <FolderClosed className="h-12 w-12 text-blue-500 mx-auto mb-3" />
+                <CardTitle className="text-lg">Create Project</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">Start your first business project</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="border-2 border-dashed border-gray-200 hover:border-green-300 transition-colors">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-green-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <Users className="w-6 h-6 text-green-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Add Your First Customer</h3>
-              <p className="text-sm text-gray-600 mb-4">Add customers to start building relationships</p>
-              <Link to="/customers/new">
-                <Button variant="outline" className="w-full">
-                  <Users className="w-4 h-4 mr-2" />
-                  Add Customer
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <Link to="/customers">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 border-2 hover:border-green-200">
+              <CardHeader className="text-center">
+                <Users className="h-12 w-12 text-green-500 mx-auto mb-3" />
+                <CardTitle className="text-lg">Add Customers</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">Build your customer database</p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="border-2 border-dashed border-gray-200 hover:border-purple-300 transition-colors">
-            <CardContent className="p-6 text-center">
-              <div className="w-12 h-12 bg-purple-100 rounded-lg flex items-center justify-center mx-auto mb-3">
-                <FileText className="w-6 h-6 text-purple-600" />
-              </div>
-              <h3 className="font-semibold text-gray-900 mb-2">Create a Quote</h3>
-              <p className="text-sm text-gray-600 mb-4">Generate professional quotes for your clients</p>
-              <Link to="/quotes/new">
-                <Button variant="outline" className="w-full">
-                  <FileText className="w-4 h-4 mr-2" />
-                  New Quote
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
+          <Link to="/quotes">
+            <Card className="cursor-pointer hover:shadow-lg transition-shadow duration-200 border-2 hover:border-purple-200">
+              <CardHeader className="text-center">
+                <FileText className="h-12 w-12 text-purple-500 mx-auto mb-3" />
+                <CardTitle className="text-lg">Generate Quote</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-600">Create your first business quote</p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
-        {/* Getting Started Steps */}
-        <div className="mt-12 p-6 bg-gray-50 rounded-lg">
-          <h2 className="text-xl font-semibold text-gray-900 mb-4 flex items-center">
-            <CheckCircle className="w-5 h-5 mr-2 text-green-600" />
-            Getting Started Checklist
-          </h2>
-          <div className="space-y-3 text-left">
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full mt-2 flex-shrink-0"></div>
-              <div>
-                <p className="font-medium text-gray-900">Set up your first project</p>
-                <p className="text-sm text-gray-600">Create a project to organize your work and track progress</p>
+        {/* Getting Started Checklist */}
+        <Card className="text-left">
+          <CardHeader>
+            <CardTitle className="text-center">Getting Started Checklist</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-gray-300 rounded mr-3"></div>
+                <span className="text-gray-700">Set up your company profile and settings</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-gray-300 rounded mr-3"></div>
+                <span className="text-gray-700">Add your first customer</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-gray-300 rounded mr-3"></div>
+                <span className="text-gray-700">Create your first project</span>
+              </div>
+              <div className="flex items-center">
+                <div className="w-4 h-4 border-2 border-gray-300 rounded mr-3"></div>
+                <span className="text-gray-700">Generate and send your first quote</span>
               </div>
             </div>
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-              <div>
-                <p className="font-medium text-gray-900">Add your customers</p>
-                <p className="text-sm text-gray-600">Build your customer database for better relationship management</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-purple-500 rounded-full mt-2 flex-shrink-0"></div>
-              <div>
-                <p className="font-medium text-gray-900">Create quotes and invoices</p>
-                <p className="text-sm text-gray-600">Generate professional documents to grow your business</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3">
-              <div className="w-2 h-2 bg-orange-500 rounded-full mt-2 flex-shrink-0"></div>
-              <div>
-                <p className="font-medium text-gray-900">Track your business metrics</p>
-                <p className="text-sm text-gray-600">Monitor performance and make data-driven decisions</p>
-              </div>
-            </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Help Section */}
-        <div className="mt-8 p-4 bg-blue-50 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <TrendingUp className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <h3 className="font-medium text-gray-900">Need help getting started?</h3>
-                <p className="text-sm text-gray-600">Check out our guides and documentation</p>
-              </div>
-            </div>
-            <Button variant="outline" size="sm" className="flex items-center">
-              Learn More
-              <ArrowRight className="w-4 h-4 ml-1" />
-            </Button>
+        {/* Support Links */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-gray-500 mb-4">
+            Need help getting started?
+          </p>
+          <div className="space-x-4">
+            <Link to="/help">
+              <Button variant="outline" size="sm">
+                View Help Guide
+              </Button>
+            </Link>
+            <Link to="/settings">
+              <Button variant="outline" size="sm">
+                Company Settings
+              </Button>
+            </Link>
           </div>
         </div>
       </div>

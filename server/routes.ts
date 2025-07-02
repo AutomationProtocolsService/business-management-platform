@@ -39,7 +39,7 @@ import {
 import { registerQuoteRoutes } from "./routes/quotes";
 import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
 import { registerInvitationRoutes } from "./routes/invitation-routes";
-import dashboardService from "./services/dashboard-service";
+import simpleDashboardService from "./services/simple-dashboard-service";
 
 /**
  * Helper to get a tenant filter object from a request
@@ -3276,7 +3276,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log('>>> Fetching dashboard data for tenant:', tenantFilter?.tenantId);
       const startTime = Date.now();
       
-      const dashboardData = await dashboardService.getDashboardData(tenantFilter);
+      const dashboardData = await simpleDashboardService.getSimpleDashboardData(tenantFilter);
       
       const endTime = Date.now();
       console.log(`>>> Dashboard data fetched in ${endTime - startTime}ms`);
