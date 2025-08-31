@@ -106,6 +106,12 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
+### August 31, 2025 - Health Endpoints & Simple Dashboard 
+- **Added Health Check Endpoints**: Implemented `/api/health` and `/api/__about` endpoints similar to FastAPI pattern
+- **Simplified Dashboard Implementation**: Replaced complex dashboard with user-friendly simple version per user request
+- **Fixed Database Issues**: Resolved TypeScript compilation errors and database query problems
+- **Stabilized Application**: Eliminated server restart loops and improved application reliability
+
 ### June 26, 2025 - Empty State Implementation & Database Fixes
 - **Fixed Database Schema**: Added missing `deposit_invoice_id` and `final_invoice_id` columns to projects table
 - **Implemented Empty State Design**: Created professional welcome screen for dashboard when no data exists
@@ -114,6 +120,8 @@ Preferred communication style: Simple, everyday language.
 - **Mobile-First Responsive Design**: Completed responsive layout with hamburger menu and collapsible sidebar
 
 ### Key Features Added
+- **Health Check Endpoints**: `/api/health` returns status, `/api/__about` provides app info and route listing
+- **Simple Dashboard Service**: Basic data retrieval without complex aggregations
 - **WelcomeEmptyState Component**: Engaging welcome screen with rocket icon and call-to-action buttons
 - **Conditional Dashboard Rendering**: Smart detection of data availability to show appropriate interface
 - **Getting Started Checklist**: Clear onboarding guidance for new users
