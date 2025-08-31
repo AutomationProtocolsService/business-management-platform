@@ -148,7 +148,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       issueDate: getInputDateString(new Date()),
       status: "draft",
       subtotal: 0,
-      tax: 0,
+      tax: 20, // Default 20% VAT for UK
       discount: 0,
       total: 0,
       terms: settings?.defaultQuoteTerms || "",

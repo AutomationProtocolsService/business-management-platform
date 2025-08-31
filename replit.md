@@ -106,7 +106,11 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### August 31, 2025 - Health Endpoints & Simple Dashboard 
+### August 31, 2025 - UK Localization & Health Endpoints
+- **UK Currency Localization**: Updated all financial forms to use GBP (£) as default currency with UK formatting (en-GB locale)
+- **20% VAT Default**: Set VAT/tax rate to 20% default across quotes, invoices, and purchase orders
+- **GBP Price Calculations**: Updated price API endpoint to calculate in GBP currency
+- **UK Number Formatting**: Implemented proper thousands/decimal separators for UK locale
 - **Added Health Check Endpoints**: Implemented `/api/health` and `/api/__about` endpoints similar to FastAPI pattern
 - **Simplified Dashboard Implementation**: Replaced complex dashboard with user-friendly simple version per user request
 - **Fixed Database Issues**: Resolved TypeScript compilation errors and database query problems

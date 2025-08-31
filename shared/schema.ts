@@ -663,7 +663,7 @@ export const insertQuoteSchema = createInsertSchema(quotes, {
   clientAcceptedAt: z.string().nullable().optional(),
   clientRejectedAt: z.string().nullable().optional(),
   surveyId: z.number().nullable().optional(),
-  tax: z.number().optional().default(0), // Default to 0
+  tax: z.number().optional().default(0.20), // Default to 20% VAT
   discount: z.number().optional().default(0), // Default to 0
   notes: z.string().nullable().optional(),
   terms: z.string().nullable().optional(),
@@ -702,7 +702,7 @@ export const insertInvoiceSchema = createInsertSchema(invoices, {
   issueDate: z.string(), // Allow string date format
   dueDate: z.string().nullable().optional(), // Make optional and nullable
   paidAt: z.string().nullable().optional(),
-  tax: z.number().optional().default(0), // Default to 0
+  tax: z.number().optional().default(0.20), // Default to 20% VAT
   discount: z.number().optional().default(0), // Default to 0
   notes: z.string().nullable().optional(),
   terms: z.string().nullable().optional(),

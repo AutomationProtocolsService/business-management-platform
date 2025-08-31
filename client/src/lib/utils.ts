@@ -12,9 +12,9 @@ export type CurrencyOption = {
 }
 
 export const CURRENCY_OPTIONS: CurrencyOption[] = [
+  { label: "GBP (£)", value: "GBP", symbol: "£" },
   { label: "USD ($)", value: "USD", symbol: "$" },
   { label: "EUR (€)", value: "EUR", symbol: "€" },
-  { label: "GBP (£)", value: "GBP", symbol: "£" },
   { label: "JPY (¥)", value: "JPY", symbol: "¥" },
   { label: "CAD ($)", value: "CAD", symbol: "$" },
   { label: "AUD ($)", value: "AUD", symbol: "$" },
@@ -36,8 +36,8 @@ export const CURRENCY_OPTIONS: CurrencyOption[] = [
 
 export const formatCurrency = (
   amount: number | string, 
-  currency: string = 'USD', 
-  localeCode: string = 'en-US'
+  currency: string = 'GBP', 
+  localeCode: string = 'en-GB'
 ): string => {
   // Convert amount to number if it's a string
   const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;

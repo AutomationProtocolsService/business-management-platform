@@ -3351,12 +3351,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const overheadPct = parseFloat(overhead_pct as string);
     const marginPct = parseFloat(margin_pct as string);
 
-    // Basic pricing calculations
+    // Basic pricing calculations (in GBP)
     const area = widthM * heightM;
-    const glassPrice = glass === '10T' ? 85 : glass === '12T' ? 95 : 75; // per sqm
+    const glassPrice = glass === '10T' ? 85 : glass === '12T' ? 95 : 75; // per sqm in GBP
     const materialCost = area * glassPrice;
-    const laborCost = numBays * 150; // per bay
-    const travelCost = distanceKm * 2.5; // per km
+    const laborCost = numBays * 150; // per bay in GBP
+    const travelCost = distanceKm * 2.5; // per km in GBP
     
     const subtotal = materialCost + laborCost + travelCost;
     const overheadAmount = subtotal * overheadPct;
