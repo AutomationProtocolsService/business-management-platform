@@ -68,6 +68,11 @@ function AppLayout({ children }: { children: React.ReactNode }) {
           }`}
         >
           {children}
+          <div className="mt-8 pt-4 border-t border-gray-200 text-center text-sm text-gray-500">
+            <p>
+              <a href="/api/health" className="text-blue-600 hover:text-blue-800">/health</a> · <a href="/api/__about" className="text-blue-600 hover:text-blue-800">/__about</a>
+            </p>
+          </div>
         </main>
       </div>
     </div>

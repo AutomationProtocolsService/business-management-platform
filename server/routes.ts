@@ -3301,6 +3301,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const apiRoutes = [
       { path: '/api/health', name: 'health', methods: ['get'] },
       { path: '/api/__about', name: 'about', methods: ['get'] },
+      { path: '/api/price', name: 'price-quote', methods: ['get'] },
       { path: '/api/auth/me', name: 'auth-me', methods: ['get'] },
       { path: '/api/login', name: 'login', methods: ['post'] },
       { path: '/api/logout', name: 'logout', methods: ['post'] },
@@ -3320,6 +3321,85 @@ export async function registerRoutes(app: Express): Promise<Server> {
       version: 'v1',
       technology: 'Node.js/Express + React',
       routes: apiRoutes.sort((a, b) => a.path.localeCompare(b.path))
+    });
+  });
+
+  // Price calculation endpoint
+  app.get('/api/price', (req, res) => {
+    const {
+      width_m,
+      height_m,
+      bays,
+      glass = '10T',
+      distance_km = 0,
+      overhead_pct = 0.10,
+      margin_pct = 0.25
+    } = req.query;
+
+    // Validate required parameters
+    if (!width_m || !height_m || !bays) {
+      return res.status(400).json({
+        error: 'Missing required parameters: width_m, height_m, bays'
+      });
+    }
+
+    // Convert string parameters to numbers
+    const widthM = parseFloat(width_m as string);
+    const heightM = parseFloat(height_m as string);
+    const numBays = parseInt(bays as string);
+    const distanceKm = parseFloat(distance_km as string);
+    const overheadPct = parseFloat(overhead_pct as string);
+    const marginPct = parseFloat(margin_pct as string);
+
+    // Basic pricing calculations
+    const area = widthM * heightM;
+    const glassPrice = glass === '10T' ? 85 : glass === '12T' ? 95 : 75; // per sqm
+    const materialCost = area * glassPrice;
+    const laborCost = numBays * 150; // per bay
+    const travelCost = distanceKm * 2.5; // per km
+    
+    const subtotal = materialCost + laborCost + travelCost;
+    const overheadAmount = subtotal * overheadPct;
+    const marginAmount = (subtotal + overheadAmount) * marginPct;
+    const netAmount = subtotal + overheadAmount + marginAmount;
+    const vatAmount = netAmount * 0.20; // 20% VAT
+    const total = netAmount + vatAmount;
+
+    const breakdown = {
+      materials: materialCost,
+      labor: laborCost,
+      travel: travelCost,
+      subtotal: subtotal,
+      overhead: overheadAmount,
+      margin: marginAmount,
+      net: netAmount,
+      vat: vatAmount,
+      total: total
+    };
+
+    const inputs = {
+      width_m: widthM,
+      height_m: heightM,
+      area_sqm: area,
+      bays: numBays,
+      glass: glass,
+      distance_km: distanceKm,
+      overhead_pct: overheadPct,
+      margin_pct: marginPct
+    };
+
+    const checks = {
+      subtotal: subtotal > 0,
+      overhead: overheadAmount >= 0,
+      margin: marginAmount >= 0,
+      vat: vatAmount > 0,
+      total: total > subtotal
+    };
+
+    res.json({
+      inputs,
+      breakdown,
+      checks
     });
   });
 
