@@ -121,6 +121,8 @@ Preferred communication style: Simple, everyday language.
 
 ### Key Features Added
 - **Health Check Endpoints**: `/api/health` returns status, `/api/__about` provides app info and route listing
+- **Price Calculation API**: `/api/price` endpoint for quote calculations with material, labor, travel costs
+- **Footer Health Links**: Added health check links in application footer for easy access
 - **Simple Dashboard Service**: Basic data retrieval without complex aggregations
 - **WelcomeEmptyState Component**: Engaging welcome screen with rocket icon and call-to-action buttons
 - **Conditional Dashboard Rendering**: Smart detection of data availability to show appropriate interface
