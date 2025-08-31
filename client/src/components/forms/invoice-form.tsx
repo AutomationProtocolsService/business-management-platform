@@ -57,7 +57,7 @@ const invoiceItemSchema = insertInvoiceItemSchema.extend({
 });
 
 // Extend the insert schema with client-side validation and calculations
-const invoiceFormSchema = insertInvoiceSchema.extend({
+const invoiceFormSchema = z.object({
   issueDate: z.string(),
   dueDate: z.string(),
   reference: z.string().optional(),
