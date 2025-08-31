@@ -3288,6 +3288,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Health check endpoint
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok' });
+  });
+
+  // About endpoint with route information  
+  app.get('/api/__about', (req, res) => {
+    const routes: Array<{path: string; name: string; methods: string[]}> = [];
+    
+    // Extract basic API routes information
+    const apiRoutes = [
+      { path: '/api/health', name: 'health', methods: ['get'] },
+      { path: '/api/__about', name: 'about', methods: ['get'] },
+      { path: '/api/auth/me', name: 'auth-me', methods: ['get'] },
+      { path: '/api/login', name: 'login', methods: ['post'] },
+      { path: '/api/logout', name: 'logout', methods: ['post'] },
+      { path: '/api/register', name: 'register', methods: ['post'] },
+      { path: '/api/dashboard', name: 'dashboard', methods: ['get'] },
+      { path: '/api/projects', name: 'projects', methods: ['get', 'post'] },
+      { path: '/api/quotes', name: 'quotes', methods: ['get', 'post'] },
+      { path: '/api/invoices', name: 'invoices', methods: ['get', 'post'] },
+      { path: '/api/customers', name: 'customers', methods: ['get', 'post'] },
+      { path: '/api/employees', name: 'employees', methods: ['get', 'post'] },
+      { path: '/api/settings/system', name: 'system-settings', methods: ['get', 'put'] },
+      { path: '/api/settings/company', name: 'company-settings', methods: ['get', 'put'] }
+    ];
+
+    res.json({
+      app: 'Shopfront/BMS',
+      version: 'v1',
+      technology: 'Node.js/Express + React',
+      routes: apiRoutes.sort((a, b) => a.path.localeCompare(b.path))
+    });
+  });
+
   registerQuoteRoutes(app);
   registerDelegatedAdminRoutes(app);
   registerInvitationRoutes(app);
