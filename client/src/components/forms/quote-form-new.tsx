@@ -64,7 +64,7 @@ const quoteItemSchema = insertQuoteItemSchema.extend({
 });
 
 // Extend the insert schema with client-side validation and calculations
-const quoteFormSchema = insertQuoteSchema.extend({
+const quoteFormSchema = z.object({
   issueDate: z.string(),
   expiryDate: z.string().optional(),
   reference: z.string().optional(),
@@ -77,6 +77,7 @@ const quoteFormSchema = insertQuoteSchema.extend({
   // Email options
   emailSubject: z.string().optional(),
   emailMessage: z.string().optional(),
+  includePdf: z.boolean().optional(),
 
   total: z.number(),
   notes: z.string().optional(),
@@ -1034,7 +1035,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                                     onChange={(e) => {
                                       field.onChange(parseFloat(e.target.value) || 0);
                                     }}
-                                    value={field.value || ""}
+                                    value={field.value || 20}
                                   />
                                 </FormControl>
                                 <FormMessage />
@@ -1132,8 +1133,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                         
                         {/* VAT Summary by Rate */}
                         {(() => {
-                          const items = form.watch("items") || [];
-                          const vatSummary = items.reduce((acc, item) => {
+                          const items = watchedItems || [];
+                          const vatSummary = items.reduce((acc: Record<number, number>, item: any) => {
                             const vatRate = item.vatRate || 0;
                             const vatAmount = item.vatAmount || 0;
                             if (vatAmount > 0) {
