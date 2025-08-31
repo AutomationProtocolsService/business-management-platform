@@ -82,14 +82,26 @@ export default function QuoteEditPage() {
         total: quote.total,
         notes: quote.notes,
         terms: quote.terms,
-        items: items.map((item: any) => ({
-          id: item.id,
-          description: item.description,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          total: item.total,
-          catalogItemId: item.catalogItemId
-        }))
+        items: items.map((item: any) => {
+          const quantity = item.quantity || 1;
+          const unitPrice = item.unitPrice || 0;
+          const vatRate = typeof item.vatRate === 'number' ? item.vatRate : 20; // Default 20% VAT for UK
+          const netTotal = quantity * unitPrice;
+          const vatAmount = netTotal * (vatRate / 100);
+          const calculatedTotal = netTotal + vatAmount;
+          
+          return {
+            id: item.id,
+            description: item.description || "",
+            quantity: quantity,
+            unitPrice: unitPrice,
+            vatRate: vatRate,
+            netTotal: netTotal,
+            vatAmount: vatAmount,
+            total: calculatedTotal,
+            catalogItemId: item.catalogItemId
+          };
+        })
       });
       setIsLoading(false);
     }
