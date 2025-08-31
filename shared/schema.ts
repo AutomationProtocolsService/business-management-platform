@@ -139,7 +139,10 @@ export const quoteItems = pgTable("quote_items", {
   description: text("description").notNull(),
   quantity: doublePrecision("quantity").notNull(),
   unitPrice: doublePrecision("unit_price").notNull(),
-  total: doublePrecision("total").notNull(),
+  vatRate: doublePrecision("vat_rate").default(20), // VAT rate as percentage (e.g., 20 for 20%)
+  netTotal: doublePrecision("net_total").notNull(), // Subtotal before VAT
+  vatAmount: doublePrecision("vat_amount").notNull(), // VAT amount for this item
+  total: doublePrecision("total").notNull(), // Net total + VAT amount
   catalogItemId: integer("catalog_item_id").references(() => catalogItems.id)
 });
 
@@ -176,14 +179,17 @@ export const invoices = pgTable("invoices", {
   uniqueInvoiceNumber: uniqueIndex("invoice_number_tenant_unique").on(invoices.invoiceNumber, invoices.tenantId),
 }));
 
-// Invoice Items
+// Invoice Items  
 export const invoiceItems = pgTable("invoice_items", {
   id: serial("id").primaryKey(),
   invoiceId: integer("invoice_id").references(() => invoices.id).notNull(),
   description: text("description").notNull(),
   quantity: doublePrecision("quantity").notNull(),
   unitPrice: doublePrecision("unit_price").notNull(),
-  total: doublePrecision("total").notNull(),
+  vatRate: doublePrecision("vat_rate").default(20), // VAT rate as percentage
+  netTotal: doublePrecision("net_total").notNull(), // Subtotal before VAT
+  vatAmount: doublePrecision("vat_amount").notNull(), // VAT amount for this item
+  total: doublePrecision("total").notNull(), // Net total + VAT amount
   catalogItemId: integer("catalog_item_id").references(() => catalogItems.id),
 });
 
@@ -669,13 +675,16 @@ export const insertQuoteSchema = createInsertSchema(quotes, {
   terms: z.string().nullable().optional(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
-  // Support for items array
+  // Support for items array with VAT
   items: z.array(z.object({
     catalogItemId: z.number().nullable().optional(),
     description: z.string(),
     quantity: z.number(),
     unitPrice: z.number(),
-    // total is optional as it will be calculated server-side
+    vatRate: z.number().default(20), // VAT rate percentage (e.g., 20 for 20%)
+    // Calculated values - optional as they will be calculated server-side
+    netTotal: z.number().optional(),
+    vatAmount: z.number().optional(),
     total: z.number().optional(),
   })).optional(),
   
@@ -708,12 +717,15 @@ export const insertInvoiceSchema = createInsertSchema(invoices, {
   terms: z.string().nullable().optional(),
   tenantId: z.number().optional(), // Allow server to set tenantId from authenticated user
   
-  // Items will be handled separately
+  // Items will be handled separately with VAT
   items: z.array(z.object({
     description: z.string(),
     quantity: z.number(),
     unitPrice: z.number(),
-    total: z.number()
+    vatRate: z.number().default(20), // VAT rate percentage
+    netTotal: z.number().optional(),
+    vatAmount: z.number().optional(),
+    total: z.number().optional()
   })).optional(),
 }).omit({
   id: true,

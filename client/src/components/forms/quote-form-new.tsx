@@ -52,11 +52,14 @@ import ProjectForm from "@/components/forms/project-form";
 import { FileUpload } from "@/components/ui/file-upload";
 import { FileList } from "@/components/ui/file-list";
 
-// Create a schema for quote items that allows client-side calculation
+// Create a schema for quote items that allows client-side calculation with VAT
 const quoteItemSchema = insertQuoteItemSchema.extend({
   description: z.string().min(3, "Description must be at least 3 characters."),
   quantity: z.number().min(0.01, "Quantity must be greater than 0."),
   unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0."),
+  vatRate: z.number().min(0).max(100).default(20), // VAT rate as percentage (0-100%)
+  netTotal: z.number().optional(),
+  vatAmount: z.number().optional(),
   catalogItemId: z.number().optional()
 });
 
@@ -148,7 +151,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       issueDate: getInputDateString(new Date()),
       status: "draft",
       subtotal: 0,
-      tax: 20, // Default 20% VAT for UK
+      tax: 0, // VAT will be calculated from individual items
       discount: 0,
       total: 0,
       terms: settings?.defaultQuoteTerms || "",
@@ -161,6 +164,9 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
           description: "",
           quantity: 1,
           unitPrice: 0,
+          vatRate: 20, // Default 20% VAT for UK
+          netTotal: 0,
+          vatAmount: 0,
           total: 0,
           catalogItemId: undefined
         }
@@ -176,7 +182,6 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
 
   // Watch for changes to recalculate totals
   const watchedItems = form.watch("items");
-  const watchedTax = form.watch("tax");
   const watchedDiscount = form.watch("discount");
 
   // Recalculate totals when relevant fields change
@@ -186,31 +191,41 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
     try {
       setRecalculating(true);
       
-      // Calculate item totals
-      const items = watchedItems.map(item => ({
-        ...item,
-        total: (item.quantity || 0) * (item.unitPrice || 0)
-      }));
+      // Calculate per-item VAT and totals
+      const items = watchedItems.map(item => {
+        const netTotal = (item.quantity || 0) * (item.unitPrice || 0);
+        const vatRate = item.vatRate || 0;
+        const vatAmount = netTotal * (vatRate / 100);
+        const total = netTotal + vatAmount;
+        
+        return {
+          ...item,
+          netTotal,
+          vatAmount,
+          total
+        };
+      });
       
-      // Update item totals in form
+      // Update item calculations in form
       items.forEach((item, index) => {
+        form.setValue(`items.${index}.netTotal`, item.netTotal);
+        form.setValue(`items.${index}.vatAmount`, item.vatAmount);
         form.setValue(`items.${index}.total`, item.total);
       });
       
-      // Calculate subtotal
-      const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
-      form.setValue("subtotal", subtotal);
-      
-      // Calculate total with percentage-based tax and discount
-      const taxPercent = watchedTax || 0;
-      const taxAmount = subtotal * (taxPercent / 100);
+      // Calculate overall totals
+      const subtotal = items.reduce((sum, item) => sum + (item.netTotal || 0), 0);
+      const totalVATAmount = items.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
       const discount = watchedDiscount || 0;
-      const total = subtotal + taxAmount - discount;
+      const total = subtotal + totalVATAmount - discount;
+      
+      form.setValue("subtotal", subtotal);
+      form.setValue("tax", totalVATAmount); // Store total VAT amount
       form.setValue("total", total);
     } finally {
       setRecalculating(false);
     }
-  }, [watchedItems, watchedTax, watchedDiscount, form, recalculating]);
+  }, [watchedItems, watchedDiscount, form, recalculating]);
 
   // Create quote mutation
   const createQuote = useMutation({
@@ -883,9 +898,12 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                   <div className="space-y-4">
                     <div className="grid grid-cols-12 gap-2 font-medium text-sm text-gray-500">
                       <div className="col-span-2">Catalog Item</div>
-                      <div className="col-span-3">Description</div>
-                      <div className="col-span-2">Quantity</div>
-                      <div className="col-span-2">Unit Price</div>
+                      <div className="col-span-2">Description</div>
+                      <div className="col-span-1">Qty</div>
+                      <div className="col-span-1">Unit Price</div>
+                      <div className="col-span-1">VAT %</div>
+                      <div className="col-span-1">Net</div>
+                      <div className="col-span-1">VAT</div>
                       <div className="col-span-2">Total</div>
                       <div className="col-span-1"></div>
                     </div>
@@ -937,7 +955,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                           />
                         </div>
                         
-                        <div className="col-span-3">
+                        <div className="col-span-2">
                           <FormField
                             control={form.control}
                             name={`items.${index}.description`}
@@ -951,7 +969,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                             )}
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-1">
                           <FormField
                             control={form.control}
                             name={`items.${index}.quantity`}
@@ -963,6 +981,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                                     step="0.01"
                                     min="0.01"
                                     inputMode="decimal"
+                                    className="text-sm"
                                     onChange={(e) => {
                                       field.onChange(parseFloat(e.target.value) || 0);
                                     }}
@@ -974,7 +993,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                             )}
                           />
                         </div>
-                        <div className="col-span-2">
+                        <div className="col-span-1">
                           <FormField
                             control={form.control}
                             name={`items.${index}.unitPrice`}
@@ -986,6 +1005,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                                     step="0.01"
                                     min="0"
                                     inputMode="decimal"
+                                    className="text-sm"
                                     onChange={(e) => {
                                       field.onChange(parseFloat(e.target.value) || 0);
                                     }}
@@ -997,6 +1017,61 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                             )}
                           />
                         </div>
+                        <div className="col-span-1">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.vatRate`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <Input 
+                                    type="number" 
+                                    step="1"
+                                    min="0"
+                                    max="100"
+                                    className="text-sm"
+                                    placeholder="20"
+                                    onChange={(e) => {
+                                      field.onChange(parseFloat(e.target.value) || 0);
+                                    }}
+                                    value={field.value || ""}
+                                  />
+                                </FormControl>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.netTotal`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <div className="h-10 flex items-center text-xs px-2 rounded-md border border-input bg-muted">
+                                    £{(field.value || 0).toFixed(2)}
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
+                        <div className="col-span-1">
+                          <FormField
+                            control={form.control}
+                            name={`items.${index}.vatAmount`}
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormControl>
+                                  <div className="h-10 flex items-center text-xs px-2 rounded-md border border-input bg-muted">
+                                    £{(field.value || 0).toFixed(2)}
+                                  </div>
+                                </FormControl>
+                              </FormItem>
+                            )}
+                          />
+                        </div>
                         <div className="col-span-2">
                           <FormField
                             control={form.control}
@@ -1004,8 +1079,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                             render={({ field }) => (
                               <FormItem>
                                 <FormControl>
-                                  <div className="h-10 flex items-center text-sm px-3 rounded-md border border-input bg-background">
-                                    {getCurrencySymbol()} {field.value.toFixed(2)}
+                                  <div className="h-10 flex items-center text-sm px-3 rounded-md border border-input bg-background font-semibold">
+                                    £{(field.value || 0).toFixed(2)}
                                   </div>
                                 </FormControl>
                                 <FormMessage />
@@ -1032,7 +1107,16 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                       type="button"
                       variant="outline"
                       className="mt-2"
-                      onClick={() => append({ description: "", quantity: 1, unitPrice: 0, total: 0, catalogItemId: undefined })}
+                      onClick={() => append({ 
+                        description: "", 
+                        quantity: 1, 
+                        unitPrice: 0, 
+                        vatRate: 20,
+                        netTotal: 0,
+                        vatAmount: 0,
+                        total: 0, 
+                        catalogItemId: undefined 
+                      })}
                     >
                       <Plus className="mr-2 h-4 w-4" /> Add Item
                     </Button>
@@ -1040,37 +1124,35 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                   
                   <div className="mt-8 space-y-4">
                     <div className="flex justify-end">
-                      <div className="w-64 space-y-2">
+                      <div className="w-80 space-y-2">
                         <div className="flex justify-between">
-                          <span className="text-sm">Subtotal:</span>
-                          <span className="text-sm">{getCurrencySymbol()} {form.watch("subtotal").toFixed(2)}</span>
+                          <span className="text-sm">Net Total (excl. VAT):</span>
+                          <span className="text-sm">£{form.watch("subtotal").toFixed(2)}</span>
                         </div>
                         
-                        <div className="flex justify-between items-center">
-                          <span className="text-sm">Tax (%):</span>
-                          <div className="w-24">
-                            <FormField
-                              control={form.control}
-                              name="tax"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormControl>
-                                    <Input 
-                                      type="number"
-                                      step="0.01"
-                                      min="0"
-                                      inputMode="decimal"
-                                      onChange={(e) => {
-                                        field.onChange(parseFloat(e.target.value) || 0);
-                                      }}
-                                      value={field.value}
-                                      className="h-8 text-sm"
-                                    />
-                                  </FormControl>
-                                </FormItem>
-                              )}
-                            />
-                          </div>
+                        {/* VAT Summary by Rate */}
+                        {(() => {
+                          const items = form.watch("items") || [];
+                          const vatSummary = items.reduce((acc, item) => {
+                            const vatRate = item.vatRate || 0;
+                            const vatAmount = item.vatAmount || 0;
+                            if (vatAmount > 0) {
+                              acc[vatRate] = (acc[vatRate] || 0) + vatAmount;
+                            }
+                            return acc;
+                          }, {} as Record<number, number>);
+                          
+                          return Object.entries(vatSummary).map(([rate, amount]) => (
+                            <div key={rate} className="flex justify-between text-sm">
+                              <span>VAT @ {rate}%:</span>
+                              <span>£{amount.toFixed(2)}</span>
+                            </div>
+                          ));
+                        })()}
+                        
+                        <div className="flex justify-between text-sm">
+                          <span>Total VAT:</span>
+                          <span>£{form.watch("tax").toFixed(2)}</span>
                         </div>
                         
                         <div className="flex justify-between items-center">
@@ -1101,8 +1183,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                         </div>
                         
                         <div className="flex justify-between font-bold pt-2 border-t">
-                          <span>Total:</span>
-                          <span>{getCurrencySymbol()} {form.watch("total").toFixed(2)}</span>
+                          <span>Grand Total:</span>
+                          <span>£{form.watch("total").toFixed(2)}</span>
                         </div>
                       </div>
                     </div>
