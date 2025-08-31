@@ -132,7 +132,7 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
       dueDate: getInputDateString(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000)), // 30 days from now
       status: "draft",
       subtotal: 0,
-      tax: 20, // Default 20% VAT for UK
+      tax: 0, // VAT will be calculated from individual items
       discount: 0,
       total: 0,
       terms: settings?.defaultInvoiceTerms || "",
@@ -141,6 +141,9 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
           description: "",
           quantity: 1,
           unitPrice: 0,
+          vatRate: 20, // Default 20% VAT for UK
+          netTotal: 0,
+          vatAmount: 0,
           total: 0,
           catalogItemId: undefined
         }

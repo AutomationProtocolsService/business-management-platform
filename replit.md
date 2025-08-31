@@ -106,9 +106,13 @@ Preferred communication style: Simple, everyday language.
 
 ## Recent Changes
 
-### August 31, 2025 - UK Localization & Health Endpoints
-- **UK Currency Localization**: Updated all financial forms to use GBP (£) as default currency with UK formatting (en-GB locale)
-- **20% VAT Default**: Set VAT/tax rate to 20% default across quotes, invoices, and purchase orders
+### August 31, 2025 - Per-Item VAT System & UK Localization
+- **Per-Item VAT Control**: Removed hard-coded 20% VAT, implemented flexible per-item VAT rate control system
+- **Itemized VAT Summary**: Added VAT breakdown by rate in totals section showing "VAT @ 20%", "VAT @ 0%", etc.
+- **Enhanced Database Schema**: Added `vat_rate`, `net_total`, and `vat_amount` columns to quote_items and invoice_items
+- **VAT-Aware Forms**: Updated quote and invoice forms with per-item VAT controls and real-time calculations
+- **UK Currency Localization**: All financial forms use GBP (£) as default currency with UK formatting (en-GB locale)
+- **20% VAT Default**: New items default to 20% VAT rate (configurable per item)
 - **GBP Price Calculations**: Updated price API endpoint to calculate in GBP currency
 - **UK Number Formatting**: Implemented proper thousands/decimal separators for UK locale
 - **Added Health Check Endpoints**: Implemented `/api/health` and `/api/__about` endpoints similar to FastAPI pattern
