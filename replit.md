@@ -115,6 +115,10 @@ Preferred communication style: Simple, everyday language.
 - **20% VAT Default**: New items default to 20% VAT rate (configurable per item)
 - **GBP Price Calculations**: Updated price API endpoint to calculate in GBP currency
 - **UK Number Formatting**: Implemented proper thousands/decimal separators for UK locale
+- **Fixed VAT Calculation Issues**: Resolved server-side VAT calculation logic and form initialization problems
+- **Enhanced Quote Edit Page**: Fixed VAT field initialization for existing quotes
+- **Server-Side VAT Processing**: Updated API routes to properly handle VAT calculations and totals
+- **TypeScript Error Resolution**: Fixed compilation issues with VAT field types and form schemas
 - **Added Health Check Endpoints**: Implemented `/api/health` and `/api/__about` endpoints similar to FastAPI pattern
 - **Simplified Dashboard Implementation**: Replaced complex dashboard with user-friendly simple version per user request
 - **Fixed Database Issues**: Resolved TypeScript compilation errors and database query problems

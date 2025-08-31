@@ -45,11 +45,14 @@ import { useSettings } from "@/hooks/use-settings";
 import { FileUpload } from "@/components/ui/file-upload";
 import { FileList } from "@/components/ui/file-list";
 
-// Create a schema for invoice items that allows client-side calculation
+// Create a schema for invoice items that allows client-side calculation with VAT
 const invoiceItemSchema = insertInvoiceItemSchema.extend({
   description: z.string().min(3, "Description must be at least 3 characters."),
   quantity: z.number().min(0.01, "Quantity must be greater than 0."),
   unitPrice: z.number().min(0, "Unit price must be greater than or equal to 0."),
+  vatRate: z.number().min(0).max(100).default(20), // VAT rate as percentage (0-100%)
+  netTotal: z.number().optional(),
+  vatAmount: z.number().optional(),
   catalogItemId: z.number().optional()
 });
 
@@ -186,13 +189,25 @@ export default function InvoiceForm({ defaultValues, invoiceId, onSuccess, onCan
         form.setValue("terms", quoteData.terms);
         
         if (quoteData.items && quoteData.items.length > 0) {
-          replace(quoteData.items.map((item: any) => ({
-            description: item.description,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            total: item.total,
-            catalogItemId: item.catalogItemId
-          })));
+          replace(quoteData.items.map((item: any) => {
+            const quantity = item.quantity || 1;
+            const unitPrice = item.unitPrice || 0;
+            const vatRate = typeof item.vatRate === 'number' ? item.vatRate : 20;
+            const netTotal = quantity * unitPrice;
+            const vatAmount = netTotal * (vatRate / 100);
+            const total = netTotal + vatAmount;
+            
+            return {
+              description: item.description || "",
+              quantity: quantity,
+              unitPrice: unitPrice,
+              vatRate: vatRate,
+              netTotal: netTotal,
+              vatAmount: vatAmount,
+              total: total,
+              catalogItemId: item.catalogItemId
+            };
+          }));
         }
       } catch (error) {
         console.error("Error fetching quote details:", error);
