@@ -984,17 +984,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(403).json({ message: "Access denied" });
       }
       
+      console.log('Creating quote item with data:', req.body);
+      
       const quoteItem = await storage.createQuoteItem({
         ...req.body,
         quoteId
       });
       
-      // Update quote totals
-      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
-      const subtotal = quoteItems.reduce((sum, item) => sum + item.total, 0);
-      const total = subtotal - (quote.discount || 0) + (quote.tax || 0);
+      console.log('Created quote item:', quoteItem);
       
-      await storage.updateQuote(quoteId, { subtotal, total }, tenantId);
+      // Update quote totals using new VAT-aware calculation
+      const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
+      console.log('All quote items for total calculation:', quoteItems);
+      
+      const subtotal = quoteItems.reduce((sum, item) => sum + (item.netTotal || ((item.quantity || 1) * (item.unitPrice || 0))), 0);
+      const totalVAT = quoteItems.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
+      const total = subtotal + totalVAT - (quote.discount || 0);
+      
+      console.log('Calculated totals:', { subtotal, totalVAT, total });
+      
+      await storage.updateQuote(quoteId, { subtotal, tax: totalVAT, total }, tenantId);
       
       res.status(201).json(quoteItem);
     } catch (error) {
@@ -1023,12 +1032,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const deleted = await storage.deleteQuoteItem(itemId);
       
       if (deleted) {
-        // Update quote totals
+        // Update quote totals using VAT-aware calculation
         const quoteItems = await storage.getQuoteItemsByQuote(quoteId);
-        const subtotal = quoteItems.reduce((sum, item) => sum + item.total, 0);
-        const total = subtotal - (quote.discount || 0) + (quote.tax || 0);
+        const subtotal = quoteItems.reduce((sum, item) => sum + (item.netTotal || ((item.quantity || 1) * (item.unitPrice || 0))), 0);
+        const totalVAT = quoteItems.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
+        const total = subtotal + totalVAT - (quote.discount || 0);
         
-        await storage.updateQuote(quoteId, { subtotal, total }, tenantId);
+        await storage.updateQuote(quoteId, { subtotal, tax: totalVAT, total }, tenantId);
         
         res.status(204).send();
       } else {
