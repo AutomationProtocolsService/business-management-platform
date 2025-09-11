@@ -122,6 +122,8 @@ export const quotes = pgTable("quotes", {
   subtotal: doublePrecision("subtotal").notNull(),
   tax: doublePrecision("tax"),
   discount: doublePrecision("discount"),
+  shippingCost: doublePrecision("shipping_cost").default(0), // Shipping/delivery costs
+  installationCost: doublePrecision("installation_cost").default(0), // Installation costs
   total: doublePrecision("total").notNull(),
   notes: text("notes"),
   terms: text("terms"),
@@ -169,6 +171,8 @@ export const invoices = pgTable("invoices", {
   subtotal: doublePrecision("subtotal").notNull(),
   tax: doublePrecision("tax"),
   discount: doublePrecision("discount"),
+  shippingCost: doublePrecision("shipping_cost").default(0), // Shipping/delivery costs
+  installationCost: doublePrecision("installation_cost").default(0), // Installation costs
   total: doublePrecision("total").notNull(),
   notes: text("notes"),
   terms: text("terms"),

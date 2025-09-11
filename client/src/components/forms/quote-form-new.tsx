@@ -74,6 +74,8 @@ const quoteFormSchema = z.object({
   subtotal: z.number(),
   tax: z.number().optional(),
   discount: z.number().optional(),
+  shippingCost: z.coerce.number().default(0),
+  installationCost: z.coerce.number().default(0),
   // Email options
   emailSubject: z.string().optional(),
   emailMessage: z.string().optional(),
@@ -154,6 +156,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       subtotal: 0,
       tax: 0, // VAT will be calculated from individual items
       discount: 0,
+      shippingCost: 0,
+      installationCost: 0,
       total: 0,
       terms: settings?.defaultQuoteTerms || "",
       // Default email options
@@ -184,6 +188,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
   // Watch for changes to recalculate totals
   const watchedItems = form.watch("items");
   const watchedDiscount = form.watch("discount");
+  const watchedShippingCost = form.watch("shippingCost");
+  const watchedInstallationCost = form.watch("installationCost");
 
   // Recalculate totals when relevant fields change
   useEffect(() => {
@@ -218,7 +224,9 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
       const subtotal = items.reduce((sum, item) => sum + (item.netTotal || 0), 0);
       const totalVATAmount = items.reduce((sum, item) => sum + (item.vatAmount || 0), 0);
       const discount = watchedDiscount || 0;
-      const total = subtotal + totalVATAmount - discount;
+      const shippingCost = watchedShippingCost || 0;
+      const installationCost = watchedInstallationCost || 0;
+      const total = subtotal + totalVATAmount - discount + shippingCost + installationCost;
       
       form.setValue("subtotal", subtotal);
       form.setValue("tax", totalVATAmount); // Store total VAT amount
@@ -226,7 +234,7 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
     } finally {
       setRecalculating(false);
     }
-  }, [watchedItems, watchedDiscount, form, recalculating]);
+  }, [watchedItems, watchedDiscount, watchedShippingCost, watchedInstallationCost, form, recalculating]);
 
   // Create quote mutation
   const createQuote = useMutation({
@@ -245,6 +253,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
           subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
           tax: typeof values.tax === 'number' ? values.tax : 0,
           discount: typeof values.discount === 'number' ? values.discount : 0,
+          shippingCost: typeof values.shippingCost === 'number' ? values.shippingCost : 0,
+          installationCost: typeof values.installationCost === 'number' ? values.installationCost : 0,
           total: typeof values.total === 'number' ? values.total : 0,
           notes: values.notes || "",
           terms: values.terms || ""
@@ -368,6 +378,8 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
           subtotal: typeof values.subtotal === 'number' ? values.subtotal : 0,
           tax: typeof values.tax === 'number' ? values.tax : 0,
           discount: typeof values.discount === 'number' ? values.discount : 0,
+          shippingCost: typeof values.shippingCost === 'number' ? values.shippingCost : 0,
+          installationCost: typeof values.installationCost === 'number' ? values.installationCost : 0,
           total: typeof values.total === 'number' ? values.total : 0,
           notes: values.notes || "",
           terms: values.terms || ""
@@ -1154,6 +1166,62 @@ export default function QuoteForm({ defaultValues, quoteId, onSuccess, onCancel 
                         <div className="flex justify-between text-sm">
                           <span>Total VAT:</span>
                           <span>£{form.watch("tax").toFixed(2)}</span>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Shipping/Delivery:</span>
+                          <div className="w-24">
+                            <FormField
+                              control={form.control}
+                              name="shippingCost"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      inputMode="decimal"
+                                      onChange={(e) => {
+                                        field.onChange(parseFloat(e.target.value) || 0);
+                                      }}
+                                      value={field.value}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm">Installation:</span>
+                          <div className="w-24">
+                            <FormField
+                              control={form.control}
+                              name="installationCost"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormControl>
+                                    <Input 
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      inputMode="decimal"
+                                      onChange={(e) => {
+                                        field.onChange(parseFloat(e.target.value) || 0);
+                                      }}
+                                      value={field.value}
+                                      className="h-8 text-sm"
+                                      placeholder="0.00"
+                                    />
+                                  </FormControl>
+                                </FormItem>
+                              )}
+                            />
+                          </div>
                         </div>
                         
                         <div className="flex justify-between items-center">
