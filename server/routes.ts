@@ -37,6 +37,7 @@ import {
   countQuotesForTenant
 } from "./utils/document-numbering";
 import { registerQuoteRoutes } from "./routes/quotes";
+import { registerPublicQuoteRoutes } from "./routes/public-quotes";
 import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
 import { registerInvitationRoutes } from "./routes/invitation-routes";
 import simpleDashboardService from "./services/simple-dashboard-service";
@@ -3414,6 +3415,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   registerQuoteRoutes(app);
+  registerPublicQuoteRoutes(app);
   registerDelegatedAdminRoutes(app);
   registerInvitationRoutes(app);
 

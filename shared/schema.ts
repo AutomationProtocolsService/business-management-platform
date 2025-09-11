@@ -107,6 +107,7 @@ export const quotes = pgTable("quotes", {
   id: serial("id").primaryKey(),
   tenantId: integer("tenant_id").references(() => tenants.id).notNull(), // Link to tenant
   quoteNumber: text("quote_number").notNull(),
+  publicAccessToken: text("public_access_token").unique(), // Secure token for public access
   reference: text("reference"),
   projectId: integer("project_id").references(() => projects.id),
   customerId: integer("customer_id").references(() => customers.id),
@@ -116,6 +117,7 @@ export const quotes = pgTable("quotes", {
   clientAcceptedAt: timestamp("client_accepted_at"), // When client accepted the quote
   clientRejectedAt: timestamp("client_rejected_at"), // When client rejected the quote
   clientAcceptedBy: text("client_accepted_by"), // Name of person who accepted the quote
+  clientSignature: text("client_signature"), // Base64 encoded signature or typed signature
   surveyScheduled: boolean("survey_scheduled").default(false), // Whether survey has been scheduled
   surveyId: integer("survey_id").references(() => surveys.id), // Link to the associated survey
   fabricationDrawingsReady: boolean("fabrication_drawings_ready").default(false), // Whether fabrication drawings are ready

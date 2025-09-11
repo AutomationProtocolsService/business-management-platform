@@ -37,6 +37,7 @@ import LoginTest from "@/pages/login-test";
 import AdminPage from "@/pages/admin-page";
 import UserDetailsPage from "@/pages/user-details-page";
 import TeamsAdminPage from "@/pages/teams-admin-page";
+import ClientQuoteView from "@/pages/client-quote-view";
 import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -52,8 +53,8 @@ function AppLayout({ children }: { children: React.ReactNode }) {
   const [location] = useLocation();
   const { isSidebarCollapsed } = useSidebar();
   
-  // Don't show layout for auth, reset password, and accept invitation pages
-  if (location === '/auth' || location.startsWith('/reset-password') || location === '/accept-invitation') {
+  // Don't show layout for auth, reset password, accept invitation, and client quote view pages
+  if (location === '/auth' || location.startsWith('/reset-password') || location === '/accept-invitation' || location.startsWith('/quote/') && location.endsWith('/view')) {
     return <>{children}</>;
   }
   
@@ -85,6 +86,7 @@ function Router() {
       <Route path="/auth" component={AuthPage} />
       <Route path="/reset-password" component={ResetPasswordPage} />
       <Route path="/accept-invitation" component={AcceptInvitationPage} />
+      <Route path="/quote/:quoteNumber/view" component={ClientQuoteView} />
       <Route path="/login-test" component={LoginTest} />
       <ProtectedRoute path="/email-test" component={EmailTestPage} />
       <ProtectedRoute path="/" component={SimpleDashboard} />
