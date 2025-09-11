@@ -3,7 +3,7 @@ import EmailService from './email-service';
 import { storage } from '../storage';
 
 /**
- * Service for handling automated follow-up reminders for quotes
+ * Service for handling automated follow-up reminders for quotes and invoices
  */
 class FollowupServiceImpl {
   
@@ -208,6 +208,242 @@ class FollowupServiceImpl {
   }
   
   /**
+   * Send follow-up reminders for invoices that are overdue
+   * @param tenantId The tenant ID to process invoice follow-ups for
+   * @returns Promise<{ processed: number, sent: number, errors: number }>
+   */
+  async processInvoiceFollowupReminders(tenantId: number): Promise<{ processed: number, sent: number, errors: number }> {
+    try {
+      logger.info('Starting invoice follow-up reminder processing...');
+      
+      const stats = {
+        processed: 0,
+        sent: 0,
+        errors: 0
+      };
+      
+      // Get all invoices that need follow-up for this tenant
+      const invoicesNeedingFollowup = await this.getInvoicesNeedingFollowup(tenantId);
+      stats.processed = invoicesNeedingFollowup.length;
+      
+      logger.info(`Found ${invoicesNeedingFollowup.length} invoices that may need follow-up for tenant ${tenantId}`);
+      
+      for (const invoice of invoicesNeedingFollowup) {
+        try {
+          const shouldSendReminder = this.shouldSendInvoiceReminder(invoice);
+          
+          if (shouldSendReminder) {
+            await this.sendInvoiceFollowupEmail(invoice);
+            await this.updateInvoiceFollowupTracking(invoice.id, tenantId);
+            stats.sent++;
+            logger.info(`Invoice follow-up reminder sent for invoice #${invoice.invoiceNumber} (tenant ${tenantId})`);
+          }
+        } catch (error) {
+          stats.errors++;
+          logger.error({ err: error, invoiceId: invoice.id }, `Error processing follow-up for invoice #${invoice.invoiceNumber}`);
+        }
+      }
+      
+      logger.info(`Invoice follow-up processing complete. Processed: ${stats.processed}, Sent: ${stats.sent}, Errors: ${stats.errors}`);
+      return stats;
+    } catch (error) {
+      logger.error({ err: error }, 'Error in invoice follow-up reminder processing');
+      throw error;
+    }
+  }
+
+  /**
+   * Get invoices that are candidates for follow-up reminders for a specific tenant
+   * @param tenantId The tenant ID to filter invoices for
+   */
+  private async getInvoicesNeedingFollowup(tenantId: number): Promise<any[]> {
+    // Get invoices that are:
+    // 1. Status is 'sent' or 'overdue'
+    // 2. Past due date
+    // 3. Haven't been followed up too many times (max 3 follow-ups)
+    
+    try {
+      const allInvoices = await storage.getAllInvoices(tenantId);
+      
+      const candidateInvoices = allInvoices.filter(invoice => {
+        // Must be in 'sent' or 'overdue' status (not paid)
+        if (!['sent', 'overdue'].includes(invoice.status)) return false;
+        
+        // Must not have exceeded maximum follow-ups (3)
+        if ((invoice.followupCount || 0) >= 3) return false;
+        
+        // Must be past due date
+        if (invoice.dueDate && new Date(invoice.dueDate) >= new Date()) return false;
+        
+        return true;
+      });
+      
+      // Get customer information for each invoice
+      const invoicesWithCustomers = [];
+      for (const invoice of candidateInvoices) {
+        if (invoice.customerId) {
+          try {
+            const customer = await storage.getCustomer(invoice.customerId, tenantId);
+            if (customer && customer.email) {
+              invoicesWithCustomers.push({
+                ...invoice,
+                customer
+              });
+            }
+          } catch (error) {
+            logger.warn({ invoiceId: invoice.id }, `Could not fetch customer for invoice #${invoice.invoiceNumber}`);
+          }
+        }
+      }
+      
+      return invoicesWithCustomers;
+    } catch (error) {
+      logger.error({ err: error }, 'Error fetching invoices needing follow-up');
+      throw error;
+    }
+  }
+
+  /**
+   * Determine if an invoice reminder should be sent based on timing rules
+   */
+  private shouldSendInvoiceReminder(invoice: any): boolean {
+    const followupCount = invoice.followupCount || 0;
+    const lastFollowupSentAt = invoice.lastFollowupSentAt;
+    const now = new Date();
+    const dueDate = new Date(invoice.dueDate);
+    
+    // Calculate days overdue
+    const daysSinceDue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // First reminder: Send if 3+ days overdue and no previous follow-ups
+    if (followupCount === 0 && daysSinceDue >= 3) {
+      return true;
+    }
+    
+    // Subsequent reminders: Follow the same schedule as quotes (7, 14 days)
+    if (lastFollowupSentAt) {
+      const daysSinceLastFollowup = Math.floor((now.getTime() - new Date(lastFollowupSentAt).getTime()) / (1000 * 60 * 60 * 24));
+      
+      // Second reminder: 7 days after first
+      if (followupCount === 1 && daysSinceLastFollowup >= 7) {
+        return true;
+      }
+      
+      // Third reminder: 14 days after second
+      if (followupCount === 2 && daysSinceLastFollowup >= 14) {
+        return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * Send follow-up email for an overdue invoice
+   */
+  private async sendInvoiceFollowupEmail(invoice: any): Promise<void> {
+    const followupCount = invoice.followupCount || 0;
+    const daysSinceDue = Math.floor((new Date().getTime() - new Date(invoice.dueDate).getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Generate email subject based on reminder count
+    let subject = '';
+    let urgency = '';
+    
+    if (followupCount === 0) {
+      subject = `Payment Reminder: Invoice #${invoice.invoiceNumber} - ${daysSinceDue} days overdue`;
+      urgency = 'gentle';
+    } else if (followupCount === 1) {
+      subject = `2nd Payment Reminder: Invoice #${invoice.invoiceNumber} - ${daysSinceDue} days overdue`;
+      urgency = 'moderate';
+    } else {
+      subject = `Final Payment Reminder: Invoice #${invoice.invoiceNumber} - ${daysSinceDue} days overdue`;
+      urgency = 'urgent';
+    }
+    
+    const formattedTotal = new Intl.NumberFormat('en-GB', {
+      style: 'currency',
+      currency: 'GBP'
+    }).format(invoice.total);
+    
+    // Email content based on urgency level
+    let emailContent = '';
+    
+    if (urgency === 'gentle') {
+      emailContent = `
+        <p>Dear ${invoice.customer.name},</p>
+        <p>We hope this email finds you well. We wanted to gently remind you that payment for Invoice #${invoice.invoiceNumber} is now ${daysSinceDue} days overdue.</p>
+        <p><strong>Invoice Details:</strong></p>
+        <ul>
+          <li>Invoice Number: #${invoice.invoiceNumber}</li>
+          <li>Total Amount: ${formattedTotal}</li>
+          <li>Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-GB')}</li>
+        </ul>
+        <p>If you have already made this payment, please disregard this reminder. If you have any questions about this invoice, please don't hesitate to contact us.</p>
+        <p>Thank you for your business!</p>
+      `;
+    } else if (urgency === 'moderate') {
+      emailContent = `
+        <p>Dear ${invoice.customer.name},</p>
+        <p>This is a second reminder that payment for Invoice #${invoice.invoiceNumber} is now ${daysSinceDue} days overdue.</p>
+        <p><strong>Invoice Details:</strong></p>
+        <ul>
+          <li>Invoice Number: #${invoice.invoiceNumber}</li>
+          <li>Total Amount: ${formattedTotal}</li>
+          <li>Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-GB')}</li>
+        </ul>
+        <p>Please arrange payment as soon as possible to avoid any further delays. If you're experiencing difficulties with payment, please contact us to discuss payment options.</p>
+        <p>We appreciate your prompt attention to this matter.</p>
+      `;
+    } else {
+      emailContent = `
+        <p>Dear ${invoice.customer.name},</p>
+        <p><strong>FINAL PAYMENT REMINDER</strong></p>
+        <p>Invoice #${invoice.invoiceNumber} is now ${daysSinceDue} days overdue. Immediate payment is required.</p>
+        <p><strong>Invoice Details:</strong></p>
+        <ul>
+          <li>Invoice Number: #${invoice.invoiceNumber}</li>
+          <li>Total Amount: ${formattedTotal}</li>
+          <li>Due Date: ${new Date(invoice.dueDate).toLocaleDateString('en-GB')}</li>
+        </ul>
+        <p>If payment is not received within 7 days, we may need to take further action to collect this debt.</p>
+        <p>Please contact us immediately if you have any questions or concerns.</p>
+      `;
+    }
+    
+    const emailSent = await EmailService.sendEmail({
+      to: invoice.customer.email,
+      subject: subject,
+      html: emailContent
+    });
+    
+    if (!emailSent) {
+      throw new Error('Failed to send invoice follow-up email');
+    }
+  }
+
+  /**
+   * Update follow-up tracking fields for an invoice
+   * @param invoiceId The invoice ID to update
+   * @param tenantId The tenant ID for security validation
+   */
+  private async updateInvoiceFollowupTracking(invoiceId: number, tenantId: number): Promise<void> {
+    try {
+      const invoice = await storage.getInvoice(invoiceId, tenantId);
+      if (!invoice) {
+        throw new Error(`Invoice ${invoiceId} not found`);
+      }
+      
+      await storage.updateInvoice(invoiceId, {
+        lastFollowupSentAt: new Date(),
+        followupCount: (invoice.followupCount || 0) + 1
+      }, tenantId);
+    } catch (error) {
+      logger.error({ err: error, invoiceId }, 'Error updating invoice follow-up tracking');
+      throw error;
+    }
+  }
+
+  /**
    * Get follow-up statistics for reporting for a specific tenant
    * @param tenantId The tenant ID to get statistics for
    */
@@ -218,9 +454,15 @@ class FollowupServiceImpl {
     quotesWithTwoFollowups: number; 
     quotesWithThreeFollowups: number;
     expiredQuotes: number;
+    totalInvoicesSent: number;
+    overdueInvoices: number;
+    invoicesWithOneFollowup: number;
+    invoicesWithTwoFollowups: number;
+    invoicesWithThreeFollowups: number;
   }> {
     try {
       const allQuotes = await storage.getAllQuotes(tenantId);
+      const allInvoices = await storage.getAllInvoices(tenantId);
       
       const stats = {
         totalQuotesSent: 0,
@@ -228,11 +470,17 @@ class FollowupServiceImpl {
         quotesWithOneFollowup: 0,
         quotesWithTwoFollowups: 0,
         quotesWithThreeFollowups: 0,
-        expiredQuotes: 0
+        expiredQuotes: 0,
+        totalInvoicesSent: 0,
+        overdueInvoices: 0,
+        invoicesWithOneFollowup: 0,
+        invoicesWithTwoFollowups: 0,
+        invoicesWithThreeFollowups: 0
       };
       
       const now = new Date();
       
+      // Process quote statistics
       for (const quote of allQuotes) {
         if (quote.status === 'sent') {
           stats.totalQuotesSent++;
@@ -253,6 +501,31 @@ class FollowupServiceImpl {
                 break;
               case 3:
                 stats.quotesWithThreeFollowups++;
+                break;
+            }
+          }
+        }
+      }
+      
+      // Process invoice statistics
+      for (const invoice of allInvoices) {
+        if (['sent', 'overdue'].includes(invoice.status)) {
+          stats.totalInvoicesSent++;
+          
+          // Check if overdue
+          if (invoice.dueDate && new Date(invoice.dueDate) < now && invoice.status !== 'paid') {
+            stats.overdueInvoices++;
+            
+            const followupCount = invoice.followupCount || 0;
+            switch (followupCount) {
+              case 1:
+                stats.invoicesWithOneFollowup++;
+                break;
+              case 2:
+                stats.invoicesWithTwoFollowups++;
+                break;
+              case 3:
+                stats.invoicesWithThreeFollowups++;
                 break;
             }
           }

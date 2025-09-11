@@ -180,6 +180,8 @@ export const invoices = pgTable("invoices", {
   total: doublePrecision("total").notNull(),
   notes: text("notes"),
   terms: text("terms"),
+  lastFollowupSentAt: timestamp("last_followup_sent_at"), // When last follow-up reminder was sent
+  followupCount: integer("followup_count").default(0), // Number of follow-up reminders sent
   createdAt: timestamp("created_at").notNull().defaultNow(),
   createdBy: integer("created_by").references(() => users.id),
 }, (invoices) => ({

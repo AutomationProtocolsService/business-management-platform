@@ -3467,6 +3467,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Invoice follow-up automation routes (Admin/Manager only)
+  app.post("/api/followup/process-invoices", requireAuth, async (req, res) => {
+    try {
+      // Security: Only allow admin and manager users to process follow-ups
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        return res.status(403).json({ 
+          success: false,
+          message: "Access denied. Only admin and manager users can process follow-ups." 
+        });
+      }
+
+      const tenantId = getTenantIdFromRequest(req);
+      if (!tenantId) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Tenant ID is required" 
+        });
+      }
+
+      console.log(`Processing invoice follow-up reminders for tenant ${tenantId}...`);
+      const stats = await FollowupService.processInvoiceFollowupReminders(tenantId);
+      
+      res.json({
+        success: true,
+        message: `Invoice follow-up processing complete. Processed: ${stats.processed}, Sent: ${stats.sent}, Errors: ${stats.errors}`,
+        stats
+      });
+    } catch (error) {
+      console.error('Error processing invoice follow-ups:', error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to process invoice follow-up reminders", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
   registerQuoteRoutes(app);
   registerPublicQuoteRoutes(app);
   registerDelegatedAdminRoutes(app);

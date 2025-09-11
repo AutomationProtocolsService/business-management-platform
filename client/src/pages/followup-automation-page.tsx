@@ -25,11 +25,17 @@ interface FollowupStats {
   quotesWithTwoFollowups: number;
   quotesWithThreeFollowups: number;
   expiredQuotes: number;
+  totalInvoicesSent: number;
+  overdueInvoices: number;
+  invoicesWithOneFollowup: number;
+  invoicesWithTwoFollowups: number;
+  invoicesWithThreeFollowups: number;
 }
 
 export default function FollowupAutomationPage() {
   const { toast } = useToast();
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [isProcessingQuotes, setIsProcessingQuotes] = useState(false);
+  const [isProcessingInvoices, setIsProcessingInvoices] = useState(false);
 
   // Fetch follow-up statistics
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<FollowupStats>({
@@ -43,20 +49,20 @@ export default function FollowupAutomationPage() {
     },
   });
 
-  // Process follow-up reminders mutation
-  const processFollowups = useMutation({
+  // Process quote follow-up reminders mutation
+  const processQuoteFollowups = useMutation({
     mutationFn: async () => {
-      setIsProcessing(true);
+      setIsProcessingQuotes(true);
       const response = await apiRequest("POST", "/api/followup/process");
       return response.json();
     },
     onSuccess: (data) => {
       toast({
-        title: "Follow-up Processing Complete",
+        title: "Quote Follow-up Processing Complete",
         description: data.message,
       });
       refetchStats(); // Refresh stats after processing
-      setIsProcessing(false);
+      setIsProcessingQuotes(false);
     },
     onError: (error: Error) => {
       toast({
@@ -64,12 +70,41 @@ export default function FollowupAutomationPage() {
         description: error.message,
         variant: "destructive",
       });
-      setIsProcessing(false);
+      setIsProcessingQuotes(false);
     },
   });
 
-  const handleProcessFollowups = () => {
-    processFollowups.mutate();
+  // Process invoice follow-up reminders mutation
+  const processInvoiceFollowups = useMutation({
+    mutationFn: async () => {
+      setIsProcessingInvoices(true);
+      const response = await apiRequest("POST", "/api/followup/process-invoices");
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Invoice Follow-up Processing Complete",
+        description: data.message,
+      });
+      refetchStats(); // Refresh stats after processing
+      setIsProcessingInvoices(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+      setIsProcessingInvoices(false);
+    },
+  });
+
+  const handleProcessQuoteFollowups = () => {
+    processQuoteFollowups.mutate();
+  };
+
+  const handleProcessInvoiceFollowups = () => {
+    processInvoiceFollowups.mutate();
   };
 
   if (statsLoading) {
@@ -90,89 +125,178 @@ export default function FollowupAutomationPage() {
         <div>
           <h1 className="text-3xl font-bold tracking-tight" data-testid="page-title">Follow-up Automation</h1>
           <p className="text-muted-foreground" data-testid="page-description">
-            Automated follow-up reminders for quotes awaiting client response
+            Automated follow-up reminders for quotes and overdue invoices
           </p>
         </div>
-        <Button 
-          onClick={handleProcessFollowups} 
-          disabled={isProcessing}
-          data-testid="button-process-followups"
-        >
-          {isProcessing ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Processing...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Process Follow-ups Now
-            </>
-          )}
-        </Button>
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleProcessQuoteFollowups} 
+            disabled={isProcessingQuotes}
+            data-testid="button-process-quote-followups"
+            variant="outline"
+          >
+            {isProcessingQuotes ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing Quotes...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Process Quote Follow-ups
+              </>
+            )}
+          </Button>
+          <Button 
+            onClick={handleProcessInvoiceFollowups} 
+            disabled={isProcessingInvoices}
+            data-testid="button-process-invoice-followups"
+          >
+            {isProcessingInvoices ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Processing Invoices...
+              </>
+            ) : (
+              <>
+                <RefreshCw className="mr-2 h-4 w-4" />
+                Process Invoice Follow-ups
+              </>
+            )}
+          </Button>
+        </div>
       </div>
 
-      {/* Statistics Overview */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card data-testid="card-quotes-sent">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Quotes Sent</CardTitle>
-            <Mail className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold" data-testid="stat-quotes-sent">
-              {stats?.totalQuotesSent || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Quotes in 'sent' status
-            </p>
-          </CardContent>
-        </Card>
+      {/* Quote Statistics Overview */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold" data-testid="quotes-section-title">Quote Follow-ups</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card data-testid="card-quotes-sent">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Quotes Sent</CardTitle>
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="stat-quotes-sent">
+                {stats?.totalQuotesSent || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Quotes in 'sent' status
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card data-testid="card-awaiting-response">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Awaiting Response</CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-orange-600" data-testid="stat-awaiting-response">
-              {stats?.quotesAwaitingResponse || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Active quotes without response
-            </p>
-          </CardContent>
-        </Card>
+          <Card data-testid="card-awaiting-response">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Awaiting Response</CardTitle>
+              <Clock className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-orange-600" data-testid="stat-awaiting-response">
+                {stats?.quotesAwaitingResponse || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Active quotes without response
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card data-testid="card-response-rate">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600" data-testid="stat-response-rate">
-              {responseRate}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Quotes with client response
-            </p>
-          </CardContent>
-        </Card>
+          <Card data-testid="card-response-rate">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Response Rate</CardTitle>
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-green-600" data-testid="stat-response-rate">
+                {responseRate}%
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Quotes with client response
+              </p>
+            </CardContent>
+          </Card>
 
-        <Card data-testid="card-expired-quotes">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Expired Quotes</CardTitle>
-            <AlertCircle className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600" data-testid="stat-expired-quotes">
-              {stats?.expiredQuotes || 0}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Quotes past expiry date
-            </p>
-          </CardContent>
-        </Card>
+          <Card data-testid="card-expired-quotes">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Expired Quotes</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600" data-testid="stat-expired-quotes">
+                {stats?.expiredQuotes || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Quotes past expiry date
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      {/* Invoice Statistics Overview */}
+      <div className="space-y-4">
+        <h2 className="text-xl font-semibold" data-testid="invoices-section-title">Invoice Payment Reminders</h2>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card data-testid="card-invoices-sent">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Invoices Sent</CardTitle>
+              <Mail className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold" data-testid="stat-invoices-sent">
+                {stats?.totalInvoicesSent || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Invoices awaiting payment
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-overdue-invoices">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Overdue Invoices</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600" data-testid="stat-overdue-invoices">
+                {stats?.overdueInvoices || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Past due date, unpaid
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-invoice-1st-reminder">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">1st Payment Reminder</CardTitle>
+              <CheckCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-blue-600" data-testid="stat-invoices-1st-reminder">
+                {stats?.invoicesWithOneFollowup || 0}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Initial payment reminder sent
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card data-testid="card-invoice-final-reminder">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Final Reminders</CardTitle>
+              <AlertCircle className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600" data-testid="stat-invoices-final-reminder">
+                {(stats?.invoicesWithTwoFollowups || 0) + (stats?.invoicesWithThreeFollowups || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground">
+                2nd and 3rd reminders sent
+              </p>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
       {/* Follow-up Progress */}
