@@ -38,6 +38,7 @@ import AdminPage from "@/pages/admin-page";
 import UserDetailsPage from "@/pages/user-details-page";
 import TeamsAdminPage from "@/pages/teams-admin-page";
 import ClientQuoteView from "@/pages/client-quote-view";
+import FollowupAutomationPage from "@/pages/followup-automation-page";
 import { AuthProvider } from "@/hooks/use-auth";
 import { TenantProvider } from "@/hooks/use-tenant";
 import { SettingsProvider } from "@/hooks/use-settings";
@@ -138,6 +139,7 @@ function Router() {
       <ProtectedRoute path="/admin/users/:id" component={UserDetailsPage} />
       <ProtectedRoute path="/admin/teams" component={TeamsAdminPage} />
       <ProtectedRoute path="/settings" component={SettingsPage} />
+      <ProtectedRoute path="/followup" component={FollowupAutomationPage} />
       <ProtectedRoute path="/profile" component={ProfilePage} />
       <ProtectedRoute path="/help" component={HelpPage} />
       <Route component={NotFound} />

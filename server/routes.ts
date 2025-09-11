@@ -41,6 +41,7 @@ import { registerPublicQuoteRoutes } from "./routes/public-quotes";
 import { registerDelegatedAdminRoutes } from "./routes/delegated-admin";
 import { registerInvitationRoutes } from "./routes/invitation-routes";
 import simpleDashboardService from "./services/simple-dashboard-service";
+import FollowupService from "./services/followup-service";
 
 /**
  * Helper to get a tenant filter object from a request
@@ -3412,6 +3413,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
       breakdown,
       checks
     });
+  });
+
+  // Follow-up automation routes (Admin/Manager only)
+  app.post("/api/followup/process", requireAuth, async (req, res) => {
+    try {
+      // Security: Only allow admin and manager users to process follow-ups
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        return res.status(403).json({ 
+          success: false,
+          message: "Access denied. Only admin and manager users can process follow-ups." 
+        });
+      }
+
+      const tenantId = getTenantIdFromRequest(req);
+      if (!tenantId) {
+        return res.status(400).json({ 
+          success: false,
+          message: "Tenant ID is required" 
+        });
+      }
+
+      console.log(`Processing follow-up reminders for tenant ${tenantId}...`);
+      const stats = await FollowupService.processFollowupReminders(tenantId);
+      
+      res.json({
+        success: true,
+        message: `Follow-up processing complete. Processed: ${stats.processed}, Sent: ${stats.sent}, Errors: ${stats.errors}`,
+        stats
+      });
+    } catch (error) {
+      console.error('Error processing follow-ups:', error);
+      res.status(500).json({ 
+        success: false,
+        message: "Failed to process follow-up reminders", 
+        error: error instanceof Error ? error.message : String(error) 
+      });
+    }
+  });
+
+  app.get("/api/followup/stats", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+
+      const stats = await FollowupService.getFollowupStats(tenantId);
+      res.json(stats);
+    } catch (error) {
+      console.error('Error fetching follow-up stats:', error);
+      res.status(500).json({ message: "Failed to fetch follow-up statistics" });
+    }
   });
 
   registerQuoteRoutes(app);

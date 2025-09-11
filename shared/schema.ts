@@ -118,6 +118,8 @@ export const quotes = pgTable("quotes", {
   clientRejectedAt: timestamp("client_rejected_at"), // When client rejected the quote
   clientAcceptedBy: text("client_accepted_by"), // Name of person who accepted the quote
   clientSignature: text("client_signature"), // Base64 encoded signature or typed signature
+  lastFollowupSentAt: timestamp("last_followup_sent_at"), // When last follow-up reminder was sent
+  followupCount: integer("followup_count").default(0), // Number of follow-up reminders sent
   surveyScheduled: boolean("survey_scheduled").default(false), // Whether survey has been scheduled
   surveyId: integer("survey_id").references(() => surveys.id), // Link to the associated survey
   fabricationDrawingsReady: boolean("fabrication_drawings_ready").default(false), // Whether fabrication drawings are ready

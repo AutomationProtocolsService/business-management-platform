@@ -21,7 +21,8 @@ import {
   BoxesIcon,
   ChevronRight,
   BarChart3,
-  Shield
+  Shield,
+  RefreshCw
 } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useSidebar } from "@/contexts/sidebar-context";
@@ -225,6 +226,7 @@ export default function Sidebar() {
             {/* Bottom Section - Settings & Help */}
             <div className="space-y-1">
               <SidebarLink href="/settings" icon={<Settings className="h-5 w-5" />}>Settings</SidebarLink>
+              <SidebarLink href="/followup" icon={<RefreshCw className="h-5 w-5" />}>Follow-up Automation</SidebarLink>
               <SidebarLink href="/help" icon={<HelpCircle className="h-5 w-5" />}>Help & Support</SidebarLink>
             </div>
           </div>
