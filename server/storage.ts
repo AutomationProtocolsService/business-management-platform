@@ -87,6 +87,8 @@ export interface IStorage {
   deleteTenant(id: number): Promise<boolean>;
   getAllTenants(): Promise<Tenant[]>;
   getActiveTenants(): Promise<Tenant[]>;
+  getTenantSettings(tenantId: number): Promise<any>;
+  updateTenantSettings(tenantId: number, settings: any): Promise<any>;
   
   // Organizations
   getOrganization(id: number): Promise<Organization | undefined>;
@@ -1671,6 +1673,20 @@ export class MemStorage implements IStorage {
     return Array.from(this.tenants.values()).filter(tenant => tenant.status === 'active');
   }
 
+  async getTenantSettings(tenantId: number): Promise<any> {
+    const tenant = this.tenants.get(tenantId);
+    return tenant?.settings || null;
+  }
+
+  async updateTenantSettings(tenantId: number, settings: any): Promise<any> {
+    const tenant = this.tenants.get(tenantId);
+    if (!tenant) return null;
+    
+    const updatedTenant = { ...tenant, settings };
+    this.tenants.set(tenantId, updatedTenant);
+    return updatedTenant.settings;
+  }
+
   // System Settings methods
   async getSystemSettings(): Promise<SystemSettings | undefined> {
     return Array.from(this.systemSettings.values())[0];
@@ -1917,6 +1933,21 @@ export class DatabaseStorage implements IStorage {
     return await db.query.tenants.findMany({
       where: eq(schema.tenants.active, true)
     });
+  }
+
+  async getTenantSettings(tenantId: number): Promise<any> {
+    const tenant = await db.query.tenants.findFirst({
+      where: eq(schema.tenants.id, tenantId)
+    });
+    return tenant?.settings || null;
+  }
+
+  async updateTenantSettings(tenantId: number, settings: any): Promise<any> {
+    const result = await db.update(schema.tenants)
+      .set({ settings })
+      .where(eq(schema.tenants.id, tenantId))
+      .returning();
+    return result[0]?.settings || null;
   }
   
   // Organization methods
