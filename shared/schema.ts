@@ -1158,3 +1158,31 @@ export const insertPasswordResetTokenSchema = createInsertSchema(passwordResetTo
     createdAt: true
   });
 export type PasswordResetTokenInsert = z.infer<typeof insertPasswordResetTokenSchema>;
+
+// Follow-up timing configuration interface
+export interface FollowupTimingSettings {
+  quotes: {
+    firstReminder: number; // days after quote sent
+    secondReminder: number; // days after first reminder  
+    finalReminder: number; // days after second reminder
+  };
+  invoices: {
+    firstReminder: number; // days after invoice due date
+    secondReminder: number; // days after first reminder
+    finalReminder: number; // days after second reminder
+  };
+}
+
+// Default follow-up timing (current hard-coded values)
+export const DEFAULT_FOLLOWUP_TIMING: FollowupTimingSettings = {
+  quotes: {
+    firstReminder: 3,
+    secondReminder: 7, 
+    finalReminder: 14
+  },
+  invoices: {
+    firstReminder: 3, // days overdue
+    secondReminder: 7, // days after first reminder
+    finalReminder: 14 // days after second reminder
+  }
+};

@@ -1,12 +1,29 @@
 import { logger } from '../logger';
 import EmailService from './email-service';
 import { storage } from '../storage';
+import { FollowupTimingSettings, DEFAULT_FOLLOWUP_TIMING } from '../../shared/schema';
 
 /**
  * Service for handling automated follow-up reminders for quotes and invoices
  */
 class FollowupServiceImpl {
   
+  /**
+   * Get tenant-specific follow-up timing settings or fallback to defaults
+   * @param tenantId The tenant ID to get settings for
+   * @returns Promise<FollowupTimingSettings>
+   */
+  private async getTenantFollowupTiming(tenantId: number): Promise<FollowupTimingSettings> {
+    try {
+      const tenant = await storage.getTenantById(tenantId);
+      const settings = tenant?.settings as any;
+      return settings?.followupTiming || DEFAULT_FOLLOWUP_TIMING;
+    } catch (error) {
+      logger.warn({ err: error, tenantId }, 'Failed to get tenant follow-up timing, using defaults');
+      return DEFAULT_FOLLOWUP_TIMING;
+    }
+  }
+
   /**
    * Send follow-up reminders for quotes that haven't received responses
    * @param tenantId The tenant ID to process follow-ups for
@@ -22,6 +39,9 @@ class FollowupServiceImpl {
         errors: 0
       };
       
+      // Get tenant-specific timing settings
+      const followupTiming = await this.getTenantFollowupTiming(tenantId);
+      
       // Get all quotes that need follow-up for this tenant
       const quotesNeedingFollowup = await this.getQuotesNeedingFollowup(tenantId);
       stats.processed = quotesNeedingFollowup.length;
@@ -30,7 +50,7 @@ class FollowupServiceImpl {
       
       for (const quote of quotesNeedingFollowup) {
         try {
-          const shouldSendReminder = this.shouldSendReminder(quote);
+          const shouldSendReminder = this.shouldSendReminder(quote, followupTiming.quotes);
           
           if (shouldSendReminder) {
             await this.sendFollowupEmail(quote);
@@ -105,19 +125,18 @@ class FollowupServiceImpl {
   
   /**
    * Determine if a quote should receive a follow-up reminder based on timing rules
+   * @param quote The quote to check
+   * @param timingConfig The tenant-specific timing configuration for quotes
    */
-  private shouldSendReminder(quote: any): boolean {
+  private shouldSendReminder(quote: any, timingConfig: { firstReminder: number, secondReminder: number, finalReminder: number }): boolean {
     const now = new Date();
     const followupCount = quote.followupCount || 0;
     
-    // Follow-up schedule:
-    // 1st follow-up: 3 days after quote was sent
-    // 2nd follow-up: 7 days after 1st follow-up  
-    // 3rd follow-up: 14 days after 2nd follow-up
+    // Use tenant-specific timing configuration
     const followupIntervals = [
-      3 * 24 * 60 * 60 * 1000,  // 3 days in milliseconds
-      7 * 24 * 60 * 60 * 1000,  // 7 days in milliseconds
-      14 * 24 * 60 * 60 * 1000  // 14 days in milliseconds
+      timingConfig.firstReminder * 24 * 60 * 60 * 1000,   // First reminder in milliseconds
+      timingConfig.secondReminder * 24 * 60 * 60 * 1000,  // Second reminder in milliseconds
+      timingConfig.finalReminder * 24 * 60 * 60 * 1000    // Final reminder in milliseconds
     ];
     
     let referenceDate: Date;
@@ -222,6 +241,9 @@ class FollowupServiceImpl {
         errors: 0
       };
       
+      // Get tenant-specific timing settings
+      const followupTiming = await this.getTenantFollowupTiming(tenantId);
+      
       // Get all invoices that need follow-up for this tenant
       const invoicesNeedingFollowup = await this.getInvoicesNeedingFollowup(tenantId);
       stats.processed = invoicesNeedingFollowup.length;
@@ -230,7 +252,7 @@ class FollowupServiceImpl {
       
       for (const invoice of invoicesNeedingFollowup) {
         try {
-          const shouldSendReminder = this.shouldSendInvoiceReminder(invoice);
+          const shouldSendReminder = this.shouldSendInvoiceReminder(invoice, followupTiming.invoices);
           
           if (shouldSendReminder) {
             await this.sendInvoiceFollowupEmail(invoice);
@@ -305,8 +327,10 @@ class FollowupServiceImpl {
 
   /**
    * Determine if an invoice reminder should be sent based on timing rules
+   * @param invoice The invoice to check
+   * @param timingConfig The tenant-specific timing configuration for invoices
    */
-  private shouldSendInvoiceReminder(invoice: any): boolean {
+  private shouldSendInvoiceReminder(invoice: any, timingConfig: { firstReminder: number, secondReminder: number, finalReminder: number }): boolean {
     const followupCount = invoice.followupCount || 0;
     const lastFollowupSentAt = invoice.lastFollowupSentAt;
     const now = new Date();
@@ -315,22 +339,22 @@ class FollowupServiceImpl {
     // Calculate days overdue
     const daysSinceDue = Math.floor((now.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    // First reminder: Send if 3+ days overdue and no previous follow-ups
-    if (followupCount === 0 && daysSinceDue >= 3) {
+    // First reminder: Send if configured days overdue and no previous follow-ups
+    if (followupCount === 0 && daysSinceDue >= timingConfig.firstReminder) {
       return true;
     }
     
-    // Subsequent reminders: Follow the same schedule as quotes (7, 14 days)
+    // Subsequent reminders: Use tenant-specific timing configuration
     if (lastFollowupSentAt) {
       const daysSinceLastFollowup = Math.floor((now.getTime() - new Date(lastFollowupSentAt).getTime()) / (1000 * 60 * 60 * 24));
       
-      // Second reminder: 7 days after first
-      if (followupCount === 1 && daysSinceLastFollowup >= 7) {
+      // Second reminder: configured days after first
+      if (followupCount === 1 && daysSinceLastFollowup >= timingConfig.secondReminder) {
         return true;
       }
       
-      // Third reminder: 14 days after second
-      if (followupCount === 2 && daysSinceLastFollowup >= 14) {
+      // Third reminder: configured days after second
+      if (followupCount === 2 && daysSinceLastFollowup >= timingConfig.finalReminder) {
         return true;
       }
     }

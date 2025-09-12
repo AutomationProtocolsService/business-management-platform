@@ -4,6 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
 import { 
@@ -15,7 +21,9 @@ import {
   CheckCircle,
   Loader2,
   Calendar,
-  Users
+  Users,
+  Settings,
+  Save
 } from "lucide-react";
 
 interface FollowupStats {
@@ -32,10 +40,38 @@ interface FollowupStats {
   invoicesWithThreeFollowups: number;
 }
 
+interface FollowupTimingSettings {
+  quotes: {
+    firstReminder: number;
+    secondReminder: number; 
+    finalReminder: number;
+  };
+  invoices: {
+    firstReminder: number;
+    secondReminder: number;
+    finalReminder: number;
+  };
+}
+
+// Form schema for follow-up timing configuration
+const followupTimingSchema = z.object({
+  quotes: z.object({
+    firstReminder: z.number().min(1).max(30),
+    secondReminder: z.number().min(1).max(30),
+    finalReminder: z.number().min(1).max(30)
+  }),
+  invoices: z.object({
+    firstReminder: z.number().min(1).max(30),
+    secondReminder: z.number().min(1).max(30),
+    finalReminder: z.number().min(1).max(30)
+  })
+});
+
 export default function FollowupAutomationPage() {
   const { toast } = useToast();
   const [isProcessingQuotes, setIsProcessingQuotes] = useState(false);
   const [isProcessingInvoices, setIsProcessingInvoices] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
   // Fetch follow-up statistics
   const { data: stats, isLoading: statsLoading, refetch: refetchStats } = useQuery<FollowupStats>({
@@ -48,6 +84,40 @@ export default function FollowupAutomationPage() {
       return res.json();
     },
   });
+
+  // Fetch follow-up timing settings
+  const { data: followupSettings, isLoading: settingsLoading, refetch: refetchSettings } = useQuery<{ followupTiming: FollowupTimingSettings }>({
+    queryKey: ["/api/followup/settings"],
+    queryFn: async () => {
+      const res = await fetch("/api/followup/settings");
+      if (!res.ok) {
+        throw new Error("Failed to fetch follow-up settings");
+      }
+      return res.json();
+    },
+  });
+
+  // Form for follow-up timing configuration
+  const form = useForm<z.infer<typeof followupTimingSchema>>({
+    resolver: zodResolver(followupTimingSchema),
+    defaultValues: {
+      quotes: {
+        firstReminder: 3,
+        secondReminder: 7,
+        finalReminder: 14
+      },
+      invoices: {
+        firstReminder: 3,
+        secondReminder: 7,
+        finalReminder: 14
+      }
+    }
+  });
+
+  // Update form when settings are loaded
+  if (followupSettings?.followupTiming && !settingsLoading) {
+    form.reset(followupSettings.followupTiming);
+  }
 
   // Process quote follow-up reminders mutation
   const processQuoteFollowups = useMutation({
@@ -98,6 +168,35 @@ export default function FollowupAutomationPage() {
       setIsProcessingInvoices(false);
     },
   });
+
+  // Update follow-up timing settings mutation
+  const updateSettings = useMutation({
+    mutationFn: async (data: z.infer<typeof followupTimingSchema>) => {
+      const response = await apiRequest("PUT", "/api/followup/settings", {
+        followupTiming: data
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      toast({
+        title: "Settings Updated",
+        description: "Follow-up timing configuration has been saved successfully.",
+      });
+      refetchSettings();
+      setShowSettings(false);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmitSettings = (data: z.infer<typeof followupTimingSchema>) => {
+    updateSettings.mutate(data);
+  };
 
   const handleProcessQuoteFollowups = () => {
     processQuoteFollowups.mutate();
@@ -315,7 +414,9 @@ export default function FollowupAutomationPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" data-testid="badge-first-followup">1st Follow-up</Badge>
-                <span className="text-sm text-muted-foreground">3 days after quote sent</span>
+                <span className="text-sm text-muted-foreground">
+                  {followupSettings?.followupTiming?.quotes?.firstReminder || 3} days after quote sent
+                </span>
               </div>
               <span className="font-semibold" data-testid="count-first-followup">
                 {stats?.quotesWithOneFollowup || 0}
@@ -325,7 +426,9 @@ export default function FollowupAutomationPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" data-testid="badge-second-followup">2nd Follow-up</Badge>
-                <span className="text-sm text-muted-foreground">7 days after 1st follow-up</span>
+                <span className="text-sm text-muted-foreground">
+                  {followupSettings?.followupTiming?.quotes?.secondReminder || 7} days after 1st follow-up
+                </span>
               </div>
               <span className="font-semibold" data-testid="count-second-followup">
                 {stats?.quotesWithTwoFollowups || 0}
@@ -335,7 +438,9 @@ export default function FollowupAutomationPage() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Badge variant="secondary" data-testid="badge-final-followup">Final Follow-up</Badge>
-                <span className="text-sm text-muted-foreground">14 days after 2nd follow-up</span>
+                <span className="text-sm text-muted-foreground">
+                  {followupSettings?.followupTiming?.quotes?.finalReminder || 14} days after 2nd follow-up
+                </span>
               </div>
               <span className="font-semibold" data-testid="count-final-followup">
                 {stats?.quotesWithThreeFollowups || 0}
@@ -346,35 +451,230 @@ export default function FollowupAutomationPage() {
 
         <Card data-testid="card-automation-info">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              How It Works
+            <CardTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                How It Works
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowSettings(!showSettings)}
+                data-testid="button-configure-timing"
+              >
+                <Settings className="h-4 w-4 mr-1" />
+                Configure Timing
+              </Button>
             </CardTitle>
             <CardDescription>
               Automated follow-up schedule for quote reminders
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                <div className="text-sm">
-                  <strong>1st Reminder:</strong> Sent 3 days after quote is sent
+            {showSettings ? (
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmitSettings)} className="space-y-6" data-testid="form-timing-config">
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Quote Follow-up Timing</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="quotes.firstReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>1st Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-quotes-first"
+                                />
+                                <span className="text-sm text-muted-foreground">days</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="quotes.secondReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>2nd Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-quotes-second"
+                                />
+                                <span className="text-sm text-muted-foreground">days</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="quotes.finalReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Final Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-quotes-final"
+                                />
+                                <span className="text-sm text-muted-foreground">days</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <h4 className="font-medium">Invoice Follow-up Timing</h4>
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="invoices.firstReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>1st Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-invoices-first"
+                                />
+                                <span className="text-sm text-muted-foreground">days overdue</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="invoices.secondReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>2nd Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-invoices-second"
+                                />
+                                <span className="text-sm text-muted-foreground">days after 1st</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="invoices.finalReminder"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Final Reminder</FormLabel>
+                            <FormControl>
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  type="number"
+                                  min="1"
+                                  max="30"
+                                  {...field}
+                                  onChange={e => field.onChange(parseInt(e.target.value))}
+                                  data-testid="input-invoices-final"
+                                />
+                                <span className="text-sm text-muted-foreground">days after 2nd</span>
+                              </div>
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setShowSettings(false)}
+                      data-testid="button-cancel-settings"
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      type="submit" 
+                      disabled={updateSettings.isPending}
+                      data-testid="button-save-settings"
+                    >
+                      {updateSettings.isPending ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          Save Settings
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Form>
+            ) : (
+              <div className="space-y-2">
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div className="text-sm">
+                    <strong>1st Reminder:</strong> Sent {followupSettings?.followupTiming?.quotes?.firstReminder || 3} days after quote is sent
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div className="text-sm">
+                    <strong>2nd Reminder:</strong> Sent {followupSettings?.followupTiming?.quotes?.secondReminder || 7} days after 1st reminder
+                  </div>
+                </div>
+                <div className="flex items-start gap-2">
+                  <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
+                  <div className="text-sm">
+                    <strong>Final Reminder:</strong> Sent {followupSettings?.followupTiming?.quotes?.finalReminder || 14} days after 2nd reminder
+                  </div>
                 </div>
               </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                <div className="text-sm">
-                  <strong>2nd Reminder:</strong> Sent 7 days after 1st reminder
-                </div>
-              </div>
-              <div className="flex items-start gap-2">
-                <CheckCircle className="h-4 w-4 text-green-600 mt-0.5" />
-                <div className="text-sm">
-                  <strong>Final Reminder:</strong> Sent 14 days after 2nd reminder
-                </div>
-              </div>
-            </div>
+            )}
             
             <Separator />
             

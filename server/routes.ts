@@ -21,7 +21,8 @@ import {
   insertCatalogItemSchema,
   insertCompanySettingsSchema,
   insertTenantSchema,
-  insertEmployeeSchema
+  insertEmployeeSchema,
+  DEFAULT_FOLLOWUP_TIMING
 } from "../shared/schema";
 import { storage } from "./storage";
 import { getWebSocketManager } from "./websocket";
@@ -3501,6 +3502,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: "Failed to process invoice follow-up reminders", 
         error: error instanceof Error ? error.message : String(error) 
       });
+    }
+  });
+
+  // Follow-up timing configuration routes
+  app.get("/api/followup/settings", requireAuth, async (req, res) => {
+    try {
+      const tenantId = getTenantIdFromRequest(req);
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+
+      // Get follow-up timing settings from tenant settings or use defaults
+      const settings = tenant.settings as any;
+      const followupTiming = settings?.followupTiming || DEFAULT_FOLLOWUP_TIMING;
+
+      res.json({ followupTiming });
+    } catch (error) {
+      console.error('Error fetching follow-up settings:', error);
+      res.status(500).json({ message: "Failed to fetch follow-up settings" });
+    }
+  });
+
+  app.put("/api/followup/settings", requireAuth, async (req, res) => {
+    try {
+      // Security: Only allow admin and manager users to update follow-up settings
+      if (req.user?.role !== 'admin' && req.user?.role !== 'manager') {
+        return res.status(403).json({ 
+          message: "Access denied. Only admin and manager users can update follow-up settings." 
+        });
+      }
+
+      const tenantId = getTenantIdFromRequest(req);
+      if (!tenantId) {
+        return res.status(400).json({ message: "Tenant ID is required" });
+      }
+
+      const { followupTiming } = req.body;
+
+      // Validate the timing settings
+      if (!followupTiming || !followupTiming.quotes || !followupTiming.invoices) {
+        return res.status(400).json({ message: "Invalid follow-up timing configuration" });
+      }
+
+      // Get existing tenant settings
+      const tenant = await storage.getTenantById(tenantId);
+      if (!tenant) {
+        return res.status(404).json({ message: "Tenant not found" });
+      }
+
+      // Update tenant settings with new follow-up timing
+      const updatedSettings = {
+        ...(tenant.settings as any || {}),
+        followupTiming
+      };
+
+      await storage.updateTenant(tenantId, { settings: updatedSettings });
+
+      res.json({ 
+        message: "Follow-up timing settings updated successfully",
+        followupTiming 
+      });
+    } catch (error) {
+      console.error('Error updating follow-up settings:', error);
+      res.status(500).json({ message: "Failed to update follow-up settings" });
     }
   });
 
