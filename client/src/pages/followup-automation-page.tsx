@@ -85,17 +85,22 @@ export default function FollowupAutomationPage() {
     },
   });
 
-  // Fetch follow-up timing settings
-  const { data: followupSettings, isLoading: settingsLoading, refetch: refetchSettings } = useQuery<{ followupTiming: FollowupTimingSettings }>({
-    queryKey: ["/api/followup/settings"],
+  // Fetch follow-up timing settings from tenant settings
+  const { data: tenantSettings, isLoading: settingsLoading, refetch: refetchSettings } = useQuery<{ settings: any }>({
+    queryKey: ["/api/tenant/settings"],
     queryFn: async () => {
-      const res = await fetch("/api/followup/settings");
+      const res = await fetch("/api/tenant/settings");
       if (!res.ok) {
-        throw new Error("Failed to fetch follow-up settings");
+        throw new Error("Failed to fetch tenant settings");
       }
       return res.json();
     },
   });
+
+  // Extract followup timing from tenant settings
+  const followupSettings = tenantSettings?.settings?.followupTiming ? { 
+    followupTiming: tenantSettings.settings.followupTiming 
+  } : null;
 
   // Form for follow-up timing configuration
   const form = useForm<z.infer<typeof followupTimingSchema>>({
@@ -172,8 +177,15 @@ export default function FollowupAutomationPage() {
   // Update follow-up timing settings mutation
   const updateSettings = useMutation({
     mutationFn: async (data: z.infer<typeof followupTimingSchema>) => {
-      const response = await apiRequest("PUT", "/api/followup/settings", {
+      // Get current tenant settings and merge with new followup timing
+      const currentSettings = tenantSettings?.settings || {};
+      const updatedSettings = {
+        ...currentSettings,
         followupTiming: data
+      };
+      
+      const response = await apiRequest("PATCH", "/api/tenant/settings", {
+        settings: updatedSettings
       });
       return response.json();
     },
