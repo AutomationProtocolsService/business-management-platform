@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -120,9 +120,11 @@ export default function FollowupAutomationPage() {
   });
 
   // Update form when settings are loaded
-  if (followupSettings?.followupTiming && !settingsLoading) {
-    form.reset(followupSettings.followupTiming);
-  }
+  useEffect(() => {
+    if (followupSettings?.followupTiming && !settingsLoading) {
+      form.reset(followupSettings.followupTiming);
+    }
+  }, [followupSettings?.followupTiming, settingsLoading, form]);
 
   // Process quote follow-up reminders mutation
   const processQuoteFollowups = useMutation({
