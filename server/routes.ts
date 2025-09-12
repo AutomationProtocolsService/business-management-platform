@@ -236,6 +236,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!tenantId) {
         return res.status(400).json({ message: "No tenant context available" });
       }
+
+      // Validate followup timing settings if present
+      if (req.body.settings?.followupTiming) {
+        const followupTimingSchema = z.object({
+          quotes: z.object({
+            firstReminder: z.number().min(1).max(30),
+            secondReminder: z.number().min(1).max(30),
+            finalReminder: z.number().min(1).max(30)
+          }),
+          invoices: z.object({
+            firstReminder: z.number().min(1).max(30),
+            secondReminder: z.number().min(1).max(30),
+            finalReminder: z.number().min(1).max(30)
+          })
+        });
+
+        try {
+          followupTimingSchema.parse(req.body.settings.followupTiming);
+        } catch (validationError) {
+          return res.status(400).json({ 
+            message: "Invalid followup timing configuration",
+            errors: validationError instanceof z.ZodError ? validationError.errors : []
+          });
+        }
+      }
       
       const settings = await storage.updateTenantSettings(tenantId, req.body);
       
